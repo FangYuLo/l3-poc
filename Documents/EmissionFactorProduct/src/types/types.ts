@@ -136,7 +136,7 @@ export interface FactorTableItem {
   source_type?: SourceType
   source_ref?: string
   version: string
-  data: EmissionFactor | CompositeFactor
+  data: any // Temporary: Make this more flexible for deployment
 }
 
 export interface SearchFacets {

@@ -291,11 +291,11 @@ export function useMockData() {
      * 取得搜尋篩選選項
      */
     getSearchFacets: () => ({
-      countries: [...new Set(mockEmissionFactors.map(f => f.country))].sort(),
-      years: [...new Set(mockEmissionFactors.map(f => f.year).filter(Boolean))].sort((a, b) => b! - a!),
-      units: [...new Set(mockEmissionFactors.map(f => f.unit))].sort(),
-      sourceTypes: [...new Set(mockEmissionFactors.map(f => f.source_type))],
-      continents: [...new Set(mockEmissionFactors.map(f => f.continent))].sort()
+      countries: Array.from(new Set(mockEmissionFactors.map(f => f.country))).sort(),
+      years: Array.from(new Set(mockEmissionFactors.map(f => f.year).filter(Boolean))).sort((a, b) => b! - a!),
+      units: Array.from(new Set(mockEmissionFactors.map(f => f.unit))).sort(),
+      sourceTypes: Array.from(new Set(mockEmissionFactors.map(f => f.source_type))),
+      continents: Array.from(new Set(mockEmissionFactors.map(f => f.continent))).sort()
     }),
 
     // === 實用工具函數 ===

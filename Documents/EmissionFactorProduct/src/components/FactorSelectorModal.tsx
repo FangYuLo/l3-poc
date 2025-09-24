@@ -298,14 +298,14 @@ export default function FactorSelectorModal({
   const filterOptions = useMemo(() => {
     const allFactors = getCurrentTabData()
     return {
-      regions: [...new Set(allFactors.map(f => f.region).filter(Boolean))],
+      regions: Array.from(new Set(allFactors.map(f => f.region).filter(Boolean))),
       sourceTypes: [
         { value: 'standard', label: '標準資料庫' },
         { value: 'pact', label: 'PACT交換' },
         { value: 'supplier', label: '供應商係數' },
         { value: 'user_defined', label: '自建係數' },
       ],
-      units: [...new Set(allFactors.map(f => f.unit))]
+      units: Array.from(new Set(allFactors.map(f => f.unit)))
     }
   }, [activeTab])
 
