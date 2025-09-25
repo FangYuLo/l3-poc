@@ -22,8 +22,6 @@ import {
   AccordionIcon,
   CheckboxGroup,
   Checkbox,
-  Wrap,
-  WrapItem,
   Table,
   Thead,
   Tbody,
@@ -36,7 +34,6 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  useDisclosure,
   Flex,
   Spacer,
   Select,
@@ -49,6 +46,7 @@ import {
   ExternalLinkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  SettingsIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
@@ -87,7 +85,8 @@ export default function GlobalSearchModal({
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  
+  const [showFilters, setShowFilters] = useState(false)
+
   // Search filters
   const [selectedRegions, setSelectedRegions] = useState<string[]>([])
   const [selectedYears, setSelectedYears] = useState<string[]>([])
@@ -229,38 +228,55 @@ export default function GlobalSearchModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl">
       <ModalOverlay />
-      <ModalContent maxH="90vh">
+      <ModalContent maxH="85vh" maxW="95vw" w="95vw">
         <ModalHeader>
-          {mode === 'add_to_dataset' ? '選擇係數加入資料集' : '全庫搜尋'} - {allFactorResults.length.toLocaleString()} 筆係數資料
+          <Flex align="center" justify="space-between">
+            <Text>
+              {mode === 'add_to_dataset' ? '選擇係數加入資料集' : '全庫搜尋'} - {allFactorResults.length.toLocaleString()} 筆係數資料
+            </Text>
+            <HStack spacing={2}>
+              <Button
+                leftIcon={<SettingsIcon />}
+                size="sm"
+                variant={showFilters ? "solid" : "outline"}
+                colorScheme={showFilters ? "blue" : "gray"}
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                篩選
+              </Button>
+            </HStack>
+          </Flex>
         </ModalHeader>
         <ModalCloseButton />
         
         <ModalBody pb={6}>
-          <HStack spacing={6} align="start" h="70vh">
-            {/* Left Panel - Filters */}
-            <Box w="300px" h="100%" overflow="auto" borderRight="1px solid" borderColor="gray.200" pr={4}>
-              <VStack spacing={4} align="stretch">
-                {/* Search Input */}
-                <InputGroup>
-                  <InputLeftElement>
-                    <SearchIcon color="gray.400" />
-                  </InputLeftElement>
-                  <Input
-                    placeholder="搜尋關鍵字..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </InputGroup>
+          <VStack spacing={4} align="stretch" h="calc(85vh - 120px)">
+            {/* Search Input */}
+            <InputGroup>
+              <InputLeftElement>
+                <SearchIcon color="gray.400" />
+              </InputLeftElement>
+              <Input
+                placeholder="搜尋關鍵字..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </InputGroup>
 
-                <HStack justify="space-between">
-                  <Text fontSize="sm" fontWeight="medium">篩選條件</Text>
-                  <Button size="xs" variant="ghost" onClick={clearAllFilters}>
-                    清除全部
-                  </Button>
-                </HStack>
+            <HStack spacing={6} align="start" flex="1" overflow="hidden">
+              {/* Left Panel - Collapsible Filters */}
+              {showFilters && (
+                <Box w="300px" h="100%" overflow="auto" borderRight="1px solid" borderColor="gray.200" pr={4}>
+                  <VStack spacing={4} align="stretch">
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" fontWeight="medium">篩選條件</Text>
+                      <Button size="xs" variant="ghost" onClick={clearAllFilters}>
+                        清除全部
+                      </Button>
+                    </HStack>
 
-                {/* Filters */}
-                <Accordion allowMultiple defaultIndex={[0, 1, 2]}>
+                    {/* Filters */}
+                    <Accordion allowMultiple defaultIndex={[0, 1, 2]}>
                   {/* Regions */}
                   <AccordionItem>
                     <AccordionButton px={0}>
@@ -380,12 +396,13 @@ export default function GlobalSearchModal({
                       </CheckboxGroup>
                     </AccordionPanel>
                   </AccordionItem>
-                </Accordion>
-              </VStack>
-            </Box>
+                    </Accordion>
+                  </VStack>
+                </Box>
+              )}
 
-            {/* Right Panel - Results */}
-            <Box flex="1" h="100%" overflow="auto">
+              {/* Right Panel - Results */}
+              <Box flex="1" h="100%" overflow="hidden" minW="0">
               <VStack spacing={4} align="stretch" h="100%">
                 {/* Results Header */}
                 <Flex align="center" gap={4}>
@@ -412,17 +429,17 @@ export default function GlobalSearchModal({
                 </Flex>
 
                 {/* Results Table */}
-                <Box flex="1" overflow="auto" borderRadius="md" border="1px solid" borderColor="gray.200">
-                  <Table size="sm">
+                <Box flex="1" overflow="auto" borderRadius="md" border="1px solid" borderColor="gray.200" minH="0" maxW="100%">
+                  <Table size="sm" layout="fixed" w="100%">
                     <Thead position="sticky" top={0} bg="white">
                       <Tr>
-                        <Th width="250px">名稱</Th>
-                        <Th width="100px" isNumeric>值</Th>
-                        <Th width="100px">單位</Th>
-                        <Th width="60px">年份</Th>
-                        <Th width="80px">地區</Th>
-                        <Th width="80px">來源</Th>
-                        <Th width="80px">操作</Th>
+                        <Th width="30%">名稱</Th>
+                        <Th width="12%" isNumeric>值</Th>
+                        <Th width="12%">單位</Th>
+                        <Th width="8%">年份</Th>
+                        <Th width="12%">地區</Th>
+                        <Th width="12%">來源</Th>
+                        <Th width="14%">操作</Th>
                       </Tr>
                     </Thead>
                     <Tbody>
@@ -508,7 +525,7 @@ export default function GlobalSearchModal({
                 </Box>
 
                 {/* Pagination */}
-                <Flex justify="space-between" align="center">
+                <Flex justify="space-between" align="center" flexShrink={0} pt={2}>
                   <Text fontSize="sm" color="gray.600">
                     第 {Math.min((currentPage - 1) * pageSize + 1, filteredResults.length)} - {Math.min(currentPage * pageSize, filteredResults.length)} 筆，
                     共 {filteredResults.length} 筆
@@ -540,7 +557,8 @@ export default function GlobalSearchModal({
                 </Flex>
               </VStack>
             </Box>
-          </HStack>
+            </HStack>
+          </VStack>
         </ModalBody>
       </ModalContent>
     </Modal>
