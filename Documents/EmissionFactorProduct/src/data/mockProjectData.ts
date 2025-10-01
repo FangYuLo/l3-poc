@@ -1614,7 +1614,7 @@ export const mockInventoryYears: InventoryYearItem[] = [
     name: '2023年度盤查',
     totalEmission: 442156.78,
     unit: 'kg CO₂e',
-    organizationalBoundary: '台中分公司',
+    organizationalBoundary: '台北總公司',
     scope1Count: 6,
     scope2Count: 6,
     scope3Count: 6,
