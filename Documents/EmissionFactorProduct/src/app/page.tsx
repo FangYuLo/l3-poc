@@ -3,7 +3,6 @@
 import {
   Box,
   Flex,
-  Text,
   Button,
   Spacer,
   Menu,
@@ -14,9 +13,12 @@ import {
   Divider,
   Slide,
   CloseButton,
+  HStack,
+  IconButton,
 } from '@chakra-ui/react'
-import { ChevronDownIcon } from '@chakra-ui/icons'
+import { ChevronDownIcon, BellIcon } from '@chakra-ui/icons'
 import { useState } from 'react'
+import Image from 'next/image'
 import SidebarTree from '@/components/SidebarTree'
 import FactorTable from '@/components/FactorTable'
 import FactorDetail from '@/components/FactorDetail'
@@ -418,43 +420,142 @@ export default function HomePage() {
 
   return (
     <Box h="100vh" bg="gray.50">
-      {/* Top Toolbar */}
+      {/* Top Navigation Bar */}
       <Flex
-        h="60px"
-        bg="white"
-        borderBottom="1px solid"
-        borderColor="gray.200"
+        h="48px"
+        bg="#2c2f3e"
         align="center"
-        px={6}
-        shadow="sm"
+        px={3}
+        gap={1}
+        borderBottom="1px solid"
+        borderColor="whiteAlpha.200"
       >
-        {/* Left: System Title + Current Project */}
-        <Flex align="center" gap={4}>
-          <Text fontSize="lg" fontWeight="bold" color="brand.600">
-            Emission Factor Management
-          </Text>
+        {/* Logo */}
+        <Flex align="center" mr={2}>
+          <Image
+            src="/logo.png"
+            alt="CarbonM Logo"
+            width={100}
+            height={28}
+            style={{ objectFit: 'contain' }}
+          />
         </Flex>
 
         <Spacer />
 
-        <Spacer />
+        {/* Right Side Items */}
+        <HStack spacing={1}>
+          <Menu>
+            <MenuButton
+              as={Button}
+              rightIcon={<ChevronDownIcon boxSize={3} />}
+              variant="ghost"
+              color="whiteAlpha.800"
+              _hover={{ bg: 'whiteAlpha.100' }}
+              size="sm"
+              fontWeight="normal"
+              fontSize="13px"
+              h="32px"
+              px={3}
+            >
+              Data Hub
+            </MenuButton>
+            <MenuList bg="white" minW="140px">
+              <MenuItem fontSize="sm">Data Center</MenuItem>
+              <MenuItem fontSize="sm">Factor Hub</MenuItem>
+            </MenuList>
+          </Menu>
 
-        {/* Right: User Menu */}
-        <Menu>
-          <MenuButton as={Button} rightIcon={<ChevronDownIcon />} size="sm" variant="ghost">
-            使用者
-          </MenuButton>
-          <MenuList>
-            <MenuItem>個人設定</MenuItem>
-            <MenuItem>系統偏好</MenuItem>
-            <Divider />
-            <MenuItem>登出</MenuItem>
-          </MenuList>
-        </Menu>
+          <Button
+            variant="ghost"
+            color="whiteAlpha.800"
+            _hover={{ bg: 'whiteAlpha.100' }}
+            size="sm"
+            fontWeight="normal"
+            fontSize="13px"
+            h="32px"
+            px={3}
+          >
+            Reports
+          </Button>
+
+          <Button
+            variant="ghost"
+            color="whiteAlpha.800"
+            _hover={{ bg: 'whiteAlpha.100' }}
+            size="sm"
+            fontWeight="normal"
+            fontSize="13px"
+            h="32px"
+            px={3}
+          >
+            Dashboard
+          </Button>
+
+          <Box w="1px" h="20px" bg="whiteAlpha.300" mx={1} />
+
+          <IconButton
+            icon={<BellIcon boxSize={4} />}
+            variant="ghost"
+            color="whiteAlpha.700"
+            _hover={{ bg: 'whiteAlpha.100', color: 'white' }}
+            size="sm"
+            aria-label="Notifications"
+            position="relative"
+            minW="32px"
+            h="32px"
+          />
+
+          <IconButton
+            icon={<Box />}
+            variant="ghost"
+            _hover={{ bg: 'whiteAlpha.100' }}
+            size="sm"
+            aria-label="Settings"
+            minW="32px"
+            h="32px"
+          >
+            <Box fontSize="16px">⚙️</Box>
+          </IconButton>
+
+          <Menu>
+            <MenuButton
+              as={IconButton}
+              icon={
+                <Box
+                  bg="teal.500"
+                  w="24px"
+                  h="24px"
+                  borderRadius="full"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  fontSize="10px"
+                  fontWeight="bold"
+                  color="white"
+                >
+                  LZ
+                </Box>
+              }
+              variant="ghost"
+              _hover={{ bg: 'whiteAlpha.100' }}
+              size="sm"
+              aria-label="User menu"
+              minW="32px"
+              h="32px"
+            />
+            <MenuList bg="white">
+              <MenuItem fontSize="sm">個人設定</MenuItem>
+              <MenuItem fontSize="sm">系統偏好</MenuItem>
+              <Divider />
+              <MenuItem fontSize="sm">登出</MenuItem>
+            </MenuList>
+          </Menu>
+        </HStack>
       </Flex>
 
       {/* Main Layout */}
-      <Box h="calc(100vh - 60px)" position="relative">
+      <Box h="calc(100vh - 48px)" position="relative">
         <Flex h="100%">
           {/* Left Sidebar */}
           <Box
