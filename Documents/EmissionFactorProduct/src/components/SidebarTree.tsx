@@ -97,6 +97,17 @@ function TreeNode({
     </Icon>
   )
 
+  const SearchIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 11l3 3"
+      />
+    </Icon>
+  )
+
   const DocumentIcon = () => (
     <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
       <path
@@ -123,6 +134,7 @@ function TreeNode({
     switch (type) {
       case 'collection':
         if (name.includes('中央係數庫')) return <LightbulbIcon />
+        if (name.includes('全庫搜尋')) return <SearchIcon />
         if (name.includes('自建')) return <StarIcon />
         if (name.includes('供應商')) return <PersonIcon />
         if (name.includes('PACT')) return <FolderIcon />
@@ -227,14 +239,14 @@ interface SidebarTreeProps {
   userDefinedFactors?: any[] // 用戶自建係數列表
 }
 
-export default function SidebarTree({ 
-  onNodeSelect, 
-  selectedNode, 
+export default function SidebarTree({
+  onNodeSelect,
+  selectedNode,
   onCreateDataset,
   datasets = [],
   userDefinedFactors = []
 }: SidebarTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['projects', 'project_1', 'project_2']))
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['favorites', 'projects', 'project_1', 'project_2']))
   const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false)
 
   // 使用統一的資料管理
@@ -256,6 +268,14 @@ export default function SidebarTree({
       name: '中央係數庫',
       type: 'collection',
       count: collectionCounts.favorites,
+      children: [
+        {
+          id: 'global_search',
+          name: '全庫搜尋',
+          type: 'collection',
+          count: mockData.getAllFactorItems().length,
+        },
+      ],
     },
     {
       id: 'user_defined',

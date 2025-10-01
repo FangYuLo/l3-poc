@@ -15,12 +15,11 @@ import {
   Slide,
   CloseButton,
 } from '@chakra-ui/react'
-import { ChevronDownIcon, SearchIcon } from '@chakra-ui/icons'
+import { ChevronDownIcon } from '@chakra-ui/icons'
 import { useState } from 'react'
 import SidebarTree from '@/components/SidebarTree'
 import FactorTable from '@/components/FactorTable'
 import FactorDetail from '@/components/FactorDetail'
-import GlobalSearchModal from '@/components/GlobalSearchModal'
 import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
@@ -41,7 +40,6 @@ interface TreeNodeProps {
 }
 
 export default function HomePage() {
-  const { isOpen: isSearchOpen, onOpen: onSearchOpen, onClose: onSearchClose } = useDisclosure()
   const { isOpen: isCompositeOpen, onOpen: onCompositeOpen, onClose: onCompositeClose } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   
@@ -60,10 +58,7 @@ export default function HomePage() {
   // 資料集狀態管理
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [currentDataset, setCurrentDataset] = useState<Dataset | null>(null)
-  
-  // Global Search Modal 狀態
-  const [globalSearchMode, setGlobalSearchMode] = useState<'search' | 'add_to_dataset'>('search')
-  
+
   // 刪除相關狀態
   const [factorToDelete, setFactorToDelete] = useState<any | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -162,12 +157,13 @@ export default function HomePage() {
     console.log('係數已加入資料集:', factorId, updatedDataset.name)
   }
 
-  // 處理開啟全庫搜尋（用於資料集）
+  // 處理開啟全庫搜尋（用於資料集）- 改為導航到全庫搜尋節點
   const handleOpenGlobalSearchForDataset = () => {
-    if (currentDataset) {
-      setGlobalSearchMode('add_to_dataset')
-      onSearchOpen()
-    }
+    setSelectedNode({
+      id: 'global_search',
+      name: '全庫搜尋',
+      type: 'collection'
+    })
   }
 
   // 處理編輯自建係數
@@ -266,8 +262,13 @@ export default function HomePage() {
   }
 
   // 判斷節點類型，決定要顯示哪種表格
-  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' => {
+  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' | 'global_search' => {
     if (!node) return 'general'
+
+    // 如果是全庫搜尋節點
+    if (node.id === 'global_search') {
+      return 'global_search'
+    }
 
     // 如果是 L2 專案根節點，顯示專案概覽
     if (node.id === 'project_1' && node.type === 'project') {
@@ -436,17 +437,6 @@ export default function HomePage() {
 
         <Spacer />
 
-        {/* Center: Global Search */}
-        <Button
-          leftIcon={<SearchIcon />}
-          colorScheme="brand"
-          variant="outline"
-          onClick={onSearchOpen}
-          size="sm"
-        >
-          全庫搜尋 🌍
-        </Button>
-
         <Spacer />
 
         {/* Right: User Menu */}
@@ -568,19 +558,8 @@ export default function HomePage() {
       </Box>
 
       {/* Modals & Drawers */}
-      <GlobalSearchModal 
-        isOpen={isSearchOpen} 
-        onClose={() => {
-          onSearchClose()
-          setGlobalSearchMode('search') // 重置模式
-        }}
-        onOpenComposite={onCompositeOpen}
-        mode={globalSearchMode}
-        targetDatasetId={currentDataset?.id}
-        onAddToDataset={handleAddToDataset}
-      />
-      <CompositeEditorDrawer 
-        isOpen={isCompositeOpen} 
+      <CompositeEditorDrawer
+        isOpen={isCompositeOpen}
         onClose={onCompositeClose}
         onSave={handleCompositeFactorSave}
       />

@@ -17,12 +17,20 @@ import {
   InputLeftElement,
   Spacer,
   IconButton,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  CheckboxGroup,
+  Checkbox,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   AddIcon,
+  SettingsIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo, useCallback } from 'react'
 import { useMockData } from '@/hooks/useMockData'
@@ -72,7 +80,7 @@ interface TreeNodeProps {
 
 interface FactorTableProps {
   onFactorSelect?: (factor: FactorTableItem) => void
-  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' // 新增盤查概覽類型
+  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' | 'global_search' // 新增全庫搜尋類型
   selectedNode?: TreeNodeProps | null // 新增：選中的節點資訊
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
@@ -106,6 +114,14 @@ export default function FactorTable({
   const [pageSize, setPageSize] = useState(20)
   const [selectedFactor, setSelectedFactor] = useState<FactorTableItem | null>(null)
 
+  // 全庫搜尋專用的篩選狀態
+  const [showFilters, setShowFilters] = useState(false)
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([])
+  const [selectedYears, setSelectedYears] = useState<string[]>([])
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([])
+  const [selectedMethods, setSelectedMethods] = useState<string[]>([])
+  const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
+
   // 獲取表格配置
   const tableConfig = getTableConfig(selectedNodeType)
 
@@ -134,7 +150,7 @@ export default function FactorTable({
 
   // 使用統一資料管理
   const dataService = useMockData()
-  
+
   // 使用 useFactors hook 處理專案資料
   const { factors: projectFactors } = useFactors({
     nodeId: selectedNode?.id,
@@ -143,6 +159,38 @@ export default function FactorTable({
                   selectedNodeType === 'pact' ? 'pact' :
                   selectedNodeType === 'supplier' ? 'supplier' : undefined
   })
+
+  // 全庫搜尋的動態篩選選項
+  const globalSearchFacets = useMemo(() => {
+    if (selectedNodeType !== 'global_search') return null
+
+    const allFactors = dataService.getAllFactorItems()
+    const regionSet = new Set<string>()
+    const yearSet = new Set<number>()
+    const unitSet = new Set<string>()
+    const methodSet = new Set<string>()
+
+    allFactors.forEach(factor => {
+      if (factor.region) regionSet.add(factor.region)
+      if (factor.year) yearSet.add(factor.year)
+      unitSet.add(factor.unit)
+      if (factor.method_gwp) methodSet.add(factor.method_gwp)
+    })
+
+    return {
+      regions: Array.from(regionSet).sort(),
+      years: Array.from(yearSet).sort((a, b) => b - a),
+      units: Array.from(unitSet).sort(),
+      methods: Array.from(methodSet).sort(),
+      sourceTypes: [
+        { value: 'standard', label: '標準資料庫' },
+        { value: 'pact', label: 'PACT交換' },
+        { value: 'supplier', label: '供應商係數' },
+        { value: 'user_defined', label: '自建係數' },
+        { value: 'project_data', label: '產品碳足跡' },
+      ],
+    }
+  }, [selectedNodeType, dataService])
   
 
   // 根據選擇的節點類型取得對應的係數資料
@@ -158,6 +206,8 @@ export default function FactorTable({
         return [] // 自建係數由 filteredData 直接處理，避免重複
       case 'dataset':
         return [] // 資料集係數由 filteredData 直接處理，避免重複
+      case 'global_search':
+        return dataService.getAllFactorItems() // 全庫搜尋：取得所有係數
       default:
         return dataService.getAllFactorItems()
     }
@@ -453,6 +503,39 @@ export default function FactorTable({
       } else if (selectedNodeType === 'favorites') {
         // 中央係數庫：直接使用擴展的係數資料，保留 projectUsage 和 usageText
         baseData = factorData as any[] // factorData 已經是 ExtendedFactorTableItem[]
+      } else if (selectedNodeType === 'global_search') {
+        // 全庫搜尋：取得所有係數並應用篩選
+        baseData = factorData.map(factor => ({
+          id: factor.id,
+          type: factor.type as 'emission_factor' | 'composite_factor',
+          name: factor.name,
+          value: factor.value,
+          unit: factor.unit,
+          year: factor.year,
+          region: factor.region,
+          method_gwp: factor.method_gwp,
+          source_type: factor.source_type,
+          source_ref: factor.source_ref,
+          version: factor.version,
+          data: factor,
+        }))
+
+        // 應用進階篩選
+        if (selectedRegions.length > 0) {
+          baseData = baseData.filter(item => item.region && selectedRegions.includes(item.region))
+        }
+        if (selectedYears.length > 0) {
+          baseData = baseData.filter(item => item.year && selectedYears.includes(item.year.toString()))
+        }
+        if (selectedUnits.length > 0) {
+          baseData = baseData.filter(item => selectedUnits.includes(item.unit))
+        }
+        if (selectedMethods.length > 0) {
+          baseData = baseData.filter(item => item.method_gwp && selectedMethods.includes(item.method_gwp))
+        }
+        if (selectedSourceTypes.length > 0) {
+          baseData = baseData.filter(item => item.source_type && selectedSourceTypes.includes(item.source_type))
+        }
       } else {
         // 其他節點：只使用統一資料管理的資料，不混合自建係數
         baseData = factorData.map(factor => ({
@@ -508,7 +591,7 @@ export default function FactorTable({
         return basicMatch || usageMatch
       })
     }
-  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType])
+  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType, selectedRegions, selectedYears, selectedUnits, selectedMethods, selectedSourceTypes])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -570,6 +653,19 @@ export default function FactorTable({
 
         <Spacer />
 
+        {/* 全庫搜尋頁面顯示篩選按鈕 */}
+        {selectedNodeType === 'global_search' && (
+          <Button
+            leftIcon={<SettingsIcon />}
+            size="sm"
+            variant={showFilters ? "solid" : "outline"}
+            colorScheme={showFilters ? "blue" : "gray"}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            篩選
+          </Button>
+        )}
+
         {/* 自建係數頁面顯示組合係數按鈕 */}
         {selectedNodeType === 'user_defined' && (
           <Button
@@ -616,6 +712,170 @@ export default function FactorTable({
               }
             }}
           />
+        </Box>
+      )}
+
+      {/* Global Search Filters Panel */}
+      {selectedNodeType === 'global_search' && showFilters && globalSearchFacets && (
+        <Box px={4} py={3} borderBottom="1px solid" borderColor="gray.200" bg="gray.50">
+          <HStack spacing={4} align="start">
+            <VStack align="start" spacing={2} flex="1">
+              <Flex justify="space-between" w="100%">
+                <Text fontSize="sm" fontWeight="medium">篩選條件</Text>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedRegions([])
+                    setSelectedYears([])
+                    setSelectedUnits([])
+                    setSelectedMethods([])
+                    setSelectedSourceTypes([])
+                    setCurrentPage(1)
+                  }}
+                >
+                  清除全部
+                </Button>
+              </Flex>
+
+              <Accordion allowMultiple defaultIndex={[0, 1, 2]} w="100%">
+                {/* Regions */}
+                <AccordionItem border="none">
+                  <AccordionButton px={0}>
+                    <Box flex="1" textAlign="left">
+                      <Text fontSize="sm" fontWeight="medium">地區</Text>
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <AccordionPanel px={0} maxH="200px" overflow="auto">
+                    <CheckboxGroup
+                      value={selectedRegions}
+                      onChange={(value) => {
+                        setSelectedRegions(value as string[])
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <VStack align="start" spacing={1}>
+                        {globalSearchFacets.regions.map((region) => (
+                          <Checkbox key={region} value={region} size="sm">
+                            {region}
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                    </CheckboxGroup>
+                  </AccordionPanel>
+                </AccordionItem>
+
+                {/* Years */}
+                <AccordionItem border="none">
+                  <AccordionButton px={0}>
+                    <Box flex="1" textAlign="left">
+                      <Text fontSize="sm" fontWeight="medium">年份</Text>
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <AccordionPanel px={0} maxH="200px" overflow="auto">
+                    <CheckboxGroup
+                      value={selectedYears}
+                      onChange={(value) => {
+                        setSelectedYears(value as string[])
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <VStack align="start" spacing={1}>
+                        {globalSearchFacets.years.map((year) => (
+                          <Checkbox key={year} value={year.toString()} size="sm">
+                            {year}
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                    </CheckboxGroup>
+                  </AccordionPanel>
+                </AccordionItem>
+
+                {/* Units */}
+                <AccordionItem border="none">
+                  <AccordionButton px={0}>
+                    <Box flex="1" textAlign="left">
+                      <Text fontSize="sm" fontWeight="medium">單位</Text>
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <AccordionPanel px={0} maxH="200px" overflow="auto">
+                    <CheckboxGroup
+                      value={selectedUnits}
+                      onChange={(value) => {
+                        setSelectedUnits(value as string[])
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <VStack align="start" spacing={1}>
+                        {globalSearchFacets.units.map((unit) => (
+                          <Checkbox key={unit} value={unit} size="sm">
+                            {unit}
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                    </CheckboxGroup>
+                  </AccordionPanel>
+                </AccordionItem>
+
+                {/* Methods */}
+                <AccordionItem border="none">
+                  <AccordionButton px={0}>
+                    <Box flex="1" textAlign="left">
+                      <Text fontSize="sm" fontWeight="medium">方法學</Text>
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <AccordionPanel px={0} maxH="200px" overflow="auto">
+                    <CheckboxGroup
+                      value={selectedMethods}
+                      onChange={(value) => {
+                        setSelectedMethods(value as string[])
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <VStack align="start" spacing={1}>
+                        {globalSearchFacets.methods.map((method) => (
+                          <Checkbox key={method} value={method} size="sm">
+                            {method}
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                    </CheckboxGroup>
+                  </AccordionPanel>
+                </AccordionItem>
+
+                {/* Source Types */}
+                <AccordionItem border="none">
+                  <AccordionButton px={0}>
+                    <Box flex="1" textAlign="left">
+                      <Text fontSize="sm" fontWeight="medium">來源類型</Text>
+                    </Box>
+                    <AccordionIcon />
+                  </AccordionButton>
+                  <AccordionPanel px={0}>
+                    <CheckboxGroup
+                      value={selectedSourceTypes}
+                      onChange={(value) => {
+                        setSelectedSourceTypes(value as string[])
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <VStack align="start" spacing={1}>
+                        {globalSearchFacets.sourceTypes.map((type) => (
+                          <Checkbox key={type.value} value={type.value} size="sm">
+                            {type.label}
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                    </CheckboxGroup>
+                  </AccordionPanel>
+                </AccordionItem>
+              </Accordion>
+            </VStack>
+          </HStack>
         </Box>
       )}
 

@@ -622,6 +622,72 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         formatter: (value: any, row: any) => renderQualityBadge(row)
       }
     ]
+  },
+
+  // 全庫搜尋
+  global_search: {
+    folderType: 'global_search',
+    displayName: '全庫搜尋',
+    searchPlaceholder: '搜尋關鍵字...',
+    columns: [
+      {
+        key: 'name',
+        label: '名稱',
+        width: '30%',
+        type: 'custom',
+        formatter: (value: any) => (
+          <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
+            {value}
+          </Text>
+        )
+      },
+      {
+        key: 'value',
+        label: '值',
+        width: '12%',
+        type: 'custom',
+        isNumeric: true,
+        formatter: (value: any) => (
+          <Text fontSize="sm" fontFamily="mono">
+            {formatNumber(value)}
+          </Text>
+        )
+      },
+      {
+        key: 'unit',
+        label: '單位',
+        width: '12%',
+        type: 'text',
+        formatter: (value: any) => (
+          <Text fontSize="sm">{value}</Text>
+        )
+      },
+      {
+        key: 'year',
+        label: '年份',
+        width: '8%',
+        type: 'text',
+        formatter: (value: any) => (
+          <Text fontSize="sm">{value || '-'}</Text>
+        )
+      },
+      {
+        key: 'region',
+        label: '地區',
+        width: '12%',
+        type: 'text',
+        formatter: (value: any) => (
+          <Text fontSize="sm">{value || '-'}</Text>
+        )
+      },
+      {
+        key: 'source_type',
+        label: '來源',
+        width: '12%',
+        type: 'custom',
+        formatter: (_value: any, row: any) => renderQualityBadge(row)
+      },
+    ]
   }
 }
 
