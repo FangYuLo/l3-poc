@@ -394,10 +394,6 @@ export default function HomePage() {
           <Text fontSize="lg" fontWeight="bold" color="brand.600">
             Emission Factor Management
           </Text>
-          <Text color="gray.400">|</Text>
-          <Text fontSize="md" color="gray.600">
-            專案 A
-          </Text>
         </Flex>
 
         <Spacer />

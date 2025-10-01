@@ -29,7 +29,7 @@ interface OrganizationalInventoryItem {
   year?: number // 新增年份
 }
 
-// 專案A - 產品碳足跡資料（三個產品）
+// L2 - 產品碳足跡資料（三個產品）
 export const mockProductCarbonFootprintData: ProductCarbonFootprintItem[] = [
   // === 產品A1 - 智慧型手機 (2024) ===
   // 原物料階段
@@ -560,7 +560,7 @@ export const mockProductCarbonFootprintData: ProductCarbonFootprintItem[] = [
   }
 ]
 
-// 專案B - 組織碳盤查資料（三年）
+// L1 - 組織碳盤查資料（三年）
 export const mockOrganizationalInventoryData: OrganizationalInventoryItem[] = [
   // === 2024年度盤查 ===
   // Scope 1 直接排放
@@ -1355,7 +1355,7 @@ export const mockProductCarbonFootprintSummaries: ProductCarbonFootprintSummary[
 // L2 專案概覽資訊
 export const mockL2ProjectInfo: L2ProjectInfo = {
   projectId: 'project_1',
-  projectName: '專案 A - 產品碳足跡',
+  projectName: 'L2 - 產品碳足跡',
   lastImportDate: '2024-03-15 14:30:25',
   version: 'v2024.1',
   status: 'locked',

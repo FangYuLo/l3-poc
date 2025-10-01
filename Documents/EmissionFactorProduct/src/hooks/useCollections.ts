@@ -45,7 +45,7 @@ export function useCollections() {
       children: [
         {
           id: 'project_1',
-          name: '專案 A - 產品碳足跡',
+          name: 'L2 - 產品碳足跡',
           type: 'project',
           project_id: 1,
           children: [
@@ -89,7 +89,7 @@ export function useCollections() {
         },
         {
           id: 'project_2',
-          name: '專案 B - 組織碳盤查',
+          name: 'L1 - 組織碳盤查',
           type: 'project',
           project_id: 2,
           children: [

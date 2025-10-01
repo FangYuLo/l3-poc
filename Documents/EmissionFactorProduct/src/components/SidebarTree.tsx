@@ -279,7 +279,7 @@ export default function SidebarTree({
         },
         {
           id: 'project_1',
-          name: '專案 A - 產品碳足跡',
+          name: 'L2 - 產品碳足跡',
           type: 'project',
           count: 45,
           children: [
@@ -326,7 +326,7 @@ export default function SidebarTree({
         },
         {
           id: 'project_2',
-          name: '專案 B - 組織碳盤查',
+          name: 'L1 - 組織碳盤查',
           type: 'project',
           count: 54,
           children: [

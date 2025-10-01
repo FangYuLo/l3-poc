@@ -443,7 +443,7 @@ export function useMockData() {
     // === 專案資料存取 ===
 
     /**
-     * 取得專案A產品碳足跡資料
+     * 取得L2產品碳足跡資料
      */
     getProjectAData: (productType?: 'smartphone' | 'led_light' | 'laptop'): FactorTableItem[] => {
       let data = allProductCarbonFootprintItems
@@ -454,7 +454,7 @@ export function useMockData() {
     },
 
     /**
-     * 取得專案B組織盤查資料
+     * 取得L1組織盤查資料
      */
     getProjectBData: (year?: number, scope?: 'Scope 1' | 'Scope 2' | 'Scope 3'): FactorTableItem[] => {
       let data = allOrganizationalInventoryItems
@@ -471,7 +471,7 @@ export function useMockData() {
      * 根據節點ID取得專案資料
      */
     getProjectDataByNodeId: (nodeId: string): FactorTableItem[] => {
-      // 專案A產品節點
+      // L2產品節點
       if (nodeId === 'product_1_1') {
         return allProductCarbonFootprintItems.filter(item => (item.data as any).product === 'smartphone')
       }
@@ -482,7 +482,7 @@ export function useMockData() {
         return allProductCarbonFootprintItems.filter(item => (item.data as any).product === 'laptop')
       }
 
-      // 專案B年份節點
+      // L1年份節點
       if (nodeId === 'year_2_2024') {
         return allOrganizationalInventoryItems.filter(item => item.year === 2024)
       }
@@ -493,7 +493,7 @@ export function useMockData() {
         return allOrganizationalInventoryItems.filter(item => item.year === 2022)
       }
 
-      // 專案A排放源節點 - 按階段篩選
+      // L2排放源節點 - 按階段篩選
       if (nodeId.startsWith('source_1_1_')) { // 智慧型手機的排放源
         const data = allProductCarbonFootprintItems.filter(item => (item.data as any).product === 'smartphone')
         const sourceId = nodeId.split('_')[3]
@@ -518,7 +518,7 @@ export function useMockData() {
         if (sourceId === '3') return data.filter(item => ['配送', '使用', '廢棄'].includes((item.data as any).stage))
       }
 
-      // 專案B排放源節點 - 按Scope篩選
+      // L1排放源節點 - 按Scope篩選
       if (nodeId.startsWith('source_2_')) {
         const parts = nodeId.split('_')
         const year = parseInt(parts[2])

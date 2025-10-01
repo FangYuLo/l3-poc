@@ -179,7 +179,7 @@ export function calculateFactorUsage(): FactorUsage[] {
       } else {
         usage.usedInProjects.push({
           projectId: 'project_1',
-          projectName: '專案 A - 產品碳足跡',
+          projectName: 'L2 - 產品碳足跡',
           productName: getProductDisplayName(item.product!),
           year: item.year,
           stage: item.stage,
@@ -207,7 +207,7 @@ export function calculateFactorUsage(): FactorUsage[] {
       } else {
         usage.usedInProjects.push({
           projectId: 'project_2',
-          projectName: '專案 B - 組織碳盤查',
+          projectName: 'L1 - 組織碳盤查',
           year: item.year,
           scope: item.scope,
           usageCount: 1
