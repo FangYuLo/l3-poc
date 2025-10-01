@@ -3,6 +3,26 @@ export type SourceType = 'standard' | 'pact' | 'supplier' | 'user_defined' | 'pr
 export type CollectionType = 'favorites' | 'user_defined' | 'pact' | 'supplier' | 'project'
 export type FormulaType = 'sum' | 'weighted'
 
+// 數據品質類型
+export type DataQuality = 'Primary' | 'Secondary' | 'Tertiary'
+export type ValidationStatus = 'verified' | 'pending' | 'rejected'
+
+// 專案引用資訊
+export interface ProjectReference {
+  project_id: string
+  project_name: string
+  project_type: 'L1' | 'L2' | 'L4' // L1: 組織碳盤查, L2: 產品碳足跡, L4: 供應商係數
+  usage_count: number
+  last_used_date: string
+}
+
+// 係數使用追蹤
+export interface FactorUsageInfo {
+  total_usage_count: number
+  project_references: ProjectReference[]
+  usage_summary: string // 格式化的使用摘要文字
+}
+
 // Emission Factor
 export interface EmissionFactor {
   id: number
@@ -12,15 +32,15 @@ export interface EmissionFactor {
   continent: string           // 大洲
   country: string             // 國家
   region?: string             // 地區 (可選)
-  
+
   // 排放係數數據
   co2_factor: number          // CO₂係數值
   co2_unit: string            // CO₂單位
   ch4_factor?: number         // CH₄係數值
-  ch4_unit?: string           // CH₄單位  
+  ch4_unit?: string           // CH₄單位
   n2o_factor?: number         // N₂O係數值
   n2o_unit?: string           // N₂O單位
-  
+
   // 保留的原有欄位
   value: number               // 主要係數值 (向後相容)
   unit: string                // 主要單位 (向後相容)
@@ -33,6 +53,12 @@ export interface EmissionFactor {
   notes?: string              // 備註 (新增)
   created_at: string
   updated_at: string
+
+  // 新增欄位 - 數據品質和追蹤
+  data_quality: DataQuality   // 數據品質等級
+  validation_status?: ValidationStatus // 驗證狀態
+  quality_score?: number      // 品質評分 (0-100)
+  usage_info?: FactorUsageInfo // 使用資訊
 }
 
 // Composite Factor
@@ -47,6 +73,11 @@ export interface CompositeFactor {
   created_at: string
   updated_at: string
   components: CompositeFactorComponent[]
+
+  // 新增欄位 - 數據品質和追蹤
+  data_quality: DataQuality   // 自建係數預設為 Tertiary
+  validation_status?: ValidationStatus
+  usage_info?: FactorUsageInfo
 }
 
 export interface CompositeFactorComponent {
@@ -137,6 +168,13 @@ export interface FactorTableItem {
   source_ref?: string
   version: string
   data: any // Temporary: Make this more flexible for deployment
+
+  // 新增欄位 - 品質和追蹤
+  data_quality?: DataQuality
+  validation_status?: ValidationStatus
+  quality_score?: number
+  usage_info?: FactorUsageInfo
+  usageText?: string // 格式化後的使用摘要文字（向後相容）
 }
 
 export interface SearchFacets {
@@ -242,6 +280,119 @@ export interface Dataset {
   updated_at: string
 }
 
+// Product Carbon Footprint Summary
+export interface ProductCarbonFootprintSummary {
+  productId: string
+  productName: string
+  functionalUnit: string
+  totalFootprint: number
+  unit: string
+  stageBreakdown: {
+    stage: string
+    emission: number
+    percentage: number
+  }[]
+  calculationDate: string
+  standard: string
+  isImported: boolean
+}
+
+// L2 Project Info
+export interface L2ProjectInfo {
+  projectId: string
+  projectName: string
+  lastImportDate: string
+  version: string
+  status: 'locked' | 'unlocked' | 'draft'
+  productCount: number
+  pactProductCount: number
+}
+
+// Project Product Item
+export interface ProjectProductItem {
+  id: string
+  type: 'product' | 'pact'
+  name: string
+  carbonFootprint: number | null
+  unit: string
+  projectStatus: 'locked' | 'unlocked' | 'verified' | 'draft'
+  centralLibStatus: 'imported' | 'not_imported' | 'pending'
+  lastUpdated: string
+}
+
+// Product Footprint Factor (產品碳足跡係數)
+export interface ProductFootprintFactor extends EmissionFactor {
+  footprint_type: 'product_footprint'  // 標記為產品碳足跡係數
+  functional_unit: string               // 功能單位
+  product_name: string                  // 產品名稱
+
+  // 適用範圍
+  product_categories: string[]          // 產品類別標籤
+  geographic_scope: 'taiwan' | 'asia' | 'global' | string
+  temporal_validity: {
+    valid_from: string                  // 有效起始年份
+    valid_years: number                 // 預計有效年限
+  }
+
+  // 計算邊界
+  system_boundary: 'cradle_to_grave' | 'cradle_to_gate' | 'gate_to_gate'
+  exclusions?: string                   // 排除項目說明
+
+  // 數據品質資訊
+  data_sources: {
+    primary_data_percentage: number     // 實測數據佔比
+    secondary_data_percentage: number   // 次級數據佔比
+  }
+
+  // 階段分解
+  stage_breakdown: {
+    raw_material: number                // 原物料階段排放
+    manufacturing: number               // 製造階段排放
+    distribution: number                // 配送階段排放
+    use: number                         // 使用階段排放
+    disposal: number                    // 廢棄階段排放
+  }
+
+  // 計算資訊
+  calculation_standard: string          // 計算依據標準
+  calculation_date: string              // 計算日期
+  source_project_id: string             // 來源專案ID
+  source_project_name: string           // 來源專案名稱
+  calculation_details_link?: string     // 計算細節連結
+
+  // 使用建議
+  usage_notes?: string                  // 使用建議說明
+  reference_documents?: string[]        // 參考文件
+}
+
+// Import to Central Form Data (匯入中央庫表單資料)
+export interface ImportToCentralFormData {
+  // 基本資訊（自動帶入，可編輯）
+  factor_name: string
+  functional_unit: string
+  carbon_footprint_value: number
+  unit: string
+
+  // 適用範圍
+  product_categories: string[]
+  geographic_scope: string
+  valid_from: string
+  valid_years: number
+
+  // 計算邊界
+  system_boundary: string
+  exclusions?: string
+
+  // 數據品質
+  primary_data_percentage: number
+  secondary_data_percentage: number
+  data_quality: DataQuality
+
+  // 使用建議
+  usage_notes?: string
+  reference_documents?: File[]
+}
+
 // Utility types
-export type Factor = EmissionFactor | CompositeFactor
-export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number }
+export type Factor = EmissionFactor | CompositeFactor | ProductFootprintFactor
+export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number } | { type: 'product_footprint'; id: number }
