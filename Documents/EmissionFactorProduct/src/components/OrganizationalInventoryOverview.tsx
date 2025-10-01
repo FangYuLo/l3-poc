@@ -234,12 +234,13 @@ export default function OrganizationalInventoryOverview({
           <Table size="sm" variant="simple">
             <Thead position="sticky" top={0} bg="gray.50" zIndex={1}>
               <Tr>
-                <Th width="15%">年度</Th>
-                <Th width="25%">總排放量</Th>
-                <Th width="20%">排放源統計</Th>
-                <Th width="15%">專案狀態</Th>
-                <Th width="15%">中央庫狀態</Th>
-                <Th width="10%">操作</Th>
+                <Th width="12%">年度</Th>
+                <Th width="18%">總排放量</Th>
+                <Th width="15%">組織盤查邊界</Th>
+                <Th width="18%">排放源統計</Th>
+                <Th width="12%">專案狀態</Th>
+                <Th width="13%">中央庫狀態</Th>
+                <Th width="12%">操作</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -269,6 +270,11 @@ export default function OrganizationalInventoryOverview({
                     ) : (
                       <Text color="gray.400">--</Text>
                     )}
+                  </Td>
+                  <Td>
+                    <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                      {year.organizationalBoundary}
+                    </Text>
                   </Td>
                   <Td>
                     <VStack align="start" spacing={0}>
@@ -309,7 +315,7 @@ export default function OrganizationalInventoryOverview({
               {/* 空狀態 */}
               {filteredYears.length === 0 && (
                 <Tr>
-                  <Td colSpan={6} textAlign="center" py={8}>
+                  <Td colSpan={7} textAlign="center" py={8}>
                     <Text color="gray.500">沒有符合條件的年度盤查</Text>
                   </Td>
                 </Tr>

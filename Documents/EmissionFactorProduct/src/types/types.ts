@@ -338,6 +338,7 @@ export interface InventoryYearItem {
   name: string  // 例如: "2024年度盤查"
   totalEmission: number | null  // 總排放量
   unit: string  // kg CO₂e
+  organizationalBoundary: string  // 組織盤查邊界（分公司名稱）
   scope1Count: number
   scope2Count: number
   scope3Count: number
