@@ -399,84 +399,43 @@ export default function FactorDetail({
     }
     
     // 如果是產品碳足跡資料（ProductCarbonFootprintItem）
-    if (selected.stage) {
-      // 根據係數選擇獲取完整的係數詳細資料
-      const factorDetails = getFactorDetailsBySelection(selected.factor_selection)
-      
-      if (factorDetails) {
-        // 返回完整的係數詳細資料，但標註這是來自產品碳足跡的選擇
+    if (selected.data && selected.data.type === 'product_carbon_footprint') {
+      // 優先使用已經查找到的係數資料
+      if (selected.data.emission_factor) {
         return {
-          ...factorDetails,
+          ...selected.data.emission_factor,
           product_context: {
-            stage: selected.stage,
-            item_name: selected.item_name,
-            quantity_spec: selected.quantity_spec,
-            additional_info: selected.additional_info,
-            error_level: selected.error_level
-          }
-        }
-      } else {
-        // 如果找不到對應的係數詳細資料，返回基本資訊
-        return {
-          id: selected.id,
-          source: `產品碳足跡 - ${selected.stage}階段`,
-          name: selected.factor_selection,
-          effective_date: '2024-01-01',
-          continent: '未知',
-          country: '未知',
-          region: '',
-          co2_factor: 0,
-          co2_unit: selected.quantity_spec.includes('公斤') ? '公斤 CO₂/公斤' : 'kg CO₂/單位',
-          ch4_factor: 0,
-          ch4_unit: selected.quantity_spec.includes('公斤') ? '公斤 CH₄/公斤' : 'kg CH₄/單位',
-          n2o_factor: 0,
-          n2o_unit: selected.quantity_spec.includes('公斤') ? '公斤 N₂O/公斤' : 'kg N₂O/單位',
-          value: 0,
-          unit: selected.quantity_spec.includes('公斤') ? '公斤 CO₂/公斤' : 'kg CO₂/單位',
-          year: 2024,
-          method_gwp: 'GWP100',
-          source_type: 'product_carbon_footprint',
-          source_ref: selected.factor_selection,
-          version: '1.0',
-          description: `${selected.stage}階段 - ${selected.item_name}`,
-          notes: `此係數詳細資料尚未找到對應。項目：${selected.item_name}，補充資訊：${selected.additional_info}，誤差等級：${selected.error_level}`,
-          created_at: '2024-01-01T08:00:00Z',
-          updated_at: '2024-01-01T10:30:00Z',
-          product_context: {
-            stage: selected.stage,
-            item_name: selected.item_name,
-            quantity_spec: selected.quantity_spec,
-            additional_info: selected.additional_info,
-            error_level: selected.error_level
+            stage: selected.data.stage,
+            item_name: selected.data.item_name,
+            quantity_spec: selected.data.quantity_spec,
+            additional_info: selected.data.additional_info,
+            error_level: selected.data.error_level,
+            product_name: selected.data.product_name
           }
         }
       }
-    }
-    
-    // 如果是組織溫盤資料（OrganizationalInventoryItem）
-    if (selected.scope) {
-      // 根據係數選擇獲取完整的係數詳細資料
-      const factorDetails = getFactorDetailsBySelection(selected.factor_selection)
-      
+
+      // 後備方案：根據係數選擇獲取完整的係數詳細資料
+      const factorDetails = getFactorDetailsBySelection(selected.data.factor_selection)
+
       if (factorDetails) {
-        // 返回完整的係數詳細資料，但標註這是來自組織溫盤的選擇
         return {
           ...factorDetails,
-          organizational_context: {
-            scope: selected.scope,
-            emission_source_category: selected.emission_source_category,
-            emission_source_name: selected.emission_source_name,
-            activity_data: selected.activity_data,
-            activity_data_unit: selected.activity_data_unit,
-            error_level: selected.error_level
+          product_context: {
+            stage: selected.data.stage,
+            item_name: selected.data.item_name,
+            quantity_spec: selected.data.quantity_spec,
+            additional_info: selected.data.additional_info,
+            error_level: selected.data.error_level,
+            product_name: selected.data.product_name
           }
         }
       } else {
         // 如果找不到對應的係數詳細資料，返回基本資訊
         return {
           id: selected.id,
-          source: `組織溫盤 - ${selected.scope}`,
-          name: selected.factor_selection,
+          source: `產品碳足跡 - ${selected.data.stage}階段`,
+          name: selected.data.factor_selection,
           effective_date: '2024-01-01',
           continent: '未知',
           country: '未知',
@@ -487,24 +446,98 @@ export default function FactorDetail({
           ch4_unit: 'kg CH₄/單位',
           n2o_factor: 0,
           n2o_unit: 'kg N₂O/單位',
-          value: selected.activity_data,
-          unit: selected.activity_data_unit,
-          year: 2024,
+          value: 0,
+          unit: 'kg CO₂/單位',
+          year: selected.data.year || 2024,
+          method_gwp: 'GWP100',
+          source_type: 'product_carbon_footprint',
+          source_ref: selected.data.factor_selection,
+          version: '1.0',
+          description: `${selected.data.stage}階段 - ${selected.data.item_name}`,
+          notes: `此係數詳細資料尚未找到對應。項目：${selected.data.item_name}，補充資訊：${selected.data.additional_info}，誤差等級：${selected.data.error_level}`,
+          created_at: '2024-01-01T08:00:00Z',
+          updated_at: '2024-01-01T10:30:00Z',
+          product_context: {
+            stage: selected.data.stage,
+            item_name: selected.data.item_name,
+            quantity_spec: selected.data.quantity_spec,
+            additional_info: selected.data.additional_info,
+            error_level: selected.data.error_level,
+            product_name: selected.data.product_name
+          }
+        }
+      }
+    }
+    
+    // 如果是組織溫盤資料（OrganizationalInventoryItem）
+    if (selected.data && selected.data.type === 'organizational_inventory') {
+      // 優先使用已經查找到的係數資料
+      if (selected.data.emission_factor) {
+        return {
+          ...selected.data.emission_factor,
+          organizational_context: {
+            scope: selected.data.scope,
+            emission_source_category: selected.data.emission_source_category,
+            emission_source_name: selected.data.emission_source_name,
+            activity_data: selected.data.activity_data,
+            activity_data_unit: selected.data.activity_data_unit,
+            error_level: selected.data.error_level,
+            year: selected.data.year
+          }
+        }
+      }
+
+      // 後備方案：根據係數選擇獲取完整的係數詳細資料
+      const factorDetails = getFactorDetailsBySelection(selected.data.factor_selection)
+
+      if (factorDetails) {
+        return {
+          ...factorDetails,
+          organizational_context: {
+            scope: selected.data.scope,
+            emission_source_category: selected.data.emission_source_category,
+            emission_source_name: selected.data.emission_source_name,
+            activity_data: selected.data.activity_data,
+            activity_data_unit: selected.data.activity_data_unit,
+            error_level: selected.data.error_level,
+            year: selected.data.year
+          }
+        }
+      } else {
+        // 如果找不到對應的係數詳細資料，返回基本資訊
+        return {
+          id: selected.id,
+          source: `組織溫盤 - ${selected.data.scope}`,
+          name: selected.data.factor_selection,
+          effective_date: '2024-01-01',
+          continent: '未知',
+          country: '未知',
+          region: '',
+          co2_factor: 0,
+          co2_unit: 'kg CO₂/單位',
+          ch4_factor: 0,
+          ch4_unit: 'kg CH₄/單位',
+          n2o_factor: 0,
+          n2o_unit: 'kg N₂O/單位',
+          value: 0, // 改為顯示係數值而非活動數據
+          unit: 'kg CO₂/單位',
+          year: selected.data.year || 2024,
           method_gwp: 'GWP100',
           source_type: 'organizational_inventory',
-          source_ref: selected.factor_selection,
-          version: selected.version || '1.0',
-          description: `${selected.emission_source_category} - ${selected.emission_source_name}`,
-          notes: `此係數詳細資料尚未找到對應。排放源類別：${selected.emission_source_category}，誤差等級：${selected.error_level}`,
+          source_ref: selected.data.factor_selection,
+          version: selected.data.version || '1.0',
+          description: `${selected.data.emission_source_category} - ${selected.data.emission_source_name}`,
+          notes: `此係數詳細資料尚未找到對應。排放源類別：${selected.data.emission_source_category}，誤差等級：${selected.data.error_level}`,
           created_at: '2024-01-01T08:00:00Z',
           updated_at: '2024-01-01T10:30:00Z',
           organizational_context: {
-            scope: selected.scope,
-            emission_source_category: selected.emission_source_category,
-            emission_source_name: selected.emission_source_name,
-            activity_data: selected.activity_data,
-            activity_data_unit: selected.activity_data_unit,
-            error_level: selected.error_level
+            scope: selected.data.scope,
+            emission_source_category: selected.data.emission_source_category,
+            emission_source_name: selected.data.emission_source_name,
+            activity_data: selected.data.activity_data,
+            activity_data_unit: selected.data.activity_data_unit,
+            error_level: selected.data.error_level,
+            year: selected.data.year
           }
         }
       }

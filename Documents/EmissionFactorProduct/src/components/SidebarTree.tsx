@@ -13,10 +13,8 @@ import {
 import {
   ChevronRightIcon,
   ChevronDownIcon,
-  AddIcon,
-  EditIcon,
-  StarIcon,
 } from '@chakra-ui/icons'
+import { Icon } from '@chakra-ui/react'
 import { useState } from 'react'
 import { Dataset } from '@/types/types'
 import DatasetNameModal from './DatasetNameModal'
@@ -52,22 +50,91 @@ function TreeNode({
   expandedNodes
 }: TreeNodeProps) {
   const hasChildren = children && children.length > 0
-  const indent = level * 16
+  const indent = level * 20
+
+  // Custom SVG Icons matching the design style
+  const FolderIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M2 3h4l1 2h7v8H2V3z"
+      />
+    </Icon>
+  )
+
+  const LightbulbIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M8 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5V11H6V9.5C4.8 8.8 4 7.5 4 6a4 4 0 0 1 4-4zM6 12h4v1H6v-1z"
+      />
+    </Icon>
+  )
+
+  const StarIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M8 1l2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1 2-4z"
+      />
+    </Icon>
+  )
+
+  const PersonIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 13a5 5 0 0 1 10 0"
+      />
+    </Icon>
+  )
+
+  const DocumentIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M3 2h6l4 4v8H3V2zM9 2v4h4"
+      />
+    </Icon>
+  )
+
+  const CubeIcon = () => (
+    <Icon viewBox="0 0 16 16" boxSize={4} mr={2} color={isSelected ? "white" : "gray.600"}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        d="M8 1l6 3v8l-6 3-6-3V4l6-3zM8 1v7M2 4l6 3M14 4l-6 3"
+      />
+    </Icon>
+  )
 
   const getIcon = () => {
     switch (type) {
       case 'collection':
-        if (name.includes('中央係數庫')) return <StarIcon color="yellow.500" />
-        if (name.includes('自建')) return <EditIcon color="blue.500" />
-        return <Box w={4} h={4} bg="gray.400" borderRadius="sm" />
+        if (name.includes('中央係數庫')) return <LightbulbIcon />
+        if (name.includes('自建')) return <StarIcon />
+        if (name.includes('供應商')) return <PersonIcon />
+        if (name.includes('PACT')) return <FolderIcon />
+        return <DocumentIcon />
       case 'project':
-        return <Box w={4} h={4} bg="brand.500" borderRadius="sm" />
+        return <DocumentIcon />
       case 'product':
-        return <Box w={4} h={4} bg="purple.500" borderRadius="sm" />
+        return <FolderIcon />
       case 'yearly_inventory':
-        return <Box w={4} h={4} bg="orange.500" borderRadius="sm" />
+        return <FolderIcon />
       case 'emission_source':
-        return <Box w={4} h={4} bg="green.500" borderRadius="sm" />
+        return <FolderIcon />
       default:
         return null
     }
@@ -75,45 +142,59 @@ function TreeNode({
 
   return (
     <Box>
-      <HStack
+      <Flex
         pl={indent + 'px'}
-        pr={3}
-        py={2}
+        pr={4}
+        py={2.5}
         cursor="pointer"
-        bg={isSelected ? 'sidebar.selected' : 'transparent'}
-        _hover={{ bg: 'sidebar.hover' }}
-        borderRadius="md"
-        mx={2}
+        bg={isSelected ? 'gray.800' : 'transparent'}
+        color={isSelected ? 'white' : 'gray.700'}
+        _hover={{ bg: isSelected ? 'gray.800' : 'gray.100' }}
+        borderRadius={isSelected ? 'md' : 'none'}
+        mx={isSelected ? 3 : 0}
         onClick={() => onSelect?.({ id, name, type, count, children })}
-        spacing={2}
+        align="center"
+        minH="40px"
       >
         {hasChildren ? (
           <IconButton
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             size="xs"
             variant="ghost"
+            color={isSelected ? 'white' : 'gray.500'}
+            _hover={{ bg: 'transparent' }}
             onClick={(e) => {
               e.stopPropagation()
               onToggle?.(id)
             }}
             aria-label="Toggle"
+            mr={1}
           />
         ) : (
-          <Box w={6} />
+          <Box w={5} mr={1} />
         )}
 
         {getIcon()}
 
-        <Text fontSize="sm" flex="1" noOfLines={1}>
+        <Text fontSize="sm" flex="1" fontWeight={isSelected ? 'medium' : 'normal'}>
           {name}
         </Text>
 
         {count !== undefined && (
-          <Badge size="sm" colorScheme="gray" variant="subtle">
-            {count}
-          </Badge>
+          <Box
+            bg={isSelected ? 'whiteAlpha.300' : 'gray.100'}
+            px={2}
+            py={1}
+            borderRadius="full"
+            minW="24px"
+            textAlign="center"
+          >
+            <Text fontSize="xs" color={isSelected ? 'white' : 'gray.600'} fontWeight="medium">
+              {count}
+            </Text>
+          </Box>
         )}
-      </HStack>
+      </Flex>
 
       {hasChildren && (
         <Collapse in={isExpanded}>
@@ -315,23 +396,23 @@ export default function SidebarTree({
 
 
   return (
-    <Box h="100%" overflow="auto">
+    <Box h="100%" overflow="auto" bg="gray.50">
       {/* Header */}
-      <Flex justify="space-between" align="center" p={4} borderBottom="1px solid" borderColor="sidebar.border">
-        <Text fontSize="sm" fontWeight="medium" color="gray.600">
-          係數資料夾
-        </Text>
-        <IconButton
-          icon={<AddIcon />}
-          size="sm"
-          variant="ghost"
-          aria-label="新增資料集"
-          onClick={() => setIsDatasetModalOpen(true)}
-        />
+      <Flex justify="space-between" align="center" p={4} borderBottom="1px solid" borderColor="gray.200">
+        <HStack>
+          <Box as="span" fontSize="md">☰</Box>
+          <Text fontSize="sm" fontWeight="medium" color="gray.800">
+            係數資料夾
+          </Text>
+          <Box as="span" fontSize="sm">⌄</Box>
+        </HStack>
+        <Box as="span" fontSize="lg" cursor="pointer" color="gray.600">
+          +
+        </Box>
       </Flex>
 
       {/* Tree */}
-      <Box py={2}>
+      <Box py={3}>
         {treeData.map((node) => (
           <TreeNode
             key={node.id}
@@ -344,16 +425,6 @@ export default function SidebarTree({
             expandedNodes={expandedNodes}
           />
         ))}
-      </Box>
-
-      {/* Footer Info */}
-      <Box p={4} borderTop="1px solid" borderColor="sidebar.border" mt="auto">
-        <Text fontSize="xs" color="gray.500">
-          資料庫共收錄 89,432 筆係數
-        </Text>
-        <Text fontSize="xs" color="gray.500">
-          最後更新: 2024-01-15
-        </Text>
       </Box>
 
       {/* DatasetNameModal */}

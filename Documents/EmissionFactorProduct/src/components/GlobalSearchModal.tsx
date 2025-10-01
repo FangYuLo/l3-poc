@@ -138,6 +138,7 @@ export default function GlobalSearchModal({
         { value: 'pact', label: 'PACT交換' },
         { value: 'supplier', label: '供應商係數' },
         { value: 'user_defined', label: '自建係數' },
+        { value: 'project_data', label: '產品碳足跡' },
       ],
     }
   }, [allFactorResults])
@@ -190,6 +191,7 @@ export default function GlobalSearchModal({
       pact: { label: 'PACT', colorScheme: 'green' },
       supplier: { label: '供應商', colorScheme: 'purple' },
       user_defined: { label: '自建', colorScheme: 'orange' },
+      project_data: { label: '產品碳足跡', colorScheme: 'teal' },
     }
     
     const config = configs[sourceType as keyof typeof configs] || { label: '未知', colorScheme: 'gray' }
@@ -229,7 +231,7 @@ export default function GlobalSearchModal({
     <Modal isOpen={isOpen} onClose={onClose} size="6xl">
       <ModalOverlay />
       <ModalContent maxH="85vh" maxW="95vw" w="95vw">
-        <ModalHeader>
+        <ModalHeader pr="48px">
           <Flex align="center" justify="space-between">
             <Text>
               {mode === 'add_to_dataset' ? '選擇係數加入資料集' : '全庫搜尋'} - {allFactorResults.length.toLocaleString()} 筆係數資料

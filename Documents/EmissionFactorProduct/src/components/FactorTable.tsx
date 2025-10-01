@@ -6,10 +6,7 @@ import {
   Thead,
   Tbody,
   Tr,
-  Th,
-  Td,
   Text,
-  Badge,
   Button,
   HStack,
   VStack,
@@ -19,46 +16,26 @@ import {
   InputGroup,
   InputLeftElement,
   Spacer,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   IconButton,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  TriangleDownIcon,
-  ExternalLinkIcon,
-  StarIcon,
-  EditIcon,
   AddIcon,
-  DeleteIcon,
 } from '@chakra-ui/icons'
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { formatNumber } from '@/lib/utils'
-import { useMockData, type ExtendedFactorTableItem } from '@/hooks/useMockData'
+import { useState, useMemo, useCallback } from 'react'
+import { useMockData } from '@/hooks/useMockData'
 import { useFactors } from '@/hooks/useFactors'
-import { 
-  mockProductCarbonFootprintData, 
-  mockOrganizationalInventoryData 
-} from '@/data/mockProjectData'
+// 引入配置驅動系統
+import { getTableConfig } from '@/config/tableColumns'
+import { renderTableHeader, renderTableRow, renderEmptyState } from '@/utils/tableRenderer'
+import { FactorTableItem } from '@/types/types'
+import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
+import ProjectOverviewView from '@/components/ProjectOverviewView'
+import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts } from '@/data/mockProjectData'
 
-interface FactorTableItem {
-  id: number
-  type: 'emission_factor' | 'composite_factor'
-  name: string
-  value: number
-  unit: string
-  year?: number
-  region?: string
-  method_gwp?: string
-  source_type?: string
-  source_ref?: string
-  version: string
-  data: any // 儲存完整的 EmissionFactor 或 CompositeFactor 資料
-}
+// 已從 types.ts 引入 FactorTableItem，移除重複定義
 
 // 新增組織溫盤資料項目介面
 interface OrganizationalInventoryItem {
@@ -94,35 +71,67 @@ interface TreeNodeProps {
 
 interface FactorTableProps {
   onFactorSelect?: (factor: FactorTableItem) => void
-  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' // 新增資料集類型
+  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' // 新增專案概覽類型
   selectedNode?: TreeNodeProps | null // 新增：選中的節點資訊
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
   datasetFactors?: FactorTableItem[] // 資料集包含的係數數據
   onOpenGlobalSearch?: () => void // 新增開啟全庫搜尋的回調
-  onDeleteFactor?: (factor: FactorTableItem) => void // 新增刪除係數回調
+  onNavigateToProduct?: (productId: string) => void // 新增導航到產品的回調
+  onSyncL2Project?: () => Promise<void> // 新增同步 L2 專案的回調
+  productSummaries?: any[] // 產品碳足跡摘要列表
+  onImportProduct?: (productId: string, formData: any) => Promise<void> // 匯入產品到中央庫
 }
 
-export default function FactorTable({ 
-  onFactorSelect, 
+export default function FactorTable({
+  onFactorSelect,
   selectedNodeType = 'general',
-  selectedNode = null, 
-  userDefinedFactors = [], 
+  selectedNode = null,
+  userDefinedFactors = [],
   onOpenComposite,
   datasetFactors = [],
   onOpenGlobalSearch,
-  onDeleteFactor
+  onNavigateToProduct,
+  onSyncL2Project,
+  productSummaries = [],
+  onImportProduct
 }: FactorTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selectedFactor, setSelectedFactor] = useState<FactorTableItem | null>(null)
 
+  // 獲取表格配置
+  const tableConfig = getTableConfig(selectedNodeType)
+
+  // 獲取產品碳足跡摘要（僅在產品碳足跡節點時）
+  const productSummary = useMemo(() => {
+    if (selectedNodeType !== 'product_carbon_footprint' || !selectedNode) {
+      return null
+    }
+
+    // 根據選中節點判斷產品類型
+    let productId: string | null = null
+
+    // 使用節點 ID 或名稱匹配產品
+    if (selectedNode.id === 'product_1_1' || selectedNode.name.includes('智慧型手機')) {
+      productId = 'smartphone'
+    } else if (selectedNode.id === 'product_1_2' || selectedNode.name.includes('LED燈具')) {
+      productId = 'led_light'
+    } else if (selectedNode.id === 'product_1_3' || selectedNode.name.includes('筆記型電腦')) {
+      productId = 'laptop'
+    }
+
+    if (!productId) return null
+
+    return mockProductCarbonFootprintSummaries.find(s => s.productId === productId)
+  }, [selectedNodeType, selectedNode])
+
   // 使用統一資料管理
   const dataService = useMockData()
   
   // 使用 useFactors hook 處理專案資料
-  const { factors: projectFactors, isLoading: isLoadingFactors } = useFactors({
+  const { factors: projectFactors } = useFactors({
     nodeId: selectedNode?.id,
     collectionId: selectedNodeType === 'favorites' ? 'favorites' :
                   selectedNodeType === 'user_defined' ? 'user_defined' :
@@ -130,15 +139,6 @@ export default function FactorTable({
                   selectedNodeType === 'supplier' ? 'supplier' : undefined
   })
   
-  // 排放計算參數誤差等級選項（來自圖片）
-  const errorLevelOptions = [
-    '自廠發展係數/質量平衡所得係數',
-    '同製程/設備經驗係數',
-    '製造廠提供係數',
-    '區域排放係數',
-    '國家排放係數',
-    '國際排放係數'
-  ]
 
   // 根據選擇的節點類型取得對應的係數資料
   const getFactorDataByType = useCallback(() => {
@@ -352,7 +352,7 @@ export default function FactorTable({
     if (selectedNode && projectFactors.length > 0) {
       // 將 FactorTableItem 轉換為對應的專案資料格式進行顯示
       if (selectedNodeType === 'organizational_inventory' || selectedNode.id.startsWith('year_') || selectedNode.id.startsWith('source_2_')) {
-        // 組織盤查資料：轉換 FactorTableItem 回 mockOrganizationalInventoryData 格式
+        // 組織盤查資料：轉換 FactorTableItem 回 mockOrganizationalInventoryData 格式，並保留 emission_factor
         const orgData = projectFactors.map((factor: any) => {
           const data = factor.data
           return {
@@ -365,7 +365,10 @@ export default function FactorTable({
             factor_selection: data.factor_selection,
             version: data.version,
             error_level: data.error_level,
-            year: data.year
+            year: data.year,
+            // 保留 emission_factor 以便表格顯示實際係數值
+            emission_factor: data.emission_factor,
+            data: data  // 保留完整的 data 物件
           }
         })
         
@@ -376,19 +379,19 @@ export default function FactorTable({
           item.scope.toLowerCase().includes(searchTerm.toLowerCase())
         )
       } else if (selectedNodeType === 'product_carbon_footprint' || selectedNode.id.startsWith('product_') || selectedNode.id.startsWith('source_1_')) {
-        // 產品碳足跡資料：轉換 FactorTableItem 回 mockProductCarbonFootprintData 格式
+        // 產品碳足跡資料：保留完整的 data 結構以便訪問 emission_factor
         const productData = projectFactors.map((factor: any) => {
-          const data = factor.data
           return {
-            id: data.id,
-            stage: data.stage,
-            item_name: data.item_name,
-            quantity_spec: data.quantity_spec,
-            additional_info: data.additional_info,
-            factor_selection: data.factor_selection,
-            error_level: data.error_level,
-            product: data.product,
-            year: data.year
+            id: factor.data.id,
+            stage: factor.data.stage,
+            item_name: factor.data.item_name,
+            quantity_spec: factor.data.quantity_spec,
+            additional_info: factor.data.additional_info,
+            factor_selection: factor.data.factor_selection,
+            error_level: factor.data.error_level,
+            product: factor.data.product,
+            year: factor.data.year,
+            data: factor.data  // 保留完整的 data 物件，包含 emission_factor
           }
         })
         
@@ -509,38 +512,23 @@ export default function FactorTable({
 
   const totalPages = Math.ceil(filteredData.length / pageSize)
 
-  const getSourceTypeBadge = (sourceType?: string) => {
-    const configs = {
-      standard: { label: '標準', colorScheme: 'blue' },
-      pact: { label: 'PACT', colorScheme: 'green' },
-      supplier: { label: '供應商', colorScheme: 'purple' },
-      user_defined: { label: '自建', colorScheme: 'orange' },
-    }
-    
-    const config = configs[sourceType as keyof typeof configs] || { label: '未知', colorScheme: 'gray' }
-    return (
-      <Badge size="sm" colorScheme={config.colorScheme}>
-        {config.label}
-      </Badge>
-    )
-  }
-
-  const getTypeIcon = (type: string) => {
-    if (type === 'composite_factor') {
-      return <EditIcon color="orange.500" />
-    }
-    return null
-  }
 
   const handleRowClick = (factor: FactorTableItem) => {
     setSelectedFactor(factor)
     onFactorSelect?.(factor)
   }
 
-  const handleErrorLevelChange = (itemId: number, newErrorLevel: string) => {
-    // 這裡可以添加更新資料的邏輯，目前只是 console.log 作為示範
-    console.log(`Item ${itemId} error level changed to: ${newErrorLevel}`)
-    // 在實際應用中，這裡會調用 API 來更新資料
+
+  // 如果是專案概覽視圖，渲染專案概覽元件
+  if (selectedNodeType === 'project_overview') {
+    return (
+      <ProjectOverviewView
+        projectInfo={mockL2ProjectInfo}
+        products={mockProjectProducts}
+        onNavigateToProduct={onNavigateToProduct}
+        onSyncL2Project={onSyncL2Project}
+      />
+    )
   }
 
   return (
@@ -548,27 +536,15 @@ export default function FactorTable({
       {/* Toolbar */}
       <Flex p={4} borderBottom="1px solid" borderColor="gray.200" align="center" gap={4}>
         <Text fontWeight="medium" color="gray.700">
-          {selectedNodeType === 'organizational_inventory' ? '排放源清單' : 
-           selectedNodeType === 'product_carbon_footprint' ? '產品生命週期清單' : 
-           selectedNodeType === 'user_defined' ? '自建係數' :
-           selectedNodeType === 'favorites' ? '中央係數庫' :
-           selectedNodeType === 'pact' ? 'PACT交換係數' :
-           selectedNodeType === 'supplier' ? '供應商係數' :
-           '係數列表'}
+          {tableConfig.displayName}
         </Text>
-        
+
         <InputGroup maxW="300px">
           <InputLeftElement>
             <SearchIcon color="gray.400" />
           </InputLeftElement>
           <Input
-            placeholder={
-              selectedNodeType === 'organizational_inventory' 
-                ? "搜尋排放源名稱、類別或範疇..."
-                : selectedNodeType === 'product_carbon_footprint'
-                ? "搜尋項目名稱、階段或係數..."
-                : "搜尋係數名稱、單位或地區..."
-            }
+            placeholder={tableConfig.searchPlaceholder}
             size="sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -608,6 +584,24 @@ export default function FactorTable({
         </Text>
       </Flex>
 
+      {/* Product Carbon Footprint Summary Card */}
+      {productSummary && (
+        <Box px={4} pt={4}>
+          <ProductCarbonFootprintCard
+            summary={productSummary}
+            onViewDetails={() => {
+              console.log('查看詳細計算:', productSummary.productName)
+              // TODO: 實作查看詳細計算功能
+            }}
+            onImportToCentral={async (formData) => {
+              if (onImportProduct && productSummary.productId) {
+                await onImportProduct(productSummary.productId, formData)
+              }
+            }}
+          />
+        </Box>
+      )}
+
       {/* Table */}
       <Box flex="1" overflow="auto">
         {/* 資料集為空時的提示 */}
@@ -634,269 +628,112 @@ export default function FactorTable({
           <>
             <Table size="sm" variant="simple">
             <Thead position="sticky" top={0} bg="white" zIndex={1}>
-            {selectedNodeType === 'organizational_inventory' ? (
               <Tr>
-                <Th width="80px">範疇</Th>
-                <Th width="150px">排放源類別</Th>
-                <Th width="200px">排放源名稱</Th>
-                <Th width="120px" isNumeric>活動數據</Th>
-                <Th width="120px">活動數據單位</Th>
-                <Th width="200px">係數選擇</Th>
-                <Th width="100px">版本</Th>
-                <Th width="150px">排放計算參數誤差等級</Th>
+                {renderTableHeader(tableConfig.columns)}
               </Tr>
-            ) : selectedNodeType === 'product_carbon_footprint' ? (
-              <Tr>
-                <Th width="80px">階段</Th>
-                <Th width="200px">項目名稱</Th>
-                <Th width="150px">數量/規格</Th>
-                <Th width="180px">補充資訊</Th>
-                <Th width="200px">係數選擇(含版本)</Th>
-                <Th width="150px">誤差等級</Th>
-              </Tr>
-            ) : (
-              <Tr>
-                <Th width="4"></Th>
-                <Th width="250px">名稱</Th>
-                <Th width="100px" isNumeric>值</Th>
-                <Th width="80px">單位</Th>
-                <Th width="70px">年份</Th>
-                <Th width="70px">地區</Th>
-                <Th width="70px">方法</Th>
-                <Th width="70px">來源</Th>
-                <Th width="70px">版本</Th>
-                <Th width="200px">引用專案</Th>
-                <Th width="60px"></Th>
-              </Tr>
-            )}
-          </Thead>
-          <Tbody>
-            {selectedNodeType === 'organizational_inventory' ? (
-              // 組織溫盤表格內容
-              paginatedData.map((item: any) => (
-                <Tr
-                  key={item.id}
-                  cursor="pointer"
-                  _hover={{ bg: 'gray.50' }}
-                  onClick={() => onFactorSelect?.(item)}
-                >
-                  <Td>
-                    <Badge 
-                      size="sm" 
-                      colorScheme={
-                        item.scope === 'Scope 1' ? 'red' : 
-                        item.scope === 'Scope 2' ? 'blue' : 'green'
-                      }
-                    >
-                      {item.scope}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{item.emission_source_category}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" fontWeight="medium">
-                      {item.emission_source_name}
-                    </Text>
-                  </Td>
-                  <Td isNumeric>
-                    <Text fontSize="sm" fontFamily="mono">
-                      {formatNumber(item.activity_data)}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{item.activity_data_unit}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" color="blue.600">
-                      {item.factor_selection}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" color="gray.600">
-                      {item.version}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Select
-                      size="sm"
-                      value={item.error_level}
-                      onChange={(e) => handleErrorLevelChange(item.id, e.target.value)}
-                      fontSize="sm"
-                      borderRadius="md"
-                    >
-                      {errorLevelOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </Select>
-                  </Td>
-                </Tr>
-              ))
-            ) : selectedNodeType === 'product_carbon_footprint' ? (
-              // 產品碳足跡表格內容
-              paginatedData.map((item: any) => (
-                <Tr
-                  key={item.id}
-                  cursor="pointer"
-                  _hover={{ bg: 'gray.50' }}
-                  onClick={() => onFactorSelect?.(item)}
-                >
-                  <Td>
-                    <Badge 
-                      size="sm" 
-                      colorScheme={
-                        item.stage === '原物料' ? 'blue' : 
-                        item.stage === '製造' ? 'green' :
-                        item.stage === '配送' ? 'purple' :
-                        item.stage === '使用' ? 'orange' :
-                        item.stage === '廢棄' ? 'red' : 'gray'
-                      }
-                      variant="subtle"
-                    >
-                      {item.stage}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" fontWeight="medium">
-                      {item.item_name}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">
-                      {item.quantity_spec}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" color="gray.600">
-                      {item.additional_info}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm" color="blue.600">
-                      {item.factor_selection}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Select
-                      size="sm"
-                      value={item.error_level}
-                      onChange={(e) => handleErrorLevelChange(item.id, e.target.value)}
-                      fontSize="sm"
-                      borderRadius="md"
-                    >
-                      {errorLevelOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </Select>
-                  </Td>
-                </Tr>
-              ))
-            ) : (
-              // 一般係數表格內容
-              paginatedData.map((factor: any) => (
-                <Tr
-                  key={factor.id}
-                  cursor="pointer"
-                  bg={selectedFactor?.id === factor.id ? 'blue.50' : undefined}
-                  _hover={{ bg: 'gray.50' }}
-                  onClick={() => handleRowClick(factor)}
-                >
-                  <Td>{getTypeIcon(factor.type)}</Td>
-                  <Td>
-                    <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
-                      {factor.name}
-                    </Text>
-                  </Td>
-                  <Td isNumeric>
-                    <Text fontSize="sm" fontFamily="mono">
-                      {formatNumber(factor.value)}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{factor.unit}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{factor.year || '-'}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{factor.region || '-'}</Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">{factor.method_gwp || '-'}</Text>
-                  </Td>
-                  <Td>{getSourceTypeBadge(factor.source_type)}</Td>
-                  <Td>
-                    <Text fontSize="sm" color="gray.600">
-                      v{factor.version}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="xs" color="gray.500" noOfLines={2}>
-                      {factor.usageText || '未被使用'}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Menu>
-                      <MenuButton
-                        as={IconButton}
-                        icon={<TriangleDownIcon />}
-                        size="xs"
-                        variant="ghost"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <MenuList>
-                        <MenuItem icon={<StarIcon />}>
-                          加入常用
-                        </MenuItem>
-                        <MenuItem icon={<ExternalLinkIcon />}>
-                          查看詳情
-                        </MenuItem>
-                        <MenuItem icon={<EditIcon />}>
-                          引用到專案
-                        </MenuItem>
-                        {factor.source_type === 'user_defined' && onDeleteFactor && (
-                          <MenuItem 
-                            icon={<DeleteIcon />} 
-                            color="red.500"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDeleteFactor(factor)
-                            }}
-                          >
-                            刪除係數
-                          </MenuItem>
-                        )}
-                      </MenuList>
-                    </Menu>
-                  </Td>
-                </Tr>
-              ))
-            )}
-          </Tbody>
+            </Thead>
+            <Tbody>
+              {paginatedData.map(row =>
+                renderTableRow(
+                  tableConfig.columns,
+                  row,
+                  handleRowClick,
+                  selectedFactor?.id === row.id
+                )
+              )}
+            </Tbody>
           </Table>
 
-            {paginatedData.length === 0 && (
-              <Box textAlign="center" py={8}>
-                <Text color="gray.500">沒有找到符合條件的係數</Text>
-              </Box>
-            )}
+            {paginatedData.length === 0 && renderEmptyState()}
           </>
         )}
       </Box>
 
       {/* Pagination */}
-      <Flex p={4} borderTop="1px solid" borderColor="gray.200" align="center" gap={4}>
+      <Flex p={4} borderTop="1px solid" borderColor="gray.200" align="center" justify="space-between">
+        <HStack spacing={4}>
+          {/* 翻頁控制按鈕 */}
+          <HStack spacing={1}>
+            <IconButton
+              icon={<ChevronLeftIcon />}
+              size="sm"
+              variant="ghost"
+              isDisabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              aria-label="First page"
+            />
+            <IconButton
+              icon={<ChevronLeftIcon />}
+              size="sm"
+              variant="ghost"
+              isDisabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              aria-label="Previous page"
+            />
+            {/* 頁碼按鈕 */}
+            {[...Array(Math.min(10, totalPages))].map((_, idx) => {
+              const pageNum = idx + 1;
+              return (
+                <Button
+                  key={pageNum}
+                  size="sm"
+                  variant={currentPage === pageNum ? "solid" : "ghost"}
+                  colorScheme={currentPage === pageNum ? "gray" : "gray"}
+                  bg={currentPage === pageNum ? "gray.800" : "transparent"}
+                  color={currentPage === pageNum ? "white" : "gray.600"}
+                  onClick={() => setCurrentPage(pageNum)}
+                  minW="32px"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            <IconButton
+              icon={<ChevronRightIcon />}
+              size="sm"
+              variant="ghost"
+              isDisabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              aria-label="Next page"
+            />
+            <IconButton
+              icon={<ChevronRightIcon />}
+              size="sm"
+              variant="ghost"
+              isDisabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              aria-label="Last page"
+            />
+          </HStack>
+        </HStack>
+
         <HStack>
+          <Text fontSize="sm" color="gray.600">
+            前往頁數
+          </Text>
+          <Input
+            size="sm"
+            w="60px"
+            type="number"
+            min={1}
+            max={totalPages}
+            value={currentPage}
+            onChange={(e) => {
+              const page = parseInt(e.target.value) || 1;
+              if (page >= 1 && page <= totalPages) {
+                setCurrentPage(page);
+              }
+            }}
+          />
+          <Text fontSize="sm" color="gray.600">
+            →
+          </Text>
           <Text fontSize="sm" color="gray.600">
             每頁顯示
           </Text>
           <Select
             size="sm"
-            w="80px"
+            w="60px"
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value))
@@ -906,44 +743,10 @@ export default function FactorTable({
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
-            <option value={100}>100</option>
           </Select>
           <Text fontSize="sm" color="gray.600">
-            筆
+            {Math.min((currentPage - 1) * pageSize + 1, filteredData.length)}-{Math.min(currentPage * pageSize, filteredData.length)} / {filteredData.length}
           </Text>
-        </HStack>
-
-        <Spacer />
-
-        <HStack>
-          <Text fontSize="sm" color="gray.600">
-            第 {Math.min((currentPage - 1) * pageSize + 1, filteredData.length)} - {Math.min(currentPage * pageSize, filteredData.length)} 筆，
-            共 {filteredData.length} 筆
-          </Text>
-        </HStack>
-
-        <HStack>
-          <IconButton
-            icon={<ChevronLeftIcon />}
-            size="sm"
-            variant="outline"
-            isDisabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-            aria-label="Previous page"
-          />
-          
-          <Text fontSize="sm" px={3}>
-            {currentPage} / {totalPages}
-          </Text>
-          
-          <IconButton
-            icon={<ChevronRightIcon />}
-            size="sm"
-            variant="outline"
-            isDisabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-            aria-label="Next page"
-          />
         </HStack>
       </Flex>
     </Box>
