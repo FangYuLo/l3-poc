@@ -1,6 +1,14 @@
 import { useMemo } from 'react'
-import { EmissionFactor, CompositeFactor, FactorTableItem, SourceType } from '@/types/types'
-import { mockEmissionFactors, mockCompositeFactors } from '@/data/mockDatabase'
+import {
+  EmissionFactor,
+  CompositeFactor,
+  FactorTableItem,
+  SourceType,
+  DataQuality,
+  FactorUsageInfo,
+  ProjectReference
+} from '@/types/types'
+import { getAllEmissionFactors, mockCompositeFactors, mockProductFootprintFactors } from '@/data/mockDatabase'
 import { 
   mockProductCarbonFootprintData, 
   mockOrganizationalInventoryData 
@@ -13,13 +21,14 @@ import {
   getCollectionCounts,
   isFactorInCollection 
 } from '@/data/mockCollections'
-import { 
-  calculateFactorUsage, 
-  getFactorUsageById, 
-  getAllUsedFactors, 
+import {
+  calculateFactorUsage,
+  getFactorUsageById,
+  getAllUsedFactors,
   formatProjectUsage,
+  getEmissionFactorBySelection,
   type FactorUsage,
-  type ProjectUsage 
+  type ProjectUsage
 } from '@/data/factorProjectMapping'
 
 export interface CollectionCounts {
@@ -42,114 +51,185 @@ export interface ExtendedFactorTableItem extends FactorTableItem {
  */
 export function useMockData() {
   
+  // 生成使用資訊的輔助函數
+  const generateUsageInfo = (factorId: number): FactorUsageInfo => {
+    // 模擬使用資訊生成
+    const usage = getFactorUsageById(factorId)
+    const projectRefs: ProjectReference[] = usage.map(u => ({
+      project_id: u.projectId,
+      project_name: u.projectName,
+      project_type: u.projectId.includes('org') ? 'L1' :
+                   u.projectId.includes('product') ? 'L2' : 'L4',
+      usage_count: u.usageCount,
+      last_used_date: new Date().toISOString()
+    }))
+
+    return {
+      total_usage_count: usage.reduce((total, u) => total + u.usageCount, 0),
+      project_references: projectRefs,
+      usage_summary: formatProjectUsage(usage)
+    }
+  }
+
+  // 獲取數據品質等級的輔助函數
+  const getDataQuality = (factor: EmissionFactor): DataQuality => {
+    // 根據來源類型和係數特性決定品質等級
+    if (factor.source_type === 'pact') return 'Primary'
+    if (factor.source_type === 'standard' && factor.source?.includes('官方')) return 'Primary'
+    if (factor.source_type === 'supplier') return 'Secondary'
+    if (factor.quality_score && factor.quality_score >= 80) return 'Primary'
+    if (factor.quality_score && factor.quality_score >= 60) return 'Secondary'
+    return 'Secondary' // 預設為 Secondary
+  }
+
   // 將 EmissionFactor 轉換為 FactorTableItem 格式
-  const convertToTableItem = (factor: EmissionFactor): FactorTableItem => ({
-    id: factor.id,
-    type: 'emission_factor',
-    name: factor.name,
-    value: factor.value,
-    unit: factor.unit,
-    year: factor.year,
-    region: factor.country,
-    method_gwp: factor.method_gwp,
-    source_type: factor.source_type,
-    source_ref: factor.source_ref,
-    version: factor.version,
-    data: factor
-  })
+  const convertToTableItem = (factor: EmissionFactor): FactorTableItem => {
+    const usageInfo = generateUsageInfo(factor.id)
+    const dataQuality = factor.data_quality || getDataQuality(factor)
+
+    return {
+      id: factor.id,
+      type: 'emission_factor',
+      name: factor.name,
+      value: factor.value,
+      unit: factor.unit,
+      year: factor.year,
+      region: factor.country,
+      method_gwp: factor.method_gwp,
+      source_type: factor.source_type,
+      source_ref: factor.source_ref,
+      version: factor.version,
+      data: factor,
+      // 新增品質和使用資訊
+      data_quality: dataQuality,
+      validation_status: factor.validation_status || 'verified',
+      quality_score: factor.quality_score,
+      usage_info: usageInfo,
+      usageText: usageInfo.usage_summary
+    }
+  }
 
   // 將 CompositeFactor 轉換為 FactorTableItem 格式
-  const convertCompositeToTableItem = (factor: CompositeFactor): FactorTableItem => ({
-    id: factor.id,
-    type: 'composite_factor',
-    name: factor.name,
-    value: factor.computed_value,
-    unit: factor.unit,
-    region: 'User Defined',
-    method_gwp: 'GWP100',
-    source_type: 'user_defined',
-    version: '1.0',
-    data: factor
-  })
+  const convertCompositeToTableItem = (factor: CompositeFactor): FactorTableItem => {
+    const usageInfo = generateUsageInfo(factor.id)
 
-  // 快取轉換結果
-  const allEmissionFactorItems = useMemo(
-    () => mockEmissionFactors.map(convertToTableItem),
-    []
-  )
+    return {
+      id: factor.id,
+      type: 'composite_factor',
+      name: factor.name,
+      value: factor.computed_value,
+      unit: factor.unit,
+      region: 'User Defined',
+      method_gwp: 'GWP100',
+      source_type: 'user_defined',
+      version: '1.0',
+      data: factor,
+      // 新增品質和使用資訊
+      data_quality: factor.data_quality || 'Tertiary', // 自建係數預設為 Tertiary
+      validation_status: factor.validation_status || 'pending',
+      usage_info: usageInfo,
+      usageText: usageInfo.usage_summary
+    }
+  }
+
+  // 不使用 useMemo，每次都動態計算以確保能讀取新增的係數
+  const allEmissionFactorItems = getAllEmissionFactors().map(convertToTableItem)
 
   const allCompositeFactorItems = useMemo(
     () => mockCompositeFactors.map(convertCompositeToTableItem),
     []
   )
 
+  // 產品碳足跡係數項目
+  const allProductFootprintItems = useMemo(
+    () => mockProductFootprintFactors.map(convertToTableItem),
+    []
+  )
+
   // 將專案碳足跡資料轉換為 FactorTableItem 格式
-  const convertProjectCarbonFootprintToTableItem = (item: typeof mockProductCarbonFootprintData[0]): FactorTableItem => ({
-    id: item.id + 10000, // 避免ID衝突
-    type: 'project_item',
-    name: `${item.stage} - ${item.item_name}`,
-    value: 0, // 專案資料沒有具體係數值，先設為0
-    unit: item.quantity_spec,
-    year: item.year,
-    region: '台灣',
-    method_gwp: 'GWP100',
-    source_type: 'project_data',
-    source_ref: item.factor_selection,
-    version: '1.0',
-    data: {
-      ...item,
-      type: 'product_carbon_footprint',
-      product_name: item.product === 'smartphone' ? '智慧型手機' : 
-                   item.product === 'led_light' ? 'LED燈具' : 
-                   item.product === 'laptop' ? '筆記型電腦' : item.product
+  const convertProjectCarbonFootprintToTableItem = (item: typeof mockProductCarbonFootprintData[0]): FactorTableItem => {
+    // 根據 factor_selection 查找對應的排放係數
+    const factor = getEmissionFactorBySelection(item.factor_selection)
+
+    // Debug logging for product carbon footprint
+    if (item.id <= 10) {
+      console.log(`[DEBUG-PCF] 項目${item.id}: "${item.factor_selection}" → `,
+        factor ? `ID ${factor.id}, value=${factor.value}` : 'NOT FOUND')
     }
-  })
+
+    return {
+      id: item.id + 10000, // 避免ID衝突
+      type: 'project_item',
+      name: `${item.stage} - ${item.item_name}`,
+      value: factor ? factor.value : 0, // 使用真實係數值，找不到則為0
+      unit: factor ? factor.unit : item.quantity_spec, // 使用係數單位，找不到則用數量規格
+      year: item.year,
+      region: factor ? factor.country : '台灣',
+      method_gwp: 'GWP100',
+      source_type: 'project_data',
+      source_ref: item.factor_selection,
+      version: factor ? factor.version : '1.0',
+      data: {
+        ...item,
+        type: 'product_carbon_footprint',
+        product_name: item.product === 'smartphone' ? '智慧型手機' :
+                     item.product === 'led_light' ? 'LED燈具' :
+                     item.product === 'laptop' ? '筆記型電腦' : item.product,
+        // 保存原始係數資訊以便詳情顯示
+        emission_factor: factor
+      }
+    }
+  }
 
   // 將組織盤查資料轉換為 FactorTableItem 格式
-  const convertOrganizationalInventoryToTableItem = (item: typeof mockOrganizationalInventoryData[0]): FactorTableItem => ({
-    id: item.id + 20000, // 避免ID衝突
-    type: 'project_item',
-    name: `${item.scope} - ${item.emission_source_name}`,
-    value: item.activity_data,
-    unit: item.activity_data_unit,
-    year: item.year,
-    region: '台灣',
-    method_gwp: 'GWP100',
-    source_type: 'project_data',
-    source_ref: item.factor_selection,
-    version: item.version,
-    data: {
-      ...item,
-      type: 'organizational_inventory'
+  const convertOrganizationalInventoryToTableItem = (item: typeof mockOrganizationalInventoryData[0]): FactorTableItem => {
+    // 直接使用 factor_id 查找對應的排放係數
+    const factor = getAllEmissionFactors().find(f => f.id === item.factor_id)
+
+    // 調試輸出 - 前5個項目
+    if (item.id <= 50) {
+      console.log(`[DEBUG] 項目${item.id}: factor_id=${item.factor_id} → `,
+        factor ? `name="${factor.name}", value=${factor.value}` : 'NOT FOUND')
     }
-  })
 
-  // 所有專案碳足跡項目
-  const allProductCarbonFootprintItems = useMemo(
-    () => mockProductCarbonFootprintData.map(convertProjectCarbonFootprintToTableItem),
-    []
-  )
+    return {
+      id: item.id + 20000, // 避免ID衝突
+      type: 'project_item',
+      name: `${item.scope} - ${item.emission_source_name}`,
+      value: factor ? factor.value : 0, // 顯示排放係數值，而不是活動數據
+      unit: factor ? factor.unit : item.activity_data_unit, // 顯示係數單位
+      year: item.year,
+      region: factor ? factor.country : '台灣',
+      method_gwp: 'GWP100',
+      source_type: 'project_data',
+      source_ref: item.factor_selection,
+      version: factor ? factor.version : (item.version || '1.0'),
+      data: {
+        ...item,
+        type: 'organizational_inventory',
+        // 保存原始係數資訊以便詳情顯示
+        emission_factor: factor
+      }
+    }
+  }
 
-  // 所有組織盤查項目
-  const allOrganizationalInventoryItems = useMemo(
-    () => mockOrganizationalInventoryData.map(convertOrganizationalInventoryToTableItem),
-    []
-  )
+  // 所有專案碳足跡項目（不使用 useMemo 以確保能讀取新增的係數）
+  const allProductCarbonFootprintItems = mockProductCarbonFootprintData.map(convertProjectCarbonFootprintToTableItem)
 
-  // 所有係數項目（排放係數 + 組合係數 + 專案資料）
-  const allFactorItems = useMemo(
-    () => [...allEmissionFactorItems, ...allCompositeFactorItems, ...allProductCarbonFootprintItems, ...allOrganizationalInventoryItems],
-    [allEmissionFactorItems, allCompositeFactorItems, allProductCarbonFootprintItems, allOrganizationalInventoryItems]
-  )
+  // 所有組織盤查項目（不使用 useMemo 以確保能讀取新增的係數）
+  const allOrganizationalInventoryItems = mockOrganizationalInventoryData.map(convertOrganizationalInventoryToTableItem)
+
+  // 所有係數項目（排放係數 + 組合係數 + 產品碳足跡係數 + 專案資料）
+  const allFactorItems = [...allEmissionFactorItems, ...allCompositeFactorItems, ...allProductFootprintItems, ...allProductCarbonFootprintItems, ...allOrganizationalInventoryItems]
 
   // 快取係數使用情況計算
   const factorUsageMap = useMemo(() => calculateFactorUsage(), [])
 
-  // 快取中央係數庫資料
-  const centralLibraryFactors = useMemo((): ExtendedFactorTableItem[] => {
+  // 中央係數庫資料（不使用 useMemo 以確保能讀取新增的係數）
+  const centralLibraryFactors = (): ExtendedFactorTableItem[] => {
     const usageMap = new Map(factorUsageMap.map(u => [u.factorId, u.usedInProjects]))
 
-    // 只選擇被專案使用的係數
+    // 選擇被專案使用的係數（標準排放係數）
     const usedFactorItems = allEmissionFactorItems
       .filter(item => usageMap.has(item.id)) // 只包含被使用的係數
       .map(item => ({
@@ -158,19 +238,50 @@ export function useMockData() {
         usageText: formatProjectUsage(usageMap.get(item.id) || [])
       }))
 
+    // 加入產品碳足跡係數（所有 source_type 為 project_data 的係數）
+    const productFootprintItems = allProductFootprintItems
+      .map(item => ({
+        ...item,
+        projectUsage: [], // 產品碳足跡係數沒有專案引用追蹤
+        usageText: `來自專案: ${item.data?.source_project_name || '未知'}`
+      }))
+
+    // 加入從產品碳足跡匯入的係數（source_type 為 'project_data'）
+    const importedProductFactors = allEmissionFactorItems
+      .filter(item => item.source_type === 'project_data')
+      .map(item => ({
+        ...item,
+        projectUsage: usageMap.get(item.id) || [],
+        usageText: `從產品碳足跡匯入`
+      }))
+
+    // 合併三種係數（去重）
+    const allCentralItemsMap = new Map<number, ExtendedFactorTableItem>()
+
+    // 先加入使用過的係數
+    usedFactorItems.forEach(item => allCentralItemsMap.set(item.id, item))
+
+    // 再加入產品碳足跡係數（來自 mockProductFootprintFactors）
+    productFootprintItems.forEach(item => allCentralItemsMap.set(item.id, item))
+
+    // 最後加入匯入的產品碳足跡係數（新增的）
+    importedProductFactors.forEach(item => allCentralItemsMap.set(item.id, item))
+
+    const allCentralItems = Array.from(allCentralItemsMap.values())
+
     // 按使用次數降序排序，次數相同時按名稱排序
-    return usedFactorItems.sort((a, b) => {
+    return allCentralItems.sort((a, b) => {
       const aUsageCount = a.projectUsage?.length || 0
       const bUsageCount = b.projectUsage?.length || 0
-      
+
       if (aUsageCount !== bUsageCount) {
         return bUsageCount - aUsageCount // 使用次數多的在前
       }
-      
+
       // 使用次數相同時按名稱排序
       return a.name.localeCompare(b.name, 'zh-TW')
     })
-  }, [allEmissionFactorItems, factorUsageMap])
+  }
 
   return {
     // === 基礎資料存取 ===
@@ -178,12 +289,17 @@ export function useMockData() {
     /**
      * 取得所有排放係數
      */
-    getAllEmissionFactors: () => mockEmissionFactors,
-    
+    getAllEmissionFactors: () => getAllEmissionFactors(),
+
     /**
      * 取得所有組合係數
      */
     getAllCompositeFactors: () => mockCompositeFactors,
+
+    /**
+     * 取得所有產品碳足跡係數
+     */
+    getAllProductFootprintFactors: () => mockProductFootprintFactors,
     
     /**
      * 取得所有係數項目（用於表格顯示）
@@ -193,8 +309,8 @@ export function useMockData() {
     /**
      * 根據ID取得單一排放係數
      */
-    getEmissionFactorById: (id: number): EmissionFactor | undefined => 
-      mockEmissionFactors.find(factor => factor.id === id),
+    getEmissionFactorById: (id: number): EmissionFactor | undefined =>
+      getAllEmissionFactors().find(factor => factor.id === id),
 
     /**
      * 根據ID取得單一組合係數
@@ -239,8 +355,8 @@ export function useMockData() {
      * 根據國家篩選係數
      */
     getFactorsByCountry: (country: string): FactorTableItem[] =>
-      allEmissionFactorItems.filter(item => 
-        mockEmissionFactors.find(f => f.id === item.id)?.country === country
+      allEmissionFactorItems.filter(item =>
+        getAllEmissionFactors().find(f => f.id === item.id)?.country === country
       ),
 
     /**
@@ -277,10 +393,15 @@ export function useMockData() {
     /**
      * 取得各集合的係數數量
      */
-    getCollectionCounts: (): CollectionCounts => ({
-      ...getCollectionCounts(),
-      user_defined: allCompositeFactorItems.length
-    }),
+    getCollectionCounts: (): CollectionCounts => {
+      const baseCounts = getCollectionCounts()
+      // 中央係數庫 = 原有的 favorites 數量 + 產品碳足跡係數數量
+      return {
+        ...baseCounts,
+        favorites: baseCounts.favorites + allProductFootprintItems.length,
+        user_defined: allCompositeFactorItems.length
+      }
+    },
 
     /**
      * 取得總係數數量
@@ -290,13 +411,16 @@ export function useMockData() {
     /**
      * 取得搜尋篩選選項
      */
-    getSearchFacets: () => ({
-      countries: Array.from(new Set(mockEmissionFactors.map(f => f.country))).sort(),
-      years: Array.from(new Set(mockEmissionFactors.map(f => f.year).filter(Boolean))).sort((a, b) => b! - a!),
-      units: Array.from(new Set(mockEmissionFactors.map(f => f.unit))).sort(),
-      sourceTypes: Array.from(new Set(mockEmissionFactors.map(f => f.source_type))),
-      continents: Array.from(new Set(mockEmissionFactors.map(f => f.continent))).sort()
-    }),
+    getSearchFacets: () => {
+      const factors = getAllEmissionFactors()
+      return {
+        countries: Array.from(new Set(factors.map(f => f.country))).sort(),
+        years: Array.from(new Set(factors.map(f => f.year).filter(Boolean))).sort((a, b) => b! - a!),
+        units: Array.from(new Set(factors.map(f => f.unit))).sort(),
+        sourceTypes: Array.from(new Set(factors.map(f => f.source_type))),
+        continents: Array.from(new Set(factors.map(f => f.continent))).sort()
+      }
+    },
 
     // === 實用工具函數 ===
 
@@ -457,6 +581,6 @@ export function useMockData() {
      * 取得中央係數庫的係數（以引用為出發點整合）
      * 只顯示被專案使用過的係數
      */
-    getCentralLibraryFactors: (): ExtendedFactorTableItem[] => centralLibraryFactors
+    getCentralLibraryFactors: (): ExtendedFactorTableItem[] => centralLibraryFactors()
   }
 }

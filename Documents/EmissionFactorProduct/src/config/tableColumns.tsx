@@ -118,7 +118,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         type: 'text',
         formatter: (value: any, row: any) => (
           <Text fontSize="sm" color="gray.700">
-            {value || row.source || 'ecoinvent'}
+            {value || row.data?.source || row.source || 'ecoinvent'}
           </Text>
         )
       },

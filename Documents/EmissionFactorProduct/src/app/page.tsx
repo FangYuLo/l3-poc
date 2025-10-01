@@ -1,10 +1,10 @@
 'use client'
 
-import { 
-  Box, 
-  Flex, 
-  Text, 
-  Button, 
+import {
+  Box,
+  Flex,
+  Text,
+  Button,
   Spacer,
   Menu,
   MenuButton,
@@ -12,6 +12,8 @@ import {
   MenuItem,
   useDisclosure,
   Divider,
+  Slide,
+  CloseButton,
 } from '@chakra-ui/react'
 import { ChevronDownIcon, SearchIcon } from '@chakra-ui/icons'
 import { useState } from 'react'
@@ -21,7 +23,12 @@ import FactorDetail from '@/components/FactorDetail'
 import GlobalSearchModal from '@/components/GlobalSearchModal'
 import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
-import { Dataset } from '@/types/types'
+import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
+import { Dataset, ImportToCentralFormData } from '@/types/types'
+import {
+  mockProductCarbonFootprintSummaries,
+  handleImportProductToCentral
+} from '@/data/mockProjectData'
 
 // 定義節點類型介面
 interface TreeNodeProps {
@@ -30,6 +37,7 @@ interface TreeNodeProps {
   type: 'collection' | 'project' | 'emission_source' | 'product' | 'yearly_inventory'
   count?: number
   children?: TreeNodeProps[]
+  product_id?: string
 }
 
 export default function HomePage() {
@@ -37,10 +45,15 @@ export default function HomePage() {
   const { isOpen: isCompositeOpen, onOpen: onCompositeOpen, onClose: onCompositeClose } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   
-  // 新增選中節點狀態
-  const [selectedNode, setSelectedNode] = useState<TreeNodeProps | null>(null)
-  // 新增選中係數狀態
+  // 新增選中節點狀態（預設選中中央係數庫）
+  const [selectedNode, setSelectedNode] = useState<TreeNodeProps | null>({
+    id: 'favorites',
+    name: '中央係數庫',
+    type: 'collection'
+  })
+  // 新增選中係數狀態和詳情面板狀態
   const [selectedFactor, setSelectedFactor] = useState<any | null>(null)
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
   // 自建係數狀態管理
   const [userDefinedFactors, setUserDefinedFactors] = useState<any[]>([])
   
@@ -54,6 +67,12 @@ export default function HomePage() {
   // 刪除相關狀態
   const [factorToDelete, setFactorToDelete] = useState<any | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // 產品碳足跡相關狀態
+  const [productSummaries, setProductSummaries] = useState(mockProductCarbonFootprintSummaries)
+
+  // 中央係數庫更新觸發器（用於強制重新渲染）
+  const [centralLibraryUpdateKey, setCentralLibraryUpdateKey] = useState(0)
 
   // 處理節點選擇
   const handleNodeSelect = (node: TreeNodeProps) => {
@@ -77,6 +96,13 @@ export default function HomePage() {
   // 處理係數選擇
   const handleFactorSelect = (factor: any) => {
     setSelectedFactor(factor)
+    setIsDetailPanelOpen(true)
+  }
+
+  // 處理關閉詳情面板
+  const handleCloseDetailPanel = () => {
+    setIsDetailPanelOpen(false)
+    setSelectedFactor(null)
   }
 
   // 處理新組合係數儲存
@@ -185,6 +211,23 @@ export default function HomePage() {
     }
   }
 
+  // 處理產品碳足跡匯入中央庫
+  const handleImportProduct = async (productId: string, formData: ImportToCentralFormData) => {
+    try {
+      const newFactor = handleImportProductToCentral(productId, formData)
+      console.log('產品碳足跡已匯入中央庫:', newFactor)
+
+      // 重新整理產品摘要列表以反映更新
+      setProductSummaries([...mockProductCarbonFootprintSummaries])
+
+      // 觸發中央係數庫重新渲染
+      setCentralLibraryUpdateKey(prev => prev + 1)
+    } catch (error) {
+      console.error('匯入失敗:', error)
+      throw error
+    }
+  }
+
   // 確認刪除自建係數
   const handleConfirmDeleteFactor = async () => {
     if (!factorToDelete) return
@@ -223,14 +266,19 @@ export default function HomePage() {
   }
 
   // 判斷節點類型，決定要顯示哪種表格
-  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' => {
+  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' => {
     if (!node) return 'general'
-    
+
+    // 如果是專案 A 根節點，顯示專案概覽
+    if (node.id === 'project_1' && node.type === 'project') {
+      return 'project_overview'
+    }
+
     // 如果是資料集節點，返回資料集類型
     if (node.id.startsWith('dataset_')) {
       return 'dataset'
     }
-    
+
     // 如果是係數集合類型節點，返回對應的過濾類型
     if (node.type === 'collection') {
       switch (node.id) {
@@ -246,28 +294,64 @@ export default function HomePage() {
           break
       }
     }
-    
+
     // 如果是「產品碳足跡」專案或其子節點，顯示產品碳足跡表格
     if (node.name.includes('產品碳足跡') || node.name.includes('碳足跡')) {
       return 'product_carbon_footprint'
     }
-    
+
     // 檢查是否為產品節點或其排放源子節點（新的ID結構）
     if (node.id.startsWith('product_1_') || node.id.startsWith('source_1_')) {
       return 'product_carbon_footprint'
     }
-    
+
     // 如果是「組織碳盤查」專案或其子節點，顯示組織溫盤表格
     if (node.name.includes('組織碳盤查') || node.name.includes('組織盤查')) {
       return 'organizational_inventory'
     }
-    
+
     // 檢查是否為年度盤查節點或其排放源子節點（新的ID結構）
     if (node.id.startsWith('year_2_') || node.id.startsWith('source_2_')) {
       return 'organizational_inventory'
     }
-    
+
     return 'general'
+  }
+
+  // 導航到產品節點
+  const handleNavigateToProduct = (productId: string) => {
+    console.log('導航到產品:', productId)
+
+    // 根據產品 ID 找到對應的節點
+    // 這裡需要在 SidebarTree 中找到對應節點並選中
+    // 暫時只設置選中節點
+    const productNode: TreeNodeProps = {
+      id: productId,
+      name: productId.includes('product_1_1') ? '產品A1 - 智慧型手機 (2024)' :
+            productId.includes('product_1_2') ? '產品A2 - LED燈具 (2024)' :
+            productId.includes('product_1_3') ? '產品A3 - 筆記型電腦 (2024)' :
+            'PACT 產品',
+      type: productId.startsWith('pact_') ? 'collection' : 'product',
+      product_id: productId // 新增 product_id 以便傳遞給 table
+    }
+
+    setSelectedNode(productNode)
+  }
+
+  // 同步 L2 專案
+  const handleSyncL2Project = async () => {
+    console.log('開始同步 L2 專案...')
+
+    // 模擬 API 呼叫延遲
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // 在實際實作中，這裡會：
+    // 1. 呼叫 API 獲取 L2 專案最新資料
+    // 2. 更新本地專案資訊
+    // 3. 更新產品列表
+    // 4. 重新整理側邊欄計數
+
+    console.log('同步完成!')
   }
 
   // 獲取資料集包含的係數數據
@@ -346,53 +430,106 @@ export default function HomePage() {
       </Flex>
 
       {/* Main Layout */}
-      <Flex h="calc(100vh - 60px)">
-        {/* Left Sidebar */}
-        <Box 
-          w="280px" 
-          bg="sidebar.bg" 
-          borderRight="1px solid" 
-          borderColor="sidebar.border"
-          overflow="auto"
-        >
-          <SidebarTree 
-            onNodeSelect={handleNodeSelect}
-            selectedNode={selectedNode}
-            onCreateDataset={handleCreateDataset}
-            datasets={datasets}
-            userDefinedFactors={userDefinedFactors}
-          />
-        </Box>
+      <Box h="calc(100vh - 60px)" position="relative">
+        <Flex h="100%">
+          {/* Left Sidebar */}
+          <Box
+            w="280px"
+            bg="sidebar.bg"
+            borderRight="1px solid"
+            borderColor="sidebar.border"
+            overflow="auto"
+            position="relative"
+            zIndex={isDetailPanelOpen ? 0 : 1}
+          >
+            <SidebarTree
+              onNodeSelect={handleNodeSelect}
+              selectedNode={selectedNode}
+              onCreateDataset={handleCreateDataset}
+              datasets={datasets}
+              userDefinedFactors={userDefinedFactors}
+            />
+          </Box>
 
-        {/* Middle Panel */}
-        <Box flex="1" bg="white" overflow="auto">
-          <FactorTable 
-            selectedNodeType={getTableNodeType(selectedNode)}
-            selectedNode={selectedNode}
-            onFactorSelect={handleFactorSelect}
-            userDefinedFactors={userDefinedFactors}
-            onOpenComposite={onCompositeOpen}
-            datasetFactors={getDatasetFactors()}
-            onOpenGlobalSearch={handleOpenGlobalSearchForDataset}
-            onDeleteFactor={handleDeleteFactorRequest}
-          />
-        </Box>
+          {/* Middle Panel */}
+          <Box
+            flex="1"
+            bg="white"
+            overflow="auto"
+            position="relative"
+            zIndex={isDetailPanelOpen ? 0 : 1}
+          >
+            <FactorTable
+              key={centralLibraryUpdateKey}
+              selectedNodeType={getTableNodeType(selectedNode)}
+              selectedNode={selectedNode}
+              onFactorSelect={handleFactorSelect}
+              userDefinedFactors={userDefinedFactors}
+              onOpenComposite={onCompositeOpen}
+              datasetFactors={getDatasetFactors()}
+              onOpenGlobalSearch={handleOpenGlobalSearchForDataset}
+              onNavigateToProduct={handleNavigateToProduct}
+              onSyncL2Project={handleSyncL2Project}
+              productSummaries={productSummaries}
+              onImportProduct={handleImportProduct}
+            />
+          </Box>
+        </Flex>
 
-        {/* Right Panel */}
-        <Box 
-          w="420px" 
-          bg="gray.50" 
-          borderLeft="1px solid" 
-          borderColor="gray.200" 
-          overflow="auto"
-        >
-          <FactorDetail 
-            selectedFactor={selectedFactor} 
-            onEditFactor={handleEditFactor}
-            isUserDefinedFactor={selectedFactor?.source_type === 'user_defined'}
+        {/* Overlay Mask */}
+        {isDetailPanelOpen && (
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="blackAlpha.500"
+            zIndex={10}
+            onClick={handleCloseDetailPanel}
+            cursor="pointer"
           />
-        </Box>
-      </Flex>
+        )}
+
+        {/* Right Panel - Sliding Detail Panel */}
+        {isDetailPanelOpen && (
+          <Box
+            position="absolute"
+            top={0}
+            right={0}
+            w="420px"
+            h="100%"
+            bg="white"
+            borderLeft="1px solid"
+            borderColor="gray.200"
+            overflow="auto"
+            boxShadow="-2px 0 10px rgba(0,0,0,0.1)"
+            zIndex={20}
+            transform={isDetailPanelOpen ? "translateX(0)" : "translateX(100%)"}
+            transition="transform 0.3s ease-in-out"
+          >
+            {/* Close Button */}
+            <CloseButton
+              position="absolute"
+              top={4}
+              right={4}
+              zIndex={21}
+              onClick={handleCloseDetailPanel}
+              size="lg"
+              bg="gray.100"
+              _hover={{ bg: "gray.200" }}
+            />
+
+            {selectedFactor && (
+              <FactorDetail
+                selectedFactor={selectedFactor}
+                onEditFactor={handleEditFactor}
+                isUserDefinedFactor={selectedFactor?.source_type === 'user_defined'}
+              />
+            )}
+          </Box>
+        )}
+      </Box>
 
       {/* Modals & Drawers */}
       <GlobalSearchModal 
