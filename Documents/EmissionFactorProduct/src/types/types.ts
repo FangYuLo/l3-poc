@@ -320,6 +320,32 @@ export interface ProjectProductItem {
   lastUpdated: string
 }
 
+// L1 Project Info (組織碳盤查專案)
+export interface L1ProjectInfo {
+  projectId: string
+  projectName: string
+  lastImportDate: string
+  version: string
+  status: 'locked' | 'unlocked' | 'draft'
+  inventoryYearCount: number  // 盤查年度數量
+  totalScopeCount: number     // 總排放源數量
+}
+
+// Inventory Year Item (盤查年度項目)
+export interface InventoryYearItem {
+  id: string
+  year: number
+  name: string  // 例如: "2024年度盤查"
+  totalEmission: number | null  // 總排放量
+  unit: string  // kg CO₂e
+  scope1Count: number
+  scope2Count: number
+  scope3Count: number
+  projectStatus: 'locked' | 'unlocked' | 'verified' | 'draft'
+  centralLibStatus: 'imported' | 'not_imported' | 'pending'
+  lastUpdated: string
+}
+
 // Product Footprint Factor (產品碳足跡係數)
 export interface ProductFootprintFactor extends EmissionFactor {
   footprint_type: 'product_footprint'  // 標記為產品碳足跡係數

@@ -266,12 +266,17 @@ export default function HomePage() {
   }
 
   // 判斷節點類型，決定要顯示哪種表格
-  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' => {
+  const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' => {
     if (!node) return 'general'
 
-    // 如果是專案 A 根節點，顯示專案概覽
+    // 如果是 L2 專案根節點，顯示專案概覽
     if (node.id === 'project_1' && node.type === 'project') {
       return 'project_overview'
+    }
+
+    // 如果是 L1 專案根節點，顯示盤查概覽
+    if (node.id === 'project_2' && node.type === 'project') {
+      return 'inventory_overview'
     }
 
     // 如果是資料集節點，返回資料集類型
@@ -349,6 +354,39 @@ export default function HomePage() {
     // 1. 呼叫 API 獲取 L2 專案最新資料
     // 2. 更新本地專案資訊
     // 3. 更新產品列表
+    // 4. 重新整理側邊欄計數
+
+    console.log('同步完成!')
+  }
+
+  // 導航到年度盤查節點
+  const handleNavigateToYear = (yearId: string) => {
+    console.log('導航到年度盤查:', yearId)
+
+    // 根據年度 ID 找到對應的節點
+    const yearNode: TreeNodeProps = {
+      id: yearId,
+      name: yearId.includes('2024') ? '2024年度盤查' :
+            yearId.includes('2023') ? '2023年度盤查' :
+            yearId.includes('2022') ? '2022年度盤查' :
+            '年度盤查',
+      type: 'yearly_inventory'
+    }
+
+    setSelectedNode(yearNode)
+  }
+
+  // 同步 L1 專案
+  const handleSyncL1Project = async () => {
+    console.log('開始同步 L1 專案...')
+
+    // 模擬 API 呼叫延遲
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // 在實際實作中，這裡會：
+    // 1. 呼叫 API 獲取 L1 專案最新資料
+    // 2. 更新本地專案資訊
+    // 3. 更新年度盤查列表
     // 4. 重新整理側邊欄計數
 
     console.log('同步完成!')
@@ -466,6 +504,8 @@ export default function HomePage() {
               onOpenGlobalSearch={handleOpenGlobalSearchForDataset}
               onNavigateToProduct={handleNavigateToProduct}
               onSyncL2Project={handleSyncL2Project}
+              onNavigateToYear={handleNavigateToYear}
+              onSyncL1Project={handleSyncL1Project}
               productSummaries={productSummaries}
               onImportProduct={handleImportProduct}
             />

@@ -141,7 +141,7 @@ export default function ProjectOverviewView({
         <VStack align="stretch" spacing={4}>
           <Flex justify="space-between" align="center">
             <Text fontSize="2xl" fontWeight="bold" color="brand.600">
-              📊 {projectInfo.projectName}
+               {projectInfo.projectName}
             </Text>
             <Badge colorScheme={projectStatusColors[projectInfo.status]} fontSize="md" px={3} py={1}>
               {projectStatusText[projectInfo.status]}
@@ -187,7 +187,7 @@ export default function ProjectOverviewView({
               isLoading={isSyncing}
               loadingText="同步中"
             >
-              🔄 手動同步 L2 專案
+              手動同步 L2 專案
             </Button>
           </Box>
         </VStack>

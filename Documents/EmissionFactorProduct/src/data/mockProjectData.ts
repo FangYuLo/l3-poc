@@ -1290,7 +1290,9 @@ export const mockOrganizationalInventoryData: OrganizationalInventoryItem[] = [
 import {
   ProductCarbonFootprintSummary,
   L2ProjectInfo,
+  L1ProjectInfo,
   ProjectProductItem,
+  InventoryYearItem,
   ImportToCentralFormData,
   EmissionFactor,
 } from '@/types/types'
@@ -1576,3 +1578,59 @@ export const handleImportProductToCentral = (
 
   return newFactor
 }
+
+// ====== L1 組織碳盤查專案資料 ======
+
+// L1 專案概覽資訊
+export const mockL1ProjectInfo: L1ProjectInfo = {
+  projectId: 'project_2',
+  projectName: 'L1 - 組織碳盤查',
+  lastImportDate: '2024-03-15 14:30:25',
+  version: 'v2024.1',
+  status: 'locked',
+  inventoryYearCount: 3,
+  totalScopeCount: 54
+}
+
+// 盤查年度統整表
+export const mockInventoryYears: InventoryYearItem[] = [
+  {
+    id: 'year_2_2024',
+    year: 2024,
+    name: '2024年度盤查',
+    totalEmission: 458723.45,
+    unit: 'kg CO₂e',
+    scope1Count: 6,
+    scope2Count: 6,
+    scope3Count: 6,
+    projectStatus: 'locked',
+    centralLibStatus: 'imported',
+    lastUpdated: '2024-03-15'
+  },
+  {
+    id: 'year_2_2023',
+    year: 2023,
+    name: '2023年度盤查',
+    totalEmission: 442156.78,
+    unit: 'kg CO₂e',
+    scope1Count: 6,
+    scope2Count: 6,
+    scope3Count: 6,
+    projectStatus: 'locked',
+    centralLibStatus: 'imported',
+    lastUpdated: '2024-03-14'
+  },
+  {
+    id: 'year_2_2022',
+    year: 2022,
+    name: '2022年度盤查',
+    totalEmission: 421034.23,
+    unit: 'kg CO₂e',
+    scope1Count: 6,
+    scope2Count: 6,
+    scope3Count: 6,
+    projectStatus: 'locked',
+    centralLibStatus: 'not_imported',
+    lastUpdated: '2024-03-10'
+  }
+]

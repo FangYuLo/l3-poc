@@ -33,7 +33,8 @@ import { renderTableHeader, renderTableRow, renderEmptyState } from '@/utils/tab
 import { FactorTableItem } from '@/types/types'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import ProjectOverviewView from '@/components/ProjectOverviewView'
-import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts } from '@/data/mockProjectData'
+import OrganizationalInventoryOverview from '@/components/OrganizationalInventoryOverview'
+import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
 
@@ -71,7 +72,7 @@ interface TreeNodeProps {
 
 interface FactorTableProps {
   onFactorSelect?: (factor: FactorTableItem) => void
-  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' // 新增專案概覽類型
+  selectedNodeType?: 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' // 新增盤查概覽類型
   selectedNode?: TreeNodeProps | null // 新增：選中的節點資訊
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
@@ -79,6 +80,8 @@ interface FactorTableProps {
   onOpenGlobalSearch?: () => void // 新增開啟全庫搜尋的回調
   onNavigateToProduct?: (productId: string) => void // 新增導航到產品的回調
   onSyncL2Project?: () => Promise<void> // 新增同步 L2 專案的回調
+  onNavigateToYear?: (yearId: string) => void // 新增導航到年度盤查的回調
+  onSyncL1Project?: () => Promise<void> // 新增同步 L1 專案的回調
   productSummaries?: any[] // 產品碳足跡摘要列表
   onImportProduct?: (productId: string, formData: any) => Promise<void> // 匯入產品到中央庫
 }
@@ -93,6 +96,8 @@ export default function FactorTable({
   onOpenGlobalSearch,
   onNavigateToProduct,
   onSyncL2Project,
+  onNavigateToYear,
+  onSyncL1Project,
   productSummaries = [],
   onImportProduct
 }: FactorTableProps) {
@@ -519,7 +524,7 @@ export default function FactorTable({
   }
 
 
-  // 如果是專案概覽視圖，渲染專案概覽元件
+  // 如果是 L2 專案概覽視圖，渲染專案概覽元件
   if (selectedNodeType === 'project_overview') {
     return (
       <ProjectOverviewView
@@ -527,6 +532,18 @@ export default function FactorTable({
         products={mockProjectProducts}
         onNavigateToProduct={onNavigateToProduct}
         onSyncL2Project={onSyncL2Project}
+      />
+    )
+  }
+
+  // 如果是 L1 盤查概覽視圖，渲染盤查概覽元件
+  if (selectedNodeType === 'inventory_overview') {
+    return (
+      <OrganizationalInventoryOverview
+        projectInfo={mockL1ProjectInfo}
+        inventoryYears={mockInventoryYears}
+        onNavigateToYear={onNavigateToYear}
+        onSyncL1Project={onSyncL1Project}
       />
     )
   }
