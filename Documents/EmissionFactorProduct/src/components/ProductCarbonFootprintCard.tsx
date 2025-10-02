@@ -53,7 +53,7 @@ export default function ProductCarbonFootprintCard({
       <Flex justify="space-between" align="center" mb={4}>
         <HStack spacing={3}>
           <Text fontSize="xl" fontWeight="bold" color="brand.600">
-            ⭐ 產品碳足跡計算結果
+             產品碳足跡計算結果
           </Text>
           <Badge
             colorScheme={summary.isImported ? 'green' : 'gray'}

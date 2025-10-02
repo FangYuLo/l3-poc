@@ -126,17 +126,17 @@ export default function OrganizationalInventoryOverview({
     <Box h="100%" display="flex" flexDirection="column" p={6}>
       {/* 專案資訊卡片 */}
       <Box
-        bg="green.50"
+        bg="gray.50"
         border="1px solid"
-        borderColor="green.200"
+        borderColor="gray.200"
         borderRadius="lg"
         p={6}
         mb={6}
       >
         <VStack align="stretch" spacing={4}>
           <Flex justify="space-between" align="center">
-            <Text fontSize="2xl" fontWeight="bold" color="green.600">
-              🏢 {projectInfo.projectName}
+            <Text fontSize="2xl" fontWeight="bold" color="black">
+               {projectInfo.projectName}
             </Text>
             <Badge colorScheme={projectStatusColors[projectInfo.status]} fontSize="md" px={3} py={1}>
               {projectStatusText[projectInfo.status]}
@@ -182,7 +182,10 @@ export default function OrganizationalInventoryOverview({
           <Box>
             <Button
               leftIcon={isSyncing ? <Spinner size="sm" /> : <RepeatIcon />}
-              colorScheme="green"
+              bg="black"
+              color="white"
+              _hover={{ bg: 'gray.800' }}
+              _active={{ bg: 'gray.900' }}
               onClick={handleSync}
               isLoading={isSyncing}
               loadingText="同步中"

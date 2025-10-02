@@ -188,7 +188,18 @@ function TreeNode({
 
         {getIcon()}
 
-        <Text fontSize="sm" flex="1" fontWeight={isSelected ? 'medium' : 'normal'}>
+        <Text
+          fontSize="sm"
+          flex="1"
+          fontWeight={isSelected ? 'medium' : 'normal'}
+          color={
+            (name === 'L2 - 產品碳足跡' || name === 'L1 - 組織碳盤查') && !isSelected
+              ? 'black'
+              : isSelected
+              ? 'white'
+              : 'gray.700'
+          }
+        >
           {name}
         </Text>
 
@@ -426,7 +437,13 @@ export default function SidebarTree({
           </Text>
           <Box as="span" fontSize="sm">⌄</Box>
         </HStack>
-        <Box as="span" fontSize="lg" cursor="pointer" color="gray.600">
+        <Box
+          as="span"
+          fontSize="lg"
+          cursor="pointer"
+          color="gray.600"
+          onClick={() => setIsDatasetModalOpen(true)}
+        >
           +
         </Box>
       </Flex>
