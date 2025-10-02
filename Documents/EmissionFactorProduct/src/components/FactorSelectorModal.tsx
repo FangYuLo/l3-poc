@@ -296,11 +296,24 @@ export default function FactorSelectorModal({
     return factors
   }, [searchTerm, selectedRegions, selectedSourceTypes, selectedUnits, activeTab, excludeIds])
 
-  // 已選擇的係數
+  // 已選擇的係數 - 使用 Map 去重，避免重複顯示
   const selectedFactors = useMemo(() => {
-    const allFactors = [...localFactors, ...globalFactors]
+    const factorMap = new Map<number, UnifiedFactor>()
+
+    // 優先使用 local (中央係數庫) 版本
+    localFactors.forEach(f => factorMap.set(f.id, f))
+
+    // global (全庫搜尋) 只加入不存在的係數
+    globalFactorsData.forEach(f => {
+      if (!factorMap.has(f.id)) {
+        factorMap.set(f.id, f)
+      }
+    })
+
+    // 從去重後的 Map 中篩選出已選擇的係數
+    const allFactors = Array.from(factorMap.values())
     return allFactors.filter(factor => selectedFactorIds.includes(factor.id))
-  }, [selectedFactorIds])
+  }, [selectedFactorIds, localFactors, globalFactorsData])
 
   // 篩選選項
   const filterOptions = useMemo(() => {

@@ -439,24 +439,14 @@ export default function HomePage() {
   // 獲取資料集包含的係數數據
   const getDatasetFactors = () => {
     if (!currentDataset) return []
-    
-    // 這裡應該根據資料集中的 factorIds 來獲取實際的係數數據
-    // 目前使用 mock 數據示例
-    const factors = currentDataset.factorIds.map(id => ({
-      id,
-      type: 'emission_factor' as const,
-      name: `係數 ${id}`,
-      value: Math.random() * 10,
-      unit: 'kg CO₂/單位',
-      year: 2024,
-      region: '台灣',
-      source_type: 'standard' as const,
-      method_gwp: 'GWP100',
-      version: '1.0',
-      data: { id, name: `係數 ${id}` }
-    }))
-    
-    return factors
+
+    // 從 mockData 獲取所有係數
+    const allFactors = mockData.getAllFactorItems()
+
+    // 根據資料集的 factorIds 篩選出對應的真實係數
+    return allFactors.filter(factor =>
+      currentDataset.factorIds.includes(factor.id)
+    )
   }
 
   return (
