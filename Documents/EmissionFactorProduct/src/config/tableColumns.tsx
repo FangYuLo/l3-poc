@@ -628,7 +628,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
   global_search: {
     folderType: 'global_search',
     displayName: '全庫搜尋',
-    searchPlaceholder: '搜尋關鍵字...',
+    searchPlaceholder: '搜尋係數名稱、單位或地區...',
     columns: [
       {
         key: 'name',
@@ -643,50 +643,52 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       },
       {
         key: 'value',
-        label: '值',
-        width: '12%',
+        label: '排放係數',
+        width: '15%',
         type: 'custom',
         isNumeric: true,
+        formatter: (value: any, row: any) => renderEmissionValue(value, row.unit)
+      },
+      {
+        key: 'region',
+        label: '國家/區域',
+        width: '12%',
+        type: 'text',
         formatter: (value: any) => (
-          <Text fontSize="sm" fontFamily="mono">
-            {formatNumber(value)}
+          <Text fontSize="sm" color="gray.700">
+            {value || '台灣'}
           </Text>
         )
       },
       {
-        key: 'unit',
-        label: '單位',
-        width: '12%',
+        key: 'source_ref',
+        label: '係數來源',
+        width: '15%',
         type: 'text',
-        formatter: (value: any) => (
-          <Text fontSize="sm">{value}</Text>
+        formatter: (value: any, row: any) => (
+          <Text fontSize="sm" color="gray.700">
+            {value || row.data?.source || row.source || 'ecoinvent'}
+          </Text>
         )
       },
       {
-        key: 'year',
-        label: '年份',
-        width: '8%',
-        type: 'text',
-        formatter: (value: any) => (
-          <Text fontSize="sm">{value || '-'}</Text>
-        )
-      },
-      {
-        key: 'region',
-        label: '地區',
-        width: '12%',
-        type: 'text',
-        formatter: (value: any) => (
-          <Text fontSize="sm">{value || '-'}</Text>
-        )
-      },
-      {
-        key: 'source_type',
-        label: '來源',
-        width: '12%',
+        key: 'quality_label',
+        label: '標籤',
+        width: '10%',
         type: 'custom',
         formatter: (_value: any, row: any) => renderQualityBadge(row)
       },
+      {
+        key: 'usage_projects',
+        label: '引用專案',
+        width: '20%',
+        type: 'custom',
+        formatter: (_value: any, row: any) => (
+          <Text fontSize="xs" color="gray.500" noOfLines={2}>
+            {row.usageText || '未被使用'}
+          </Text>
+        )
+      }
     ]
   }
 }

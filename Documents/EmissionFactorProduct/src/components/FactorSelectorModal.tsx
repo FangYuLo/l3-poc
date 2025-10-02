@@ -57,6 +57,8 @@ interface FactorSelectorModalProps {
   onConfirm: (selectedFactors: UnifiedFactor[]) => void
   excludeIds?: number[]
   targetUnit?: string
+  centralFactors?: UnifiedFactor[] // 中央係數庫資料
+  globalFactors?: UnifiedFactor[] // 全庫搜尋資料
 }
 
 interface UnifiedFactor {
@@ -79,17 +81,19 @@ export default function FactorSelectorModal({
   onClose,
   onConfirm,
   excludeIds = [],
-  targetUnit
+  targetUnit,
+  centralFactors = [],
+  globalFactors = []
 }: FactorSelectorModalProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedFactorIds, setSelectedFactorIds] = useState<number[]>([])
   const [selectedRegions, setSelectedRegions] = useState<string[]>([])
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
   const [selectedUnits, setSelectedUnits] = useState<string[]>([])
-  const [activeTab, setActiveTab] = useState(0) // 0: 本地, 1: 全庫, 2: 全部
+  const [activeTab, setActiveTab] = useState(0) // 0: 中央係數庫, 1: 全庫搜尋, 2: 全部
 
-  // 本地係數數據 (來自 FactorTable)
-  const localFactors: UnifiedFactor[] = [
+  // 使用傳入的真實資料，如果沒有則使用預設 mock data
+  const localFactorsMock: UnifiedFactor[] = [
     {
       id: 1,
       type: 'emission_factor',
@@ -170,8 +174,8 @@ export default function FactorSelectorModal({
     }
   ]
 
-  // 全庫搜尋係數數據 (來自 GlobalSearchModal)
-  const globalFactors: UnifiedFactor[] = [
+  // 全庫搜尋係數數據 mock data
+  const globalFactorsMock: UnifiedFactor[] = [
     {
       id: 1001,
       type: 'emission_factor',
@@ -244,12 +248,16 @@ export default function FactorSelectorModal({
     }
   ]
 
+  // 使用傳入的真實資料，若無則使用 mock data
+  const localFactors = centralFactors.length > 0 ? centralFactors : localFactorsMock
+  const globalFactorsData = globalFactors.length > 0 ? globalFactors : globalFactorsMock
+
   // 獲取當前標籤的數據
   const getCurrentTabData = () => {
     switch (activeTab) {
       case 0: return localFactors
-      case 1: return globalFactors  
-      case 2: return [...localFactors, ...globalFactors]
+      case 1: return globalFactorsData
+      case 2: return [...localFactors, ...globalFactorsData]
       default: return localFactors
     }
   }
@@ -362,22 +370,22 @@ export default function FactorSelectorModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl">
       <ModalOverlay />
-      <ModalContent maxH="90vh">
+      <ModalContent maxH="90vh" maxW="90vw">
         <ModalHeader>選擇排放係數</ModalHeader>
         <ModalCloseButton />
         
-        <ModalBody pb={6}>
+        <ModalBody pb={6} overflow="hidden">
           <VStack spacing={4} align="stretch" h="70vh">
             {/* 標籤切換 */}
-            <Tabs index={activeTab} onChange={setActiveTab}>
+            <Tabs index={activeTab} onChange={setActiveTab} display="flex" flexDirection="column" h="100%">
               <TabList>
-                <Tab>本地係數 ({localFactors.length})</Tab>
-                <Tab>全庫搜尋 (89,432)</Tab>
-                <Tab>全部 ({localFactors.length + globalFactors.length})</Tab>
+                <Tab>中央係數庫 ({localFactors.length})</Tab>
+                <Tab>全庫搜尋 ({globalFactorsData.length})</Tab>
+                <Tab>全部 ({localFactors.length + globalFactorsData.length})</Tab>
               </TabList>
 
               {/* 搜尋和篩選區 */}
-              <Box py={4}>
+              <Box py={4} flexShrink={0}>
                 <HStack spacing={4} mb={4}>
                   <InputGroup flex={1}>
                     <InputLeftElement>
@@ -417,24 +425,24 @@ export default function FactorSelectorModal({
                 </HStack>
               </Box>
 
-              <HStack spacing={6} align="start" flex={1}>
+              <HStack spacing={6} align="stretch" flex={1} overflow="hidden">
                 {/* 左側：篩選面板 */}
-                <Box w="250px" h="100%" overflow="auto" borderRight="1px solid" borderColor="gray.200" pr={4}>
+                <Box w="250px" overflowY="auto" borderRight="1px solid" borderColor="gray.200" pr={4}>
                   <Accordion allowMultiple defaultIndex={[0, 1]}>
                     {/* 地區篩選 */}
-                    <AccordionItem>
+                    <AccordionItem border="none">
                       <AccordionButton px={0}>
                         <Box flex="1" textAlign="left">
                           <Text fontSize="sm" fontWeight="medium">地區</Text>
                         </Box>
                         <AccordionIcon />
                       </AccordionButton>
-                      <AccordionPanel px={0}>
+                      <AccordionPanel px={0} pb={4}>
                         <CheckboxGroup
                           value={selectedRegions}
                           onChange={(value) => setSelectedRegions(value as string[])}
                         >
-                          <VStack align="start" spacing={1}>
+                          <VStack align="start" spacing={2} maxH="250px" overflowY="auto">
                             {filterOptions.regions.map((region) => (
                               <Checkbox key={region} value={region} size="sm">
                                 {region}
@@ -446,19 +454,19 @@ export default function FactorSelectorModal({
                     </AccordionItem>
 
                     {/* 單位篩選 */}
-                    <AccordionItem>
+                    <AccordionItem border="none">
                       <AccordionButton px={0}>
                         <Box flex="1" textAlign="left">
                           <Text fontSize="sm" fontWeight="medium">單位</Text>
                         </Box>
                         <AccordionIcon />
                       </AccordionButton>
-                      <AccordionPanel px={0}>
+                      <AccordionPanel px={0} pb={4}>
                         <CheckboxGroup
                           value={selectedUnits}
                           onChange={(value) => setSelectedUnits(value as string[])}
                         >
-                          <VStack align="start" spacing={1}>
+                          <VStack align="start" spacing={2} maxH="250px" overflowY="auto">
                             {filterOptions.units.map((unit) => (
                               <Checkbox key={unit} value={unit} size="sm">
                                 {unit}
@@ -472,10 +480,10 @@ export default function FactorSelectorModal({
                 </Box>
 
                 {/* 中間：係數列表 */}
-                <Box flex={1} h="100%" overflow="auto">
+                <Box flex={1} overflowY="auto">
                   <Text fontSize="sm" color="gray.600" mb={3}>
                     找到 {filteredFactors.length} 筆係數
-                    {activeTab === 2 && ` (本地 ${localFactors.filter(f => !excludeIds.includes(f.id)).length} + 全庫 ${globalFactors.length})`}
+                    {activeTab === 2 && ` (中央係數庫 ${localFactors.filter(f => !excludeIds.includes(f.id)).length} + 全庫 ${globalFactorsData.length})`}
                   </Text>
                   
                   <Table size="sm" variant="simple">
@@ -549,7 +557,7 @@ export default function FactorSelectorModal({
                 </Box>
 
                 {/* 右側：已選係數 */}
-                <Box w="300px" h="100%" overflow="auto" borderLeft="1px solid" borderColor="gray.200" pl={4}>
+                <Box w="300px" overflowY="auto" borderLeft="1px solid" borderColor="gray.200" pl={4}>
                   <HStack justify="space-between" mb={3}>
                     <Text fontSize="sm" fontWeight="medium">
                       已選係數 ({selectedFactors.length})

@@ -25,11 +25,13 @@ import FactorDetail from '@/components/FactorDetail'
 import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
+import FactorSelectorModal from '@/components/FactorSelectorModal'
 import { Dataset, ImportToCentralFormData } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
   handleImportProductToCentral
 } from '@/data/mockProjectData'
+import { useMockData } from '@/hooks/useMockData'
 
 // 定義節點類型介面
 interface TreeNodeProps {
@@ -44,6 +46,10 @@ interface TreeNodeProps {
 export default function HomePage() {
   const { isOpen: isCompositeOpen, onOpen: onCompositeOpen, onClose: onCompositeClose } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
+  const { isOpen: isFactorSelectorOpen, onOpen: onFactorSelectorOpen, onClose: onFactorSelectorClose } = useDisclosure()
+
+  // 使用 mock data hook 獲取真實資料
+  const mockData = useMockData()
   
   // 新增選中節點狀態（預設選中中央係數庫）
   const [selectedNode, setSelectedNode] = useState<TreeNodeProps | null>({
@@ -160,12 +166,47 @@ export default function HomePage() {
   }
 
   // 處理開啟全庫搜尋（用於資料集）- 改為導航到全庫搜尋節點
-  const handleOpenGlobalSearchForDataset = () => {
-    setSelectedNode({
-      id: 'global_search',
-      name: '全庫搜尋',
-      type: 'collection'
-    })
+  // 打開係數選擇器 Modal（用於資料集新增係數）
+  const handleOpenFactorSelector = () => {
+    onFactorSelectorOpen()
+  }
+
+  // 處理批次加入係數到資料集
+  const handleBatchAddToDataset = (selectedFactors: any[]) => {
+    if (!currentDataset) {
+      console.warn('沒有選中的資料集')
+      return
+    }
+
+    // 提取選中係數的 ID
+    const newFactorIds = selectedFactors.map(f => f.id)
+
+    // 過濾掉已存在的係數 ID
+    const uniqueNewIds = newFactorIds.filter(id => !currentDataset.factorIds.includes(id))
+
+    if (uniqueNewIds.length === 0) {
+      console.log('所有選中的係數都已存在於資料集中')
+      return
+    }
+
+    // 更新資料集
+    const updatedDataset = {
+      ...currentDataset,
+      factorIds: [...currentDataset.factorIds, ...uniqueNewIds],
+      updated_at: new Date().toISOString()
+    }
+
+    setDatasets(prev =>
+      prev.map(dataset =>
+        dataset.id === currentDataset.id ? updatedDataset : dataset
+      )
+    )
+    setCurrentDataset(updatedDataset)
+
+    console.log(`批次加入 ${uniqueNewIds.length} 個係數到資料集:`, updatedDataset.name)
+
+    // 關閉 Modal
+    onFactorSelectorClose()
   }
 
   // 處理編輯自建係數
@@ -592,7 +633,7 @@ export default function HomePage() {
               userDefinedFactors={userDefinedFactors}
               onOpenComposite={onCompositeOpen}
               datasetFactors={getDatasetFactors()}
-              onOpenGlobalSearch={handleOpenGlobalSearchForDataset}
+              onOpenGlobalSearch={handleOpenFactorSelector}
               onNavigateToProduct={handleNavigateToProduct}
               onSyncL2Project={handleSyncL2Project}
               onNavigateToYear={handleNavigateToYear}
@@ -674,6 +715,42 @@ export default function HomePage() {
         factorType={factorToDelete?.type || 'emission_factor'}
         usageInfo={factorToDelete ? getFactorUsageInfo(factorToDelete.id) : undefined}
         isLoading={isDeleting}
+      />
+
+      {/* Factor Selector Modal */}
+      <FactorSelectorModal
+        isOpen={isFactorSelectorOpen}
+        onClose={onFactorSelectorClose}
+        onConfirm={handleBatchAddToDataset}
+        centralFactors={mockData.getCentralLibraryFactors().map(f => ({
+          id: f.id,
+          type: 'emission_factor' as const,
+          name: f.name,
+          value: f.value,
+          unit: f.unit,
+          year: f.year,
+          region: f.region || '台灣',
+          method_gwp: f.method_gwp || 'GWP100',
+          source_type: f.source_type || 'standard',
+          source_ref: f.source_ref || 'ecoinvent',
+          version: f.version,
+          dataSource: 'local' as const
+        }))}
+        globalFactors={mockData.getAllFactorItems().map(f => ({
+          id: f.id,
+          type: 'emission_factor' as const,
+          name: f.name,
+          value: f.value,
+          unit: f.unit,
+          year: f.year,
+          region: f.region || '台灣',
+          method_gwp: f.method_gwp || 'GWP100',
+          source_type: f.source_type || 'standard',
+          source_ref: f.source_ref || 'ecoinvent',
+          version: f.version,
+          dataSource: 'global' as const
+        }))}
+        excludeIds={currentDataset?.factorIds || []}
       />
     </Box>
   )
