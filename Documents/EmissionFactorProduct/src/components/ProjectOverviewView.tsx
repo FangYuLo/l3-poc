@@ -160,13 +160,6 @@ export default function ProjectOverviewView({
 
             <VStack align="start" spacing={1}>
               <Text fontSize="sm" color="gray.600">
-                目前版本
-              </Text>
-              <Badge colorScheme="blue">{projectInfo.version}</Badge>
-            </VStack>
-
-            <VStack align="start" spacing={1}>
-              <Text fontSize="sm" color="gray.600">
                 已匯入中央庫
               </Text>
               <Text fontWeight="medium">

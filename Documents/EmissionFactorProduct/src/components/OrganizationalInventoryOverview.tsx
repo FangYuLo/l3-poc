@@ -91,9 +91,6 @@ export default function OrganizationalInventoryOverview({
 
   // 計算統計
   const importedCount = inventoryYears.filter((y) => y.centralLibStatus === 'imported').length
-  const totalScope1 = inventoryYears.reduce((sum, y) => sum + y.scope1Count, 0)
-  const totalScope2 = inventoryYears.reduce((sum, y) => sum + y.scope2Count, 0)
-  const totalScope3 = inventoryYears.reduce((sum, y) => sum + y.scope3Count, 0)
 
   // 處理同步
   const handleSync = async () => {
@@ -155,26 +152,10 @@ export default function OrganizationalInventoryOverview({
 
             <VStack align="start" spacing={1}>
               <Text fontSize="sm" color="gray.600">
-                目前版本
-              </Text>
-              <Badge colorScheme="green">{projectInfo.version}</Badge>
-            </VStack>
-
-            <VStack align="start" spacing={1}>
-              <Text fontSize="sm" color="gray.600">
                 已匯入中央庫
               </Text>
               <Text fontWeight="medium">
                 {importedCount} / {inventoryYears.length} 年度
-              </Text>
-            </VStack>
-
-            <VStack align="start" spacing={1}>
-              <Text fontSize="sm" color="gray.600">
-                排放源統計
-              </Text>
-              <Text fontWeight="medium" fontSize="sm">
-                Scope 1: {totalScope1} | Scope 2: {totalScope2} | Scope 3: {totalScope3}
               </Text>
             </VStack>
           </Flex>

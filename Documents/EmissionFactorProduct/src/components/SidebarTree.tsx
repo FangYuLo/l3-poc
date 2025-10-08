@@ -304,7 +304,7 @@ export default function SidebarTree({
       children: [
         {
           id: 'supplier',
-          name: '供應商係數',
+          name: 'L4 - 供應商係數',
           type: 'collection',
           count: collectionCounts.supplier,
         },
