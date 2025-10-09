@@ -33,7 +33,7 @@ export const qualityBadgeConfig = {
 } as const
 
 // 渲染品質標籤
-export const renderQualityBadge = (row: any) => {
+export const renderQualityBadge = (row: any, folderType?: string) => {
   let badgeType: keyof typeof qualityBadgeConfig = 'Standard'
 
   // 根據資料夾類型和係數屬性決定標籤
@@ -46,6 +46,11 @@ export const renderQualityBadge = (row: any) => {
   } else if (row.data_quality === 'Primary') {
     badgeType = 'Primary'
   } else if (row.data_quality === 'Secondary') {
+    badgeType = 'Secondary'
+  }
+
+  // 希達係數庫中的STANDARD標籤都改為SECONDARY
+  if (folderType === 'global_search' && badgeType === 'Standard') {
     badgeType = 'Secondary'
   }
 
@@ -124,7 +129,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       },
       {
         key: 'quality_label',
-        label: '標籤',
+        label: '數據品質',
         width: '10%',
         type: 'custom',
         formatter: (value: any, row: any) => renderQualityBadge(row)
@@ -624,10 +629,10 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
     ]
   },
 
-  // 全庫搜尋
+  // 希達係數庫
   global_search: {
     folderType: 'global_search',
-    displayName: '全庫搜尋',
+    displayName: '希達係數庫',
     searchPlaceholder: '搜尋係數名稱、單位或地區...',
     columns: [
       {
@@ -673,10 +678,10 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       },
       {
         key: 'quality_label',
-        label: '標籤',
+        label: '數據品質',
         width: '10%',
         type: 'custom',
-        formatter: (_value: any, row: any) => renderQualityBadge(row)
+        formatter: (_value: any, row: any) => renderQualityBadge(row, 'global_search')
       },
       {
         key: 'usage_projects',

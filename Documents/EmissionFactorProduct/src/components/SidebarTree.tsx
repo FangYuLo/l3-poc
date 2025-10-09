@@ -134,7 +134,7 @@ function TreeNode({
     switch (type) {
       case 'collection':
         if (name.includes('中央係數庫')) return <LightbulbIcon />
-        if (name.includes('全庫搜尋')) return <SearchIcon />
+        if (name.includes('希達係數庫')) return <SearchIcon />
         if (name.includes('自建')) return <StarIcon />
         if (name.includes('供應商')) return <PersonIcon />
         if (name.includes('PACT')) return <FolderIcon />
@@ -279,14 +279,12 @@ export default function SidebarTree({
       name: '中央係數庫',
       type: 'collection',
       count: collectionCounts.favorites,
-      children: [
-        {
-          id: 'global_search',
-          name: '全庫搜尋',
-          type: 'collection',
-          count: mockData.getAllFactorItems().length,
-        },
-      ],
+    },
+    {
+      id: 'global_search',
+      name: '希達係數庫',
+      type: 'collection',
+      count: mockData.getAllFactorItems().length,
     },
     {
       id: 'user_defined',
