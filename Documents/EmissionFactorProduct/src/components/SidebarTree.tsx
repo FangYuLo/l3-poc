@@ -314,7 +314,7 @@ export default function SidebarTree({
     },
     {
       id: 'projects',
-      name: '專案',
+      name: '引用係數',
       type: 'collection',
       isExpanded: true,
       isContainerOnly: true, // 新增：標記為僅容器節點
