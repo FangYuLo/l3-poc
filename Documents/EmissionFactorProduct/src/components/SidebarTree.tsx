@@ -4,7 +4,6 @@ import {
   Box,
   Text,
   VStack,
-  HStack,
   IconButton,
   Flex,
   Badge,
@@ -26,6 +25,7 @@ interface TreeNodeProps {
   type: 'collection' | 'project' | 'emission_source' | 'product' | 'yearly_inventory'
   count?: number
   children?: TreeNodeProps[]
+  isContainerOnly?: boolean // 新增：標記為僅容器節點（不可選擇，僅展開/收起）
   isSelected?: boolean
   isExpanded?: boolean
   onSelect?: (node: TreeNodeProps) => void
@@ -41,6 +41,7 @@ function TreeNode({
   type,
   count,
   children,
+  isContainerOnly, // 新增參數
   isSelected,
   isExpanded,
   onSelect,
@@ -164,7 +165,15 @@ function TreeNode({
         _hover={{ bg: isSelected ? 'gray.800' : 'gray.100' }}
         borderRadius={isSelected ? 'md' : 'none'}
         mx={isSelected ? 3 : 0}
-        onClick={() => onSelect?.({ id, name, type, count, children })}
+        onClick={() => {
+          // 容器型節點：只切換展開狀態，不觸發選擇
+          if (hasChildren && isContainerOnly) {
+            onToggle?.(id)
+          } else {
+            // 其他節點：正常觸發選擇
+            onSelect?.({ id, name, type, count, children, isContainerOnly })
+          }
+        }}
         align="center"
         minH="40px"
       >
@@ -257,7 +266,7 @@ export default function SidebarTree({
   datasets = [],
   userDefinedFactors = []
 }: SidebarTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['favorites', 'projects', 'project_1', 'project_2']))
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['factor_folders', 'projects', 'project_1', 'project_2']))
   const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false)
 
   // 使用統一的資料管理
@@ -275,30 +284,40 @@ export default function SidebarTree({
   // 樹狀資料 - 使用真實的係數數量
   const treeData: TreeNodeProps[] = [
     {
-      id: 'favorites',
-      name: '中央係數庫',
+      id: 'factor_folders',
+      name: '係數資料夾',
       type: 'collection',
-      count: collectionCounts.favorites,
+      isExpanded: true,
+      isContainerOnly: true, // 標記為僅容器節點
+      children: [
+        {
+          id: 'favorites',
+          name: '中央係數庫',
+          type: 'collection',
+          count: collectionCounts.favorites,
+        },
+        {
+          id: 'global_search',
+          name: '希達係數庫',
+          type: 'collection',
+          count: mockData.getAllFactorItems().length,
+        },
+        {
+          id: 'user_defined',
+          name: '自建係數',
+          type: 'collection',
+          count: userDefinedFactors.length,
+        },
+        // 插入資料集節點作為子節點
+        ...datasetNodes,
+      ],
     },
-    {
-      id: 'global_search',
-      name: '希達係數庫',
-      type: 'collection',
-      count: mockData.getAllFactorItems().length,
-    },
-    {
-      id: 'user_defined',
-      name: '自建係數',
-      type: 'collection',
-      count: userDefinedFactors.length,
-    },
-    // 直接插入資料集節點，不需要父層級
-    ...datasetNodes,
     {
       id: 'projects',
       name: '專案',
       type: 'collection',
       isExpanded: true,
+      isContainerOnly: true, // 新增：標記為僅容器節點
       children: [
         {
           id: 'supplier',
@@ -428,13 +447,9 @@ export default function SidebarTree({
     <Box h="100%" overflow="auto" bg="gray.50">
       {/* Header */}
       <Flex justify="space-between" align="center" p={4} borderBottom="1px solid" borderColor="gray.200">
-        <HStack>
-          <Box as="span" fontSize="md">☰</Box>
-          <Text fontSize="sm" fontWeight="medium" color="gray.800">
-            係數資料夾
-          </Text>
-          <Box as="span" fontSize="sm">⌄</Box>
-        </HStack>
+        <Text fontSize="sm" fontWeight="medium" color="gray.800">
+          係數管理
+        </Text>
         <Box
           as="span"
           fontSize="lg"
