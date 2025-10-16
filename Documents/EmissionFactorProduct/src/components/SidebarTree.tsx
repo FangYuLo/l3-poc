@@ -8,7 +8,9 @@ import {
   Flex,
   Badge,
   Collapse,
+  Button,
 } from '@chakra-ui/react'
+import { AddIcon } from '@chakra-ui/icons'
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -33,6 +35,8 @@ interface TreeNodeProps {
   level?: number
   selectedNodeId?: string
   expandedNodes?: Set<string>
+  onOpenFormulaBuilder?: () => void // 新增
+  onOpenComposite?: () => void // 新增
 }
 
 function TreeNode({
@@ -48,9 +52,12 @@ function TreeNode({
   onToggle,
   level = 0,
   selectedNodeId,
-  expandedNodes
+  expandedNodes,
+  onOpenFormulaBuilder,
+  onOpenComposite
 }: TreeNodeProps) {
   const hasChildren = children && children.length > 0
+  const shouldShowToggle = hasChildren || id === 'user_defined' // 自建係數節點也要顯示展開箭頭
   const indent = level * 20
 
   // Custom SVG Icons matching the design style
@@ -177,7 +184,7 @@ function TreeNode({
         align="center"
         minH="40px"
       >
-        {hasChildren ? (
+        {shouldShowToggle ? (
           <IconButton
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             size="xs"
@@ -228,9 +235,42 @@ function TreeNode({
         )}
       </Flex>
 
-      {hasChildren && (
+      {(hasChildren || id === 'user_defined') && (
         <Collapse in={isExpanded}>
           <VStack spacing={0} align="stretch">
+            {/* 如果是「自建係數」節點，顯示按鈕 */}
+            {id === 'user_defined' && (
+              <Box pl={(level + 1) * 20 + 'px'} pr={4} py={2}>
+                <VStack spacing={2} align="stretch">
+                  <Button
+                    size="sm"
+                    leftIcon={<AddIcon boxSize={3} />}
+                    colorScheme="blue"
+                    variant="ghost"
+                    justifyContent="flex-start"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenComposite?.()
+                    }}
+                  >
+                    自建組合係數
+                  </Button>
+                  <Button
+                    size="sm"
+                    leftIcon={<AddIcon boxSize={3} />}
+                    colorScheme="green"
+                    variant="ghost"
+                    justifyContent="flex-start"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenFormulaBuilder?.()
+                    }}
+                  >
+                    自建係數
+                  </Button>
+                </VStack>
+              </Box>
+            )}
             {children?.map((child) => (
               <TreeNode
                 key={child.id}
@@ -242,6 +282,8 @@ function TreeNode({
                 level={level + 1}
                 selectedNodeId={selectedNodeId}
                 expandedNodes={expandedNodes}
+                onOpenFormulaBuilder={onOpenFormulaBuilder}
+                onOpenComposite={onOpenComposite}
               />
             ))}
           </VStack>
@@ -257,6 +299,8 @@ interface SidebarTreeProps {
   onCreateDataset?: (datasetData: Omit<Dataset, 'id' | 'created_at' | 'updated_at'>) => void
   datasets?: Dataset[]
   userDefinedFactors?: any[] // 用戶自建係數列表
+  onOpenFormulaBuilder?: () => void // 新增：開啟公式建構器回調
+  onOpenComposite?: () => void // 新增：開啟組合係數編輯器回調
 }
 
 export default function SidebarTree({
@@ -264,9 +308,11 @@ export default function SidebarTree({
   selectedNode,
   onCreateDataset,
   datasets = [],
-  userDefinedFactors = []
+  userDefinedFactors = [],
+  onOpenFormulaBuilder,
+  onOpenComposite
 }: SidebarTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['factor_folders', 'projects', 'project_1', 'project_2']))
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['factor_folders', 'user_defined', 'projects', 'project_1', 'project_2']))
   const [isDatasetModalOpen, setIsDatasetModalOpen] = useState(false)
 
   // 使用統一的資料管理
@@ -307,6 +353,7 @@ export default function SidebarTree({
           name: '自建係數',
           type: 'collection',
           count: userDefinedFactors.length,
+          children: [], // 添加空的 children 數組，讓節點可展開
         },
         // 插入資料集節點作為子節點
         ...datasetNodes,
@@ -473,6 +520,8 @@ export default function SidebarTree({
             onToggle={handleNodeToggle}
             selectedNodeId={selectedNode?.id}
             expandedNodes={expandedNodes}
+            onOpenFormulaBuilder={onOpenFormulaBuilder}
+            onOpenComposite={onOpenComposite}
           />
         ))}
       </Box>

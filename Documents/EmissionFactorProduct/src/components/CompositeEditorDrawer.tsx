@@ -37,6 +37,11 @@ import {
   Card,
   CardBody,
   useToast,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from '@chakra-ui/react'
 import {
   DeleteIcon,
@@ -46,6 +51,7 @@ import {
 import { useState } from 'react'
 import { formatNumber } from '@/lib/utils'
 import FactorSelectorModal from './FactorSelectorModal'
+import FormulaBuilderContent from './formula-builder/FormulaBuilderContent'
 
 interface CompositeEditorDrawerProps {
   isOpen: boolean
@@ -244,7 +250,16 @@ export default function CompositeEditorDrawer({
         <DrawerHeader>自建組合係數編輯器</DrawerHeader>
 
         <DrawerBody>
-          <VStack spacing={6} align="stretch">
+          <Tabs variant="enclosed" colorScheme="brand">
+            <TabList mb={4}>
+              <Tab>傳統模式</Tab>
+              <Tab>🚀 公式建構器</Tab>
+            </TabList>
+
+            <TabPanels>
+              {/* 傳統模式 - 原有功能 */}
+              <TabPanel px={0}>
+                <VStack spacing={6} align="stretch">
             {/* Basic Information */}
             <Box>
               <Text fontSize="md" fontWeight="medium" mb={4}>基本資訊</Text>
@@ -451,7 +466,15 @@ export default function CompositeEditorDrawer({
                 </Alert>
               )}
             </Box>
-          </VStack>
+                </VStack>
+              </TabPanel>
+
+              {/* 公式建構器模式 - 新功能 */}
+              <TabPanel px={0}>
+                <FormulaBuilderContent onSave={onSave} onClose={onClose} />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         </DrawerBody>
 
         <DrawerFooter borderTop="1px solid" borderColor="gray.200">

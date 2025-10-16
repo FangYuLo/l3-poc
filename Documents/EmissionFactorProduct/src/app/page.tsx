@@ -26,6 +26,7 @@ import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import FactorSelectorModal from '@/components/FactorSelectorModal'
+import FormulaBuilderModal from '@/components/formula-builder/FormulaBuilderModal'
 import { Dataset, ImportToCentralFormData } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
@@ -47,6 +48,7 @@ export default function HomePage() {
   const { isOpen: isCompositeOpen, onOpen: onCompositeOpen, onClose: onCompositeClose } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   const { isOpen: isFactorSelectorOpen, onOpen: onFactorSelectorOpen, onClose: onFactorSelectorClose } = useDisclosure()
+  const { isOpen: isFormulaBuilderOpen, onOpen: onFormulaBuilderOpen, onClose: onFormulaBuilderClose } = useDisclosure()
 
   // 使用 mock data hook 獲取真實資料
   const mockData = useMockData()
@@ -122,9 +124,30 @@ export default function HomePage() {
       created_at: new Date().toISOString(),
       ...compositeData
     }
-    
+
     setUserDefinedFactors(prev => [...prev, newFactor])
     console.log('新增自建係數:', newFactor)
+  }
+
+  // 處理公式建構器儲存
+  const handleFormulaBuilderSave = (factorData: any) => {
+    const newFactor = {
+      id: Date.now(),
+      type: 'formula_factor',
+      name: factorData.name,
+      value: factorData.value,
+      unit: factorData.unit,
+      method_gwp: 'GWP100',
+      source_type: 'user_defined',
+      version: '1.0',
+      created_at: new Date().toISOString(),
+      formula: factorData.formula,
+      evaluationSteps: factorData.evaluationSteps,
+      description: factorData.description
+    }
+
+    setUserDefinedFactors(prev => [...prev, newFactor])
+    console.log('新增視覺化公式係數:', newFactor)
   }
 
   // 處理資料集創建
@@ -604,6 +627,8 @@ export default function HomePage() {
               onCreateDataset={handleCreateDataset}
               datasets={datasets}
               userDefinedFactors={userDefinedFactors}
+              onOpenFormulaBuilder={onFormulaBuilderOpen}
+              onOpenComposite={onCompositeOpen}
             />
           </Box>
 
@@ -741,6 +766,13 @@ export default function HomePage() {
           dataSource: 'global' as const
         }))}
         excludeIds={currentDataset?.factorIds || []}
+      />
+
+      {/* Formula Builder Modal */}
+      <FormulaBuilderModal
+        isOpen={isFormulaBuilderOpen}
+        onClose={onFormulaBuilderClose}
+        onSave={handleFormulaBuilderSave}
       />
     </Box>
   )
