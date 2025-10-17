@@ -310,6 +310,7 @@ export default function SidebarTree({
   datasets = [],
   userDefinedFactors = [],
   onOpenFormulaBuilder,
+  
   onOpenComposite
 }: SidebarTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['factor_folders', 'user_defined', 'projects', 'project_1', 'project_2']))

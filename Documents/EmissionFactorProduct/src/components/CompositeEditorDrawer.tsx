@@ -54,10 +54,12 @@ import {
   InfoIcon,
   CheckCircleIcon,
 } from '@chakra-ui/icons'
-import { useState, Fragment } from 'react'
+import { useState, Fragment, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
 import FactorSelectorModal from './FactorSelectorModal'
 import FormulaBuilderContent from './formula-builder/FormulaBuilderContent'
+import GWPConversionModal, { FactorWithGWPConversion } from './GWPConversionModal'
+import { useMockData } from '@/hooks/useMockData'
 
 interface CompositeEditorDrawerProps {
   isOpen: boolean
@@ -72,6 +74,21 @@ interface ComponentItem {
   value: number
   unit: string
   weight: number
+
+  // GWP 轉換相關欄位
+  gwpConversion?: {
+    gwpVersion: 'AR4' | 'AR5' | 'AR6'
+    originalCO2: number
+    originalCH4?: number
+    originalN2O?: number
+    convertedValue: number
+    breakdown: {
+      co2_contribution: number
+      ch4_contribution: number
+      n2o_contribution: number
+    }
+    isExpanded?: boolean
+  }
 
   // 單位轉換相關欄位
   unitConversion?: {
@@ -124,6 +141,48 @@ export default function CompositeEditorDrawer({
 }: CompositeEditorDrawerProps) {
   const toast = useToast()
 
+  // 使用 useMockData hook 獲取真實資料
+  const mockData = useMockData()
+
+  // 轉換係數資料為 FactorSelectorModal 需要的格式
+  const centralFactors = useMemo(() => {
+    return mockData.getAllEmissionFactors().map(f => ({
+      id: f.id,
+      type: 'emission_factor' as const,
+      name: f.name,
+      value: f.value,
+      unit: f.unit,
+      year: f.year,
+      region: f.country,
+      method_gwp: f.method_gwp,
+      source_type: f.source_type,
+      source_ref: f.source_ref,
+      version: f.version,
+      dataSource: 'local' as const,
+      requires_gwp_conversion: f.requires_gwp_conversion,
+      co2_factor: f.co2_factor,
+      ch4_factor: f.ch4_factor,
+      n2o_factor: f.n2o_factor,
+    }))
+  }, [mockData])
+
+  const globalFactors = useMemo(() => {
+    return mockData.getAllFactorItems().map(f => ({
+      id: f.id,
+      type: 'emission_factor' as const,
+      name: f.name,
+      value: f.value,
+      unit: f.unit,
+      year: f.year,
+      region: f.region || '台灣',
+      method_gwp: f.method_gwp || 'GWP100',
+      source_type: f.source_type || 'standard',
+      source_ref: f.source_ref || 'ecoinvent',
+      version: f.version,
+      dataSource: 'global' as const,
+    }))
+  }, [mockData])
+
   // Form state
   const [compositeName, setCompositeName] = useState('')
   const [description, setDescription] = useState('')
@@ -155,6 +214,11 @@ export default function CompositeEditorDrawer({
   
   // Factor selector state
   const [isFactorSelectorOpen, setIsFactorSelectorOpen] = useState(false)
+
+  // GWP conversion state
+  const [isGWPModalOpen, setIsGWPModalOpen] = useState(false)
+  const [factorsNeedingGWP, setFactorsNeedingGWP] = useState<any[]>([])
+  const [selectedFactorsTemp, setSelectedFactorsTemp] = useState<any[]>([])
 
   // === 單位類別與轉換邏輯 ===
 
@@ -315,13 +379,17 @@ export default function CompositeEditorDrawer({
 
   // === 結束單位類別與轉換邏輯 ===
 
-  // Calculate composite value（支援單位轉換）
+  // Calculate composite value（支援 GWP 轉換和單位轉換）
   const calculateCompositeValue = () => {
     if (components.length === 0) return 0
 
     if (formulaType === 'sum') {
       return components.reduce((sum, comp) => {
-        const effectiveValue = comp.unitConversion?.convertedValue ?? comp.value
+        // 優先使用單位轉換值 → GWP 轉換值 → 原始值
+        const effectiveValue =
+          comp.unitConversion?.convertedValue ??
+          comp.gwpConversion?.convertedValue ??
+          comp.value
         return sum + effectiveValue * comp.weight
       }, 0)
     } else {
@@ -330,7 +398,11 @@ export default function CompositeEditorDrawer({
       if (totalWeight === 0) return 0
 
       const weightedSum = components.reduce((sum, comp) => {
-        const effectiveValue = comp.unitConversion?.convertedValue ?? comp.value
+        // 優先使用單位轉換值 → GWP 轉換值 → 原始值
+        const effectiveValue =
+          comp.unitConversion?.convertedValue ??
+          comp.gwpConversion?.convertedValue ??
+          comp.value
         return sum + effectiveValue * comp.weight
       }, 0)
       return weightedSum / totalWeight
@@ -355,21 +427,69 @@ export default function CompositeEditorDrawer({
 
   // 處理係數選擇完成
   const handleFactorSelect = (selectedFactors: any[]) => {
-    const newComponents: ComponentItem[] = selectedFactors.map(factor => ({
+    // 檢查是否有需要 GWP 轉換的係數
+    const needsGWP = selectedFactors.filter(f => f.requires_gwp_conversion)
+
+    if (needsGWP.length > 0) {
+      // 有需要 GWP 轉換的係數，先儲存選擇的係數，然後開啟 GWP Modal
+      setSelectedFactorsTemp(selectedFactors)
+      setFactorsNeedingGWP(needsGWP)
+      setIsFactorSelectorOpen(false)
+      setIsGWPModalOpen(true)
+    } else {
+      // 沒有需要 GWP 轉換的係數，直接加入
+      addFactorsToComponents(selectedFactors)
+      setIsFactorSelectorOpen(false)
+    }
+  }
+
+  // 處理 GWP 轉換完成
+  const handleGWPConversionComplete = (factorsWithGWP: FactorWithGWPConversion[]) => {
+    // 建立 GWP 轉換後的係數 Map
+    const gwpMap = new Map(factorsWithGWP.map(f => [f.id, f]))
+
+    // 合併原始選擇和 GWP 轉換後的資料
+    const allFactors = selectedFactorsTemp.map(factor => {
+      const gwpFactor = gwpMap.get(factor.id)
+      if (gwpFactor) {
+        return {
+          ...factor,
+          gwpConversion: {
+            gwpVersion: gwpFactor.gwpVersion,
+            originalCO2: gwpFactor.co2_factor || 0,
+            originalCH4: gwpFactor.ch4_factor,
+            originalN2O: gwpFactor.n2o_factor,
+            convertedValue: gwpFactor.convertedCO2eValue,
+            breakdown: gwpFactor.conversionBreakdown,
+          }
+        }
+      }
+      return factor
+    })
+
+    addFactorsToComponents(allFactors)
+    setIsGWPModalOpen(false)
+    setSelectedFactorsTemp([])
+    setFactorsNeedingGWP([])
+  }
+
+  // 將係數加入到組合中
+  const addFactorsToComponents = (factors: any[]) => {
+    const newComponents: ComponentItem[] = factors.map(factor => ({
       id: Date.now() + Math.random(), // 生成唯一 ID
       factorId: factor.id, // 保存原始係數 ID
       name: factor.name,
-      value: factor.value,
-      unit: factor.unit,
-      weight: selectedFactors.length > 0 ? 1.0 / selectedFactors.length : 1.0, // 平均分配權重
+      value: factor.gwpConversion?.convertedValue || factor.value,
+      unit: factor.gwpConversion ? `kg CO2e/${factor.unit.split('/')[1] || 'unit'}` : factor.unit,
+      weight: factors.length > 0 ? 1.0 / factors.length : 1.0, // 平均分配權重
+      gwpConversion: factor.gwpConversion,
     }))
-    
+
     setComponents(prev => [...prev, ...newComponents])
-    setIsFactorSelectorOpen(false)
-    
+
     toast({
       title: '係數已加入',
-      description: `成功加入 ${selectedFactors.length} 個係數到組合中`,
+      description: `成功加入 ${factors.length} 個係數到組合中`,
       status: 'success',
       duration: 3000,
       isClosable: true,
@@ -575,29 +695,36 @@ export default function CompositeEditorDrawer({
                             {/* 主要行 */}
                             <Tr bg={hasWarning ? 'orange.50' : undefined}>
                               <Td>
-                                <HStack spacing={2}>
-                                  <Text fontSize="sm" fontWeight="medium">
-                                    {component.name}
-                                  </Text>
-                                  {!check.isCompatible && (
-                                    <Tooltip
-                                      label={
-                                        check.canAutoConvert
-                                          ? `單位不一致，但可自動轉換（${check.fromCategory}）`
-                                          : `單位類別不同（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），需手動輸入`
-                                      }
-                                      placement="top"
-                                    >
-                                      <Icon
-                                        as={WarningIcon}
-                                        color={check.canAutoConvert ? 'orange.400' : 'red.500'}
-                                        boxSize={3}
-                                        cursor="pointer"
-                                        onClick={() => handleUnitConversionToggle(component.id)}
-                                      />
-                                    </Tooltip>
+                                <VStack align="start" spacing={1}>
+                                  <HStack spacing={2}>
+                                    <Text fontSize="sm" fontWeight="medium">
+                                      {component.name}
+                                    </Text>
+                                    {!check.isCompatible && (
+                                      <Tooltip
+                                        label={
+                                          check.canAutoConvert
+                                            ? `單位不一致，但可自動轉換（${check.fromCategory}）`
+                                            : `單位類別不同（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），需手動輸入`
+                                        }
+                                        placement="top"
+                                      >
+                                        <Icon
+                                          as={WarningIcon}
+                                          color={check.canAutoConvert ? 'orange.400' : 'red.500'}
+                                          boxSize={3}
+                                          cursor="pointer"
+                                          onClick={() => handleUnitConversionToggle(component.id)}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  </HStack>
+                                  {component.gwpConversion && (
+                                    <Badge size="xs" colorScheme="green">
+                                      GWP {component.gwpConversion.gwpVersion} 轉換
+                                    </Badge>
                                   )}
-                                </HStack>
+                                </VStack>
                               </Td>
                               <Td isNumeric>
                                 <Text fontSize="sm" fontFamily="mono">
@@ -724,6 +851,74 @@ export default function CompositeEditorDrawer({
                                         </Text>
                                       </Alert>
                                     )}
+                                  </VStack>
+                                </Td>
+                              </Tr>
+                            )}
+
+                            {/* GWP 轉換顯示行 */}
+                            {component.gwpConversion && (
+                              <Tr>
+                                <Td colSpan={5} bg="green.50" p={3}>
+                                  <VStack align="stretch" spacing={2}>
+                                    <HStack>
+                                      <Icon as={CheckCircleIcon} color="green.600" />
+                                      <Text fontSize="sm" fontWeight="medium" color="green.700">
+                                        GWP {component.gwpConversion.gwpVersion} 轉換詳情
+                                      </Text>
+                                    </HStack>
+
+                                    {/* 氣體分解 */}
+                                    <VStack align="stretch" spacing={1} pl={6}>
+                                      <HStack justify="space-between">
+                                        <Text fontSize="xs">CO₂:</Text>
+                                        <HStack>
+                                          <Text fontSize="xs" fontFamily="mono">
+                                            {formatNumber(component.gwpConversion.originalCO2)} × 1
+                                          </Text>
+                                          <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
+                                            = {formatNumber(component.gwpConversion.breakdown.co2_contribution)}
+                                          </Text>
+                                        </HStack>
+                                      </HStack>
+
+                                      {component.gwpConversion.originalCH4 && (
+                                        <HStack justify="space-between">
+                                          <Text fontSize="xs">CH₄:</Text>
+                                          <HStack>
+                                            <Text fontSize="xs" fontFamily="mono">
+                                              {formatNumber(component.gwpConversion.originalCH4)} × {component.gwpConversion.gwpVersion === 'AR4' ? '25' : component.gwpConversion.gwpVersion === 'AR5' ? '28' : '27.9'}
+                                            </Text>
+                                            <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
+                                              = {formatNumber(component.gwpConversion.breakdown.ch4_contribution)}
+                                            </Text>
+                                          </HStack>
+                                        </HStack>
+                                      )}
+
+                                      {component.gwpConversion.originalN2O && (
+                                        <HStack justify="space-between">
+                                          <Text fontSize="xs">N₂O:</Text>
+                                          <HStack>
+                                            <Text fontSize="xs" fontFamily="mono">
+                                              {formatNumber(component.gwpConversion.originalN2O)} × {component.gwpConversion.gwpVersion === 'AR4' ? '298' : component.gwpConversion.gwpVersion === 'AR5' ? '265' : '273'}
+                                            </Text>
+                                            <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
+                                              = {formatNumber(component.gwpConversion.breakdown.n2o_contribution)}
+                                            </Text>
+                                          </HStack>
+                                        </HStack>
+                                      )}
+
+                                      <Divider my={1} />
+
+                                      <HStack justify="space-between">
+                                        <Text fontSize="sm" fontWeight="bold">轉換後 CO₂e:</Text>
+                                        <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="green.600">
+                                          {formatNumber(component.gwpConversion.convertedValue)} {component.unit}
+                                        </Text>
+                                      </HStack>
+                                    </VStack>
                                   </VStack>
                                 </Td>
                               </Tr>
@@ -885,6 +1080,20 @@ export default function CompositeEditorDrawer({
         onConfirm={handleFactorSelect}
         excludeIds={components.map(comp => comp.factorId).filter(Boolean) as number[]}
         targetUnit={targetUnit}
+        centralFactors={centralFactors}
+        globalFactors={globalFactors}
+      />
+
+      {/* GWP 轉換 Modal */}
+      <GWPConversionModal
+        isOpen={isGWPModalOpen}
+        onClose={() => {
+          setIsGWPModalOpen(false)
+          setSelectedFactorsTemp([])
+          setFactorsNeedingGWP([])
+        }}
+        onConfirm={handleGWPConversionComplete}
+        factors={factorsNeedingGWP}
       />
     </Drawer>
   )

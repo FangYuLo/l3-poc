@@ -42,11 +42,14 @@ import {
   Divider,
   Alert,
   AlertIcon,
+  Tooltip,
+  Icon,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
   CheckIcon,
   CloseIcon,
+  SettingsIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
@@ -74,6 +77,10 @@ interface UnifiedFactor {
   source_ref?: string
   version: string
   dataSource: 'local' | 'global'
+  requires_gwp_conversion?: boolean  // 標記需要 GWP 轉換
+  co2_factor?: number
+  ch4_factor?: number
+  n2o_factor?: number
 }
 
 export default function FactorSelectorModal({
@@ -530,12 +537,27 @@ export default function FactorSelectorModal({
                               />
                             </Td>
                             <Td>
-                              <Text fontSize="sm" fontWeight="medium">
-                                {factor.name}
-                              </Text>
-                              {factor.dataSource === 'global' && (
-                                <Badge size="xs" colorScheme="cyan" mt={1}>全庫</Badge>
-                              )}
+                              <HStack spacing={1}>
+                                <Text fontSize="sm" fontWeight="medium">
+                                  {factor.name}
+                                </Text>
+                                {factor.requires_gwp_conversion && (
+                                  <Tooltip
+                                    label={`此係數包含多種氣體（CO₂${factor.ch4_factor ? ', CH₄' : ''}${factor.n2o_factor ? ', N₂O' : ''}），需選擇 GWP 版本轉換`}
+                                    placement="top"
+                                  >
+                                    <Icon as={SettingsIcon} color="orange.500" boxSize={3} />
+                                  </Tooltip>
+                                )}
+                              </HStack>
+                              <HStack spacing={1} mt={1}>
+                                {factor.dataSource === 'global' && (
+                                  <Badge size="xs" colorScheme="cyan">全庫</Badge>
+                                )}
+                                {factor.requires_gwp_conversion && (
+                                  <Badge size="xs" colorScheme="orange">需GWP轉換</Badge>
+                                )}
+                              </HStack>
                             </Td>
                             <Td isNumeric>
                               <Text fontSize="sm" fontFamily="mono">

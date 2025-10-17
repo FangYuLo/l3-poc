@@ -54,6 +54,9 @@ export interface EmissionFactor {
   created_at: string
   updated_at: string
 
+  // GWP 轉換標記
+  requires_gwp_conversion?: boolean // 是否需要 GWP 轉換（當有多氣體數據但未轉換成 CO2e 時）
+
   // 新增欄位 - 數據品質和追蹤
   data_quality: DataQuality   // 數據品質等級
   validation_status?: ValidationStatus // 驗證狀態
