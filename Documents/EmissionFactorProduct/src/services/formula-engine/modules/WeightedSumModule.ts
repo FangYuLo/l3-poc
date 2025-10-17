@@ -36,7 +36,7 @@ export const WeightedSumModule: FormulaModule = {
     },
   ],
 
-  execute: (context: ExecutionContext, params: { values: number[]; weights: number[] }) => {
+  execute: (context: ExecutionContext, params: Record<string, any>) => {
     const { values, weights } = params
 
     if (!values || !weights) {
@@ -75,7 +75,7 @@ export const WeightedSumModule: FormulaModule = {
     }
   },
 
-  validate: (params: { values: number[]; weights: number[] }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (!params.values) {
@@ -99,7 +99,7 @@ export const WeightedSumModule: FormulaModule = {
     }
 
     if (params.weights) {
-      const negativeWeights = params.weights.filter((w) => w < 0)
+      const negativeWeights = params.weights.filter((w: number) => w < 0)
       if (negativeWeights.length > 0) {
         errors.push('權重不可為負數')
       }

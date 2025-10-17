@@ -1,5 +1,5 @@
 // Base types
-export type SourceType = 'standard' | 'pact' | 'supplier' | 'user_defined' | 'project_data'
+export type SourceType = 'standard' | 'pact' | 'supplier' | 'user_defined' | 'project_data' | 'global'
 export type CollectionType = 'favorites' | 'user_defined' | 'pact' | 'supplier' | 'project'
 export type FormulaType = 'sum' | 'weighted'
 

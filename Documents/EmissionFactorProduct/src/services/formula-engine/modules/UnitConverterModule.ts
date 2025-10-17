@@ -134,7 +134,7 @@ export const UnitConverterModule: FormulaModule = {
 
   execute: (
     context: ExecutionContext,
-    params: { value?: number; from_unit: string; to_unit: string }
+    params: Record<string, any>
   ) => {
     let { value, from_unit, to_unit } = params
 
@@ -185,7 +185,7 @@ export const UnitConverterModule: FormulaModule = {
     }
   },
 
-  validate: (params: { value?: number; from_unit: string; to_unit: string }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (params.value === undefined) {

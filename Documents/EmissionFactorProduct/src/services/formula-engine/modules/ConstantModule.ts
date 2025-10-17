@@ -44,7 +44,7 @@ export const ConstantModule: FormulaModule = {
     },
   ],
 
-  execute: (context: ExecutionContext, params: { value: number; unit?: string }) => {
+  execute: (context: ExecutionContext, params: Record<string, any>) => {
     const { value, unit } = params
 
     if (value === undefined || value === null) {
@@ -61,7 +61,7 @@ export const ConstantModule: FormulaModule = {
     }
   },
 
-  validate: (params: { value: number; unit?: string }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (params.value === undefined || params.value === null) {

@@ -46,7 +46,7 @@ export const HeatValueFetcherModule: FormulaModule = {
     },
   ],
 
-  execute: (context: ExecutionContext, params: { fuel_type: string; country?: string }) => {
+  execute: (context: ExecutionContext, params: Record<string, any>) => {
     const { fuel_type, country = '台灣' } = params
 
     if (!fuel_type) {
@@ -97,7 +97,7 @@ export const HeatValueFetcherModule: FormulaModule = {
     }
   },
 
-  validate: (params: { fuel_type: string; country?: string }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (!params.fuel_type) {

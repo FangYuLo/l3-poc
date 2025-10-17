@@ -148,7 +148,7 @@ export class FormulaEvaluator {
     }
 
     // 檢查缺失參數
-    for (const paramId of requiredParams) {
+    Array.from(requiredParams).forEach((paramId) => {
       if (
         !(paramId in params) ||
         params[paramId] === null ||
@@ -157,7 +157,7 @@ export class FormulaEvaluator {
       ) {
         errors.push(`缺少必填參數: ${paramId}`)
       }
-    }
+    })
 
     // 執行各模組的驗證
     for (const moduleConfig of template.modules) {
@@ -186,16 +186,12 @@ export class FormulaEvaluator {
   /**
    * 取得模板所需的所有參數定義
    */
-  static getRequiredParams(template: FormulaTemplate): Array<{
-    id: string
-    name: string
-    type: string
-    required: boolean
-    options?: Array<{ value: any; label: string }>
-    defaultValue?: any
-    placeholder?: string
-    description?: string
-  }> {
+  static getRequiredParams(template: FormulaTemplate): Array<
+    import('@/types/formula.types').ModuleInput & {
+      moduleId?: string
+      moduleName?: string
+    }
+  > {
     const paramsMap = new Map<string, any>()
 
     for (const moduleConfig of template.modules) {

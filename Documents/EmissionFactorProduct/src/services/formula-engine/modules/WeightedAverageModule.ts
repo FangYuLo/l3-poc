@@ -46,11 +46,7 @@ export const WeightedAverageModule: FormulaModule = {
 
   execute: (
     context: ExecutionContext,
-    params: {
-      factors?: Array<{ id: number; value: number; weight: number; name?: string }>
-      values?: number[]
-      weights?: number[]
-    }
+    params: Record<string, any>
   ) => {
     let values: number[]
     let weights: number[]
@@ -164,11 +160,7 @@ export const WeightedAverageModule: FormulaModule = {
     }
   },
 
-  validate: (params: {
-    factors?: Array<{ id: number; value?: number; weight: number }>
-    values?: number[]
-    weights?: number[]
-  }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     // 檢查是否提供任一種輸入模式
@@ -186,7 +178,7 @@ export const WeightedAverageModule: FormulaModule = {
         errors.push('factors 陣列不可為空')
       }
 
-      params.factors!.forEach((factor, index) => {
+      params.factors!.forEach((factor: any, index: number) => {
         if (!factor.id && typeof factor.value !== 'number') {
           errors.push(`係數 ${index + 1}: 必須提供 id 或 value`)
         }
@@ -222,7 +214,7 @@ export const WeightedAverageModule: FormulaModule = {
       }
 
       if (params.weights) {
-        const invalidWeights = params.weights.filter((w) => w <= 0)
+        const invalidWeights = params.weights.filter((w: number) => w <= 0)
         if (invalidWeights.length > 0) {
           errors.push('所有權重必須大於 0')
         }

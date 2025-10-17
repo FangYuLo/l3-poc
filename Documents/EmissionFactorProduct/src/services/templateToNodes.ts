@@ -35,6 +35,7 @@ function createNodeData(moduleId: string, params: Record<string, any>) {
     case 'heatvalue-fetcher':
       return {
         label: '熱值查詢',
+        heatValueId: params.heatvalue_id || 'tw-natural-gas',
         country: params.country || '台灣',
         fuelType: params.fuel_type || '天然氣',
         heatValue: 0,
@@ -103,7 +104,7 @@ export function templateToNodes(template: FormulaTemplate): {
       id: module.instanceId,
       type: nodeType as any,
       position: module.position || { x: 0, y: 0 },
-      data: createNodeData(module.moduleId, module.params),
+      data: createNodeData(module.moduleId, module.params) as any,
     }
 
     nodes.push(node)

@@ -36,7 +36,7 @@ export const MultiplyModule: FormulaModule = {
     },
   ],
 
-  execute: (context: ExecutionContext, params: { a?: number; b?: number }) => {
+  execute: (context: ExecutionContext, params: Record<string, any>) => {
     // 支援從 previousValue 取得值
     let a = params.a
     let b = params.b
@@ -66,7 +66,7 @@ export const MultiplyModule: FormulaModule = {
     }
   },
 
-  validate: (params: { a?: number; b?: number }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (params.a === undefined) {

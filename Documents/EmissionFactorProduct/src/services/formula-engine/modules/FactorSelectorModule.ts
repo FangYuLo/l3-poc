@@ -43,7 +43,7 @@ export const FactorSelectorModule: FormulaModule = {
     },
   ],
 
-  execute: (context: ExecutionContext, params: { ef_id: number }) => {
+  execute: (context: ExecutionContext, params: Record<string, any>) => {
     const { ef_id } = params
 
     if (!ef_id) {
@@ -77,7 +77,7 @@ export const FactorSelectorModule: FormulaModule = {
     }
   },
 
-  validate: (params: { ef_id: number }) => {
+  validate: (params: Record<string, any>) => {
     const errors: string[] = []
 
     if (!params.ef_id) {

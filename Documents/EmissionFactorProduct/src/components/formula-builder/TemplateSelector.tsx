@@ -35,7 +35,7 @@ const DIFFICULTY_LABELS = {
 }
 
 // 單個模板卡片
-function TemplateCard({ template, ...radioProps }: any) {
+function TemplateCard({ template, ...radioProps }: { template: FormulaTemplate; [key: string]: any }) {
   const { getInputProps, getRadioProps } = useRadio(radioProps)
   const input = getInputProps()
   const checkbox = getRadioProps()
