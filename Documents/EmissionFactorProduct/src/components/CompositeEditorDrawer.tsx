@@ -42,13 +42,19 @@ import {
   Tab,
   TabPanels,
   TabPanel,
+  Icon,
+  Tooltip,
 } from '@chakra-ui/react'
 import {
   DeleteIcon,
   AddIcon,
   CheckIcon,
+  WarningIcon,
+  RepeatIcon,
+  InfoIcon,
+  CheckCircleIcon,
 } from '@chakra-ui/icons'
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { formatNumber } from '@/lib/utils'
 import FactorSelectorModal from './FactorSelectorModal'
 import FormulaBuilderContent from './formula-builder/FormulaBuilderContent'
@@ -66,6 +72,49 @@ interface ComponentItem {
   value: number
   unit: string
   weight: number
+
+  // 單位轉換相關欄位
+  unitConversion?: {
+    mode: 'auto' | 'custom'
+    fromUnit: string
+    toUnit: string
+    canAutoConvert: boolean           // 是否可使用 Auto 模式
+    conversionFactor?: number
+    convertedValue?: number
+    isExpanded?: boolean
+  }
+}
+
+// 單位類別定義
+const UNIT_CATEGORIES = {
+  mass: ['kg', 'g', 't', 'ton', 'lb'],
+  energy: ['kWh', 'MJ', 'GJ', 'MWh', 'TJ'],
+  volume: ['L', 'mL', 'm³', 'cm³', 'gal'],
+  distance: ['km', 'm', 'cm', 'mm', 'mi'],
+  time: ['hr', 'min', 's', 'day', 'year'],
+  area: ['m²', 'km²', 'ha', 'acre'],
+} as const
+
+// 自動單位轉換對照表
+const AUTO_CONVERSION_FACTORS: Record<string, Record<string, number>> = {
+  // 能源
+  'kWh': { 'MJ': 3.6, 'GJ': 0.0036 },
+  'MJ': { 'kWh': 0.277778, 'GJ': 0.001 },
+  'GJ': { 'MJ': 1000, 'kWh': 277.778 },
+
+  // 質量
+  'kg': { 'g': 1000, 't': 0.001 },
+  'g': { 'kg': 0.001, 't': 0.000001 },
+  't': { 'g': 1000000, 'kg': 1000 },
+
+  // 體積
+  'L': { 'mL': 1000, 'm³': 0.001 },
+  'mL': { 'L': 0.001, 'm³': 0.000001 },
+  'm³': { 'mL': 1000000, 'L': 1000 },
+
+  // 距離
+  'km': { 'm': 1000, 'cm': 100000 },
+  'm': { 'km': 0.001, 'cm': 100 },
 }
 
 export default function CompositeEditorDrawer({
@@ -74,7 +123,7 @@ export default function CompositeEditorDrawer({
   onSave,
 }: CompositeEditorDrawerProps) {
   const toast = useToast()
-  
+
   // Form state
   const [compositeName, setCompositeName] = useState('')
   const [description, setDescription] = useState('')
@@ -107,18 +156,183 @@ export default function CompositeEditorDrawer({
   // Factor selector state
   const [isFactorSelectorOpen, setIsFactorSelectorOpen] = useState(false)
 
-  // Calculate composite value
+  // === 單位類別與轉換邏輯 ===
+
+  // 從單位中提取類別
+  const getUnitCategory = (unit: string): string | null => {
+    const denominator = unit.split('/').pop()?.trim() || unit
+
+    for (const [category, units] of Object.entries(UNIT_CATEGORIES)) {
+      if (units.some(u => denominator.toLowerCase().includes(u.toLowerCase()))) {
+        return category
+      }
+    }
+
+    return null
+  }
+
+  // 檢查兩個單位是否屬於同一類別
+  const isSameCategory = (unit1: string, unit2: string): boolean => {
+    const category1 = getUnitCategory(unit1)
+    const category2 = getUnitCategory(unit2)
+
+    return category1 !== null && category2 !== null && category1 === category2
+  }
+
+  // 檢查單位相容性
+  const checkUnitCompatibility = (componentUnit: string, targetUnit: string) => {
+    const extractDenominator = (unit: string) => {
+      const parts = unit.split('/')
+      return parts.length > 1 ? parts[1].trim() : parts[0].trim()
+    }
+
+    const fromDenom = extractDenominator(componentUnit)
+    const toDenom = extractDenominator(targetUnit)
+
+    const isExactMatch = fromDenom === toDenom
+    const sameCategory = isSameCategory(fromDenom, toDenom)
+    const fromCategory = getUnitCategory(fromDenom)
+    const toCategory = getUnitCategory(toDenom)
+
+    return {
+      isCompatible: isExactMatch,
+      sameCategory,
+      canAutoConvert: sameCategory,
+      fromDenom,
+      toDenom,
+      fromCategory,
+      toCategory,
+    }
+  }
+
+  // 取得自動轉換因子
+  const getAutoConversionFactor = (from: string, to: string): number | null => {
+    return AUTO_CONVERSION_FACTORS[from]?.[to] ?? null
+  }
+
+  // 處理單位轉換展開/收合
+  const handleUnitConversionToggle = (componentId: number) => {
+    setComponents(components.map(comp => {
+      if (comp.id === componentId) {
+        const check = checkUnitCompatibility(comp.unit, targetUnit)
+
+        if (!comp.unitConversion) {
+          // 初始化轉換設定
+          let mode: 'auto' | 'custom' = 'custom'
+          let autoFactor: number | undefined = undefined
+
+          // 只有同類別才能使用 Auto 模式
+          if (check.canAutoConvert) {
+            const factor = getAutoConversionFactor(check.fromDenom, check.toDenom)
+            if (factor !== null) {
+              autoFactor = factor
+              mode = 'auto'
+            }
+          }
+
+          return {
+            ...comp,
+            unitConversion: {
+              mode,
+              fromUnit: comp.unit,
+              toUnit: targetUnit,
+              canAutoConvert: check.canAutoConvert,
+              conversionFactor: autoFactor ?? undefined,
+              convertedValue: autoFactor ? comp.value * autoFactor : undefined,
+              isExpanded: true,
+            }
+          }
+        } else {
+          // 切換展開狀態
+          return {
+            ...comp,
+            unitConversion: {
+              ...comp.unitConversion,
+              isExpanded: !comp.unitConversion.isExpanded,
+            }
+          }
+        }
+      }
+      return comp
+    }))
+  }
+
+  // 處理轉換模式切換
+  const handleConversionModeChange = (componentId: number, mode: 'auto' | 'custom') => {
+    setComponents(components.map(comp => {
+      if (comp.id === componentId && comp.unitConversion) {
+        const check = checkUnitCompatibility(comp.unit, targetUnit)
+
+        if (mode === 'auto' && comp.unitConversion.canAutoConvert) {
+          const factor = getAutoConversionFactor(check.fromDenom, check.toDenom)
+          const autoFactor = factor !== null ? factor : undefined
+          return {
+            ...comp,
+            unitConversion: {
+              ...comp.unitConversion,
+              mode: 'auto',
+              conversionFactor: autoFactor,
+              convertedValue: autoFactor ? comp.value * autoFactor : undefined,
+            }
+          }
+        } else {
+          return {
+            ...comp,
+            unitConversion: {
+              ...comp.unitConversion,
+              mode: 'custom',
+            }
+          }
+        }
+      }
+      return comp
+    }))
+  }
+
+  // 處理自訂轉換因子輸入
+  const handleConversionFactorChange = (componentId: number, factor: number) => {
+    setComponents(components.map(comp => {
+      if (comp.id === componentId && comp.unitConversion) {
+        return {
+          ...comp,
+          unitConversion: {
+            ...comp.unitConversion,
+            mode: 'custom',
+            conversionFactor: factor,
+            convertedValue: comp.value * factor,
+          }
+        }
+      }
+      return comp
+    }))
+  }
+
+  // 檢查是否有單位不相容的情況
+  const hasUnitIncompatibility = components.some(comp => {
+    const check = checkUnitCompatibility(comp.unit, targetUnit)
+    return !check.isCompatible
+  })
+
+  // === 結束單位類別與轉換邏輯 ===
+
+  // Calculate composite value（支援單位轉換）
   const calculateCompositeValue = () => {
     if (components.length === 0) return 0
-    
+
     if (formulaType === 'sum') {
-      return components.reduce((sum, comp) => sum + comp.value * comp.weight, 0)
+      return components.reduce((sum, comp) => {
+        const effectiveValue = comp.unitConversion?.convertedValue ?? comp.value
+        return sum + effectiveValue * comp.weight
+      }, 0)
     } else {
       // weighted average
       const totalWeight = components.reduce((sum, comp) => sum + comp.weight, 0)
       if (totalWeight === 0) return 0
-      
-      const weightedSum = components.reduce((sum, comp) => sum + comp.value * comp.weight, 0)
+
+      const weightedSum = components.reduce((sum, comp) => {
+        const effectiveValue = comp.unitConversion?.convertedValue ?? comp.value
+        return sum + effectiveValue * comp.weight
+      }, 0)
       return weightedSum / totalWeight
     }
   }
@@ -209,6 +423,15 @@ export default function CompositeEditorDrawer({
       components: components.map(comp => ({
         ef_id: comp.id,
         weight: comp.weight,
+        // 新增：單位轉換資訊
+        unit_conversion: comp.unitConversion ? {
+          original_value: comp.value,
+          original_unit: comp.unit,
+          conversion_mode: comp.unitConversion.mode,
+          conversion_factor: comp.unitConversion.conversionFactor,
+          converted_value: comp.unitConversion.convertedValue,
+          can_auto_convert: comp.unitConversion.canAutoConvert,
+        } : null,
       })),
     }
 
@@ -343,50 +566,171 @@ export default function CompositeEditorDrawer({
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {components.map((component) => (
-                        <Tr key={component.id}>
-                          <Td>
-                            <Text fontSize="sm" fontWeight="medium">
-                              {component.name}
-                            </Text>
-                          </Td>
-                          <Td isNumeric>
-                            <Text fontSize="sm" fontFamily="mono">
-                              {formatNumber(component.value)}
-                            </Text>
-                          </Td>
-                          <Td>
-                            <Text fontSize="sm">{component.unit}</Text>
-                          </Td>
-                          <Td isNumeric>
-                            <NumberInput
-                              size="sm"
-                              min={0}
-                              max={isWeightedFormula ? 1 : undefined}
-                              step={0.1}
-                              value={component.weight}
-                              onChange={(_, value) => handleWeightChange(component.id, value)}
-                              w="80px"
-                            >
-                              <NumberInputField />
-                              <NumberInputStepper>
-                                <NumberIncrementStepper />
-                                <NumberDecrementStepper />
-                              </NumberInputStepper>
-                            </NumberInput>
-                          </Td>
-                          <Td>
-                            <IconButton
-                              icon={<DeleteIcon />}
-                              size="xs"
-                              variant="ghost"
-                              colorScheme="red"
-                              onClick={() => handleRemoveComponent(component.id)}
-                              aria-label="Remove component"
-                            />
-                          </Td>
-                        </Tr>
-                      ))}
+                      {components.map((component) => {
+                        const check = checkUnitCompatibility(component.unit, targetUnit)
+                        const hasWarning = !check.isCompatible && !component.unitConversion?.convertedValue
+
+                        return (
+                          <Fragment key={component.id}>
+                            {/* 主要行 */}
+                            <Tr bg={hasWarning ? 'orange.50' : undefined}>
+                              <Td>
+                                <HStack spacing={2}>
+                                  <Text fontSize="sm" fontWeight="medium">
+                                    {component.name}
+                                  </Text>
+                                  {!check.isCompatible && (
+                                    <Tooltip
+                                      label={
+                                        check.canAutoConvert
+                                          ? `單位不一致，但可自動轉換（${check.fromCategory}）`
+                                          : `單位類別不同（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），需手動輸入`
+                                      }
+                                      placement="top"
+                                    >
+                                      <Icon
+                                        as={WarningIcon}
+                                        color={check.canAutoConvert ? 'orange.400' : 'red.500'}
+                                        boxSize={3}
+                                        cursor="pointer"
+                                        onClick={() => handleUnitConversionToggle(component.id)}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </HStack>
+                              </Td>
+                              <Td isNumeric>
+                                <Text fontSize="sm" fontFamily="mono">
+                                  {formatNumber(component.value)}
+                                </Text>
+                              </Td>
+                              <Td>
+                                <HStack spacing={1}>
+                                  <Text fontSize="sm">{component.unit}</Text>
+                                  {!check.isCompatible && (
+                                    <Badge colorScheme="orange" fontSize="xs">不匹配</Badge>
+                                  )}
+                                </HStack>
+                              </Td>
+                              <Td isNumeric>
+                                <NumberInput
+                                  size="sm"
+                                  min={0}
+                                  max={isWeightedFormula ? 1 : undefined}
+                                  step={0.1}
+                                  value={component.weight}
+                                  onChange={(_, value) => handleWeightChange(component.id, value)}
+                                  w="80px"
+                                >
+                                  <NumberInputField />
+                                  <NumberInputStepper>
+                                    <NumberIncrementStepper />
+                                    <NumberDecrementStepper />
+                                  </NumberInputStepper>
+                                </NumberInput>
+                              </Td>
+                              <Td>
+                                <IconButton
+                                  icon={<DeleteIcon />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="red"
+                                  onClick={() => handleRemoveComponent(component.id)}
+                                  aria-label="Remove component"
+                                />
+                              </Td>
+                            </Tr>
+
+                            {/* 單位轉換展開行 */}
+                            {component.unitConversion?.isExpanded && (
+                              <Tr>
+                                <Td colSpan={5} bg="blue.50" p={3}>
+                                  <VStack align="stretch" spacing={2}>
+                                    {/* 轉換模式選擇 */}
+                                    <HStack>
+                                      <Icon as={RepeatIcon} color="blue.600" />
+                                      <Text fontSize="sm" fontWeight="medium">單位轉換:</Text>
+
+                                      {/* 根據 canAutoConvert 決定顯示的選項 */}
+                                      {component.unitConversion.canAutoConvert ? (
+                                        <Select
+                                          size="sm"
+                                          width="120px"
+                                          value={component.unitConversion.mode}
+                                          onChange={(e) => handleConversionModeChange(component.id, e.target.value as 'auto' | 'custom')}
+                                        >
+                                          <option value="auto">Auto</option>
+                                          <option value="custom">Custom</option>
+                                        </Select>
+                                      ) : (
+                                        <HStack>
+                                          <Badge colorScheme="orange" fontSize="xs">Custom Only</Badge>
+                                          <Tooltip
+                                            label={`單位類別不一致（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），僅能手動輸入轉換因子`}
+                                            placement="top"
+                                          >
+                                            <Icon as={InfoIcon} color="orange.500" boxSize={3} />
+                                          </Tooltip>
+                                        </HStack>
+                                      )}
+
+                                      <Text fontSize="sm">→ {targetUnit}</Text>
+                                    </HStack>
+
+                                    {/* Auto 模式：顯示預設因子 */}
+                                    {component.unitConversion.mode === 'auto' && component.unitConversion.canAutoConvert && (
+                                      <HStack pl={6} spacing={2}>
+                                        <Icon as={CheckCircleIcon} color="green.500" boxSize={4} />
+                                        <Text fontSize="sm" color="green.700">
+                                          使用預設轉換因子: 1 {check.fromDenom} = {component.unitConversion.conversionFactor} {check.toDenom}
+                                        </Text>
+                                      </HStack>
+                                    )}
+
+                                    {/* Custom 模式：轉換因子輸入 */}
+                                    {(component.unitConversion.mode === 'custom' || !component.unitConversion.canAutoConvert) && (
+                                      <HStack pl={6} spacing={2}>
+                                        <Text fontSize="sm">Convert: {check.fromDenom} → {check.toDenom} using ratio</Text>
+                                        <NumberInput
+                                          size="sm"
+                                          width="100px"
+                                          value={component.unitConversion.conversionFactor ?? ''}
+                                          onChange={(_, val) => handleConversionFactorChange(component.id, val)}
+                                          step={0.1}
+                                          precision={4}
+                                        >
+                                          <NumberInputField placeholder="輸入因子" />
+                                        </NumberInput>
+                                        <Text fontSize="sm">{check.fromDenom}/{check.toDenom}</Text>
+                                      </HStack>
+                                    )}
+
+                                    {/* 轉換後的值 */}
+                                    {component.unitConversion.convertedValue !== undefined && (
+                                      <HStack pl={6}>
+                                        <Text fontSize="sm">Converted Value:</Text>
+                                        <Text fontSize="sm" fontWeight="bold" fontFamily="mono" color="green.600">
+                                          {formatNumber(component.unitConversion.convertedValue)} {targetUnit}
+                                        </Text>
+                                      </HStack>
+                                    )}
+
+                                    {/* 類別不一致警告 */}
+                                    {!component.unitConversion.canAutoConvert && (
+                                      <Alert status="warning" size="sm" borderRadius="md">
+                                        <AlertIcon />
+                                        <Text fontSize="xs">
+                                          單位類別不一致（{check.fromCategory || '未知'} ≠ {check.toCategory || '未知'}），請手動輸入轉換因子
+                                        </Text>
+                                      </Alert>
+                                    )}
+                                  </VStack>
+                                </Td>
+                              </Tr>
+                            )}
+                          </Fragment>
+                        )
+                      })}
                     </Tbody>
                   </Table>
                 </Box>
@@ -422,6 +766,19 @@ export default function CompositeEditorDrawer({
                   </HStack>
                 </HStack>
               )}
+
+              {/* 單位相容性警告 */}
+              {hasUnitIncompatibility && (
+                <Alert status="warning" size="sm" borderRadius="md" mt={4}>
+                  <AlertIcon />
+                  <VStack align="start" spacing={1} flex={1}>
+                    <Text fontSize="sm" fontWeight="medium">單位相容性警告</Text>
+                    <Text fontSize="xs">
+                      部分係數的單位類型不一致。建議使用「權重加總」方法或驗證計算邏輯。
+                    </Text>
+                  </VStack>
+                </Alert>
+              )}
             </Box>
 
             <Divider />
@@ -439,14 +796,36 @@ export default function CompositeEditorDrawer({
                         {formulaType === 'weighted' ? '權重平均' : '權重加總'}
                       </Badge>
                     </HStack>
-                    
+
                     <HStack justify="space-between">
                       <Text fontSize="sm" color="gray.600">組成係數數量:</Text>
                       <Text fontSize="sm">{components.length} 個</Text>
                     </HStack>
-                    
+
+                    {/* 計算公式展示 */}
+                    {components.length > 0 && (
+                      <Box>
+                        <Text fontSize="xs" color="gray.600" mb={1}>計算公式:</Text>
+                        <Text fontSize="xs" fontFamily="mono" color="gray.700">
+                          {components.map((comp, idx) => {
+                            const value = comp.unitConversion?.convertedValue ?? comp.value
+                            return `(${formatNumber(value)}×${comp.weight})${idx < components.length - 1 ? ' + ' : ''}`
+                          }).join('')}
+                        </Text>
+                      </Box>
+                    )}
+
+                    {/* 單位轉換摘要 */}
+                    {components.some(c => c.unitConversion?.convertedValue) && (
+                      <Box>
+                        <Text fontSize="xs" color="blue.600">
+                          ✓ {components.filter(c => c.unitConversion?.convertedValue).length} 個係數已進行單位轉換
+                        </Text>
+                      </Box>
+                    )}
+
                     <Divider />
-                    
+
                     <HStack justify="space-between" align="center">
                       <Text fontSize="md" fontWeight="medium">組合係數值:</Text>
                       <Text fontSize="xl" fontWeight="bold" fontFamily="mono" color="brand.600">
