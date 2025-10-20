@@ -33,6 +33,11 @@ import {
   FormControl,
   FormLabel,
   useToast,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from '@chakra-ui/react'
 import {
   ExternalLinkIcon,
@@ -50,13 +55,15 @@ import EmissionFactorCards from './EmissionFactorCards'
 interface FactorDetailProps {
   selectedFactor?: any // 從父組件傳入的選中係數
   onEditFactor?: (updatedFactor: any) => void // 編輯係數回調
+  onEditComposite?: (factor: any) => void // 編輯組合係數回調
   isUserDefinedFactor?: boolean // 是否為自建係數
 }
 
-export default function FactorDetail({ 
-  selectedFactor, 
-  onEditFactor, 
-  isUserDefinedFactor = false 
+export default function FactorDetail({
+  selectedFactor,
+  onEditFactor,
+  onEditComposite,
+  isUserDefinedFactor = false
 }: FactorDetailProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -642,11 +649,56 @@ export default function FactorDetail({
     { version: '1.9', date: '2023-06-15', isCurrent: false, hasUpdate: false },
   ]
 
-  const mockCompositeComponents = mockFactor.type === 'composite_factor' ? [
-    { id: 1, name: '鋼材原料', weight: 0.6, value: 1.85, unit: 'kg CO2e/kg' },
-    { id: 2, name: '加工電力', weight: 0.3, value: 0.509, unit: 'kg CO2e/kWh' },
-    { id: 3, name: '運輸排放', weight: 0.1, value: 0.156, unit: 'kg CO2e/km' },
-  ] : null
+  // 組合係數的組成資料 - 優先使用實際資料，否則使用 mock 資料
+  const mockCompositeComponents = mockFactor.type === 'composite_factor'
+    ? (mockFactor.components || [
+        {
+          id: 1,
+          name: '鋼材原料',
+          weight: 0.6,
+          originalValue: 1.85,
+          originalUnit: 'kg CO2e/kg',
+          gwpConversion: {
+            gwpVersion: 'AR5' as const,
+            originalCO2: 1.82,
+            originalCH4: 0.02,
+            originalN2O: 0.01,
+            convertedValue: 2.38,
+            breakdown: {
+              co2_contribution: 1.82,
+              ch4_contribution: 0.56,
+              n2o_contribution: 0
+            }
+          },
+          unitConversion: null
+        },
+        {
+          id: 2,
+          name: '加工電力',
+          weight: 0.3,
+          originalValue: 0.509,
+          originalUnit: 'kg CO2e/kWh',
+          gwpConversion: null,
+          unitConversion: {
+            mode: 'auto' as const,
+            fromUnit: 'kg CO2e/kWh',
+            toUnit: 'kg CO2e/MJ',
+            canAutoConvert: true,
+            conversionFactor: 3.6,
+            convertedValue: 1.832
+          }
+        },
+        {
+          id: 3,
+          name: '運輸排放',
+          weight: 0.1,
+          originalValue: 0.156,
+          originalUnit: 'kg CO2e/km',
+          gwpConversion: null,
+          unitConversion: null
+        },
+      ])
+    : null
 
   const getSourceTypeBadge = (sourceType: string) => {
     const configs = {
@@ -722,11 +774,24 @@ export default function FactorDetail({
             </VStack>
             
             <VStack spacing={2}>
-              {isUserDefinedFactor && !isEditing && (
-                <Button 
-                  leftIcon={<EditIcon />} 
-                  size="sm" 
-                  variant="outline" 
+              {isUserDefinedFactor && !isEditing && mockFactor.type === 'composite_factor' && (
+                <Button
+                  leftIcon={<EditIcon />}
+                  size="sm"
+                  variant="solid"
+                  colorScheme="blue"
+                  borderRadius="lg"
+                  onClick={() => onEditComposite?.(mockFactor)}
+                >
+                  編輯組合係數
+                </Button>
+              )}
+
+              {isUserDefinedFactor && !isEditing && mockFactor.type !== 'composite_factor' && (
+                <Button
+                  leftIcon={<EditIcon />}
+                  size="sm"
+                  variant="outline"
                   colorScheme="blue"
                   borderRadius="lg"
                   onClick={handleStartEdit}
@@ -886,6 +951,106 @@ export default function FactorDetail({
           </CardBody>
         </Card>
 
+        {/* 組合係數 - 計算公式卡片 */}
+        {mockFactor.type === 'composite_factor' && mockFactor.formula_type && (
+          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="blue.100" bg="blue.50">
+            <CardHeader pb={3}>
+              <HStack>
+                <Icon as={InfoIcon} color="blue.600" boxSize={5} />
+                <Heading size="md" color="blue.800">計算公式</Heading>
+              </HStack>
+            </CardHeader>
+            <CardBody pt={0}>
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between" p={3} bg="white" borderRadius="md">
+                  <Text fontSize="sm" color="gray.600" fontWeight="medium">計算方式：</Text>
+                  <Badge colorScheme={mockFactor.formula_type === 'weighted' ? 'blue' : 'green'} fontSize="md">
+                    {mockFactor.formula_type === 'weighted' ? '權重平均' : '權重加總'}
+                  </Badge>
+                </HStack>
+
+                <HStack justify="space-between" p={3} bg="white" borderRadius="md">
+                  <Text fontSize="sm" color="gray.600" fontWeight="medium">目標單位：</Text>
+                  <Text fontSize="sm" fontWeight="bold" fontFamily="mono" color="blue.700">
+                    {mockFactor.unit}
+                  </Text>
+                </HStack>
+
+                {/* 計算過程展示 */}
+                {mockCompositeComponents && mockCompositeComponents.length > 0 && (
+                  <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="blue.200">
+                    <VStack align="stretch" spacing={3}>
+                      <Text fontSize="sm" fontWeight="bold" color="blue.800">
+                        📐 計算過程：
+                      </Text>
+
+                      {/* 計算公式展開 */}
+                      <Box p={3} bg="gray.50" borderRadius="md" overflowX="auto">
+                        <Text fontSize="sm" fontFamily="mono" color="gray.700" whiteSpace="nowrap">
+                          {mockCompositeComponents.map((comp: any, idx: number) => {
+                            // 計算實際使用值
+                            const actualValue =
+                              comp.unitConversion?.convertedValue ??
+                              comp.gwpConversion?.convertedValue ??
+                              comp.originalValue
+
+                            const part = `(${formatNumber(actualValue)} × ${comp.weight})`
+                            const operator = idx < mockCompositeComponents.length - 1 ? ' + ' : ''
+                            return part + operator
+                          }).join('')}
+                        </Text>
+                      </Box>
+
+                      {/* 各項計算結果 */}
+                      <VStack align="stretch" spacing={1} pl={2}>
+                        {mockCompositeComponents.map((comp: any, idx: number) => {
+                          const actualValue =
+                            comp.unitConversion?.convertedValue ??
+                            comp.gwpConversion?.convertedValue ??
+                            comp.originalValue
+                          const contribution = actualValue * comp.weight
+
+                          return (
+                            <HStack key={idx} justify="space-between" fontSize="xs">
+                              <Text color="gray.600">
+                                {comp.name}:
+                              </Text>
+                              <Text fontFamily="mono" color="gray.700">
+                                {formatNumber(actualValue)} × {comp.weight} = <Text as="span" fontWeight="bold" color="blue.600">{formatNumber(contribution)}</Text>
+                              </Text>
+                            </HStack>
+                          )
+                        })}
+                      </VStack>
+
+                      <Divider />
+
+                      {/* 總和或平均 */}
+                      <HStack justify="space-between" fontSize="sm">
+                        <Text fontWeight="bold" color="blue.800">
+                          {mockFactor.formula_type === 'weighted' ? '加權平均：' : '加權總和：'}
+                        </Text>
+                        <Text fontFamily="mono" fontWeight="bold" color="blue.700">
+                          {formatNumber(mockFactor.value)}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                )}
+
+                <Box p={4} bg="blue.100" borderRadius="md" borderWidth="2px" borderColor="blue.300">
+                  <HStack justify="space-between" align="center">
+                    <Text fontSize="sm" fontWeight="bold" color="blue.800">計算結果：</Text>
+                    <Text fontSize="2xl" fontWeight="bold" fontFamily="mono" color="blue.700">
+                      {formatNumber(mockFactor.value)} {mockFactor.unit}
+                    </Text>
+                  </HStack>
+                </Box>
+              </VStack>
+            </CardBody>
+          </Card>
+        )}
+
         {/* 備註區塊 */}
         {(mockFactor.notes || isEditing) && (
           <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
@@ -913,50 +1078,206 @@ export default function FactorDetail({
           </Card>
         )}
 
-        {/* Composite Components (if applicable) */}
+        {/* 組合係數 - 組成係數詳細列表 */}
         {mockCompositeComponents && (
-          <Card>
-            <CardHeader pb={2}>
-              <Heading size="sm">組合係數組成</Heading>
-            </CardHeader>
-            <CardBody pt={2}>
-              <Table size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>組成係數</Th>
-                    <Th isNumeric>權重</Th>
-                    <Th isNumeric>值</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {mockCompositeComponents.map((component) => (
-                    <Tr key={component.id}>
-                      <Td>
-                        <Text fontSize="sm" fontWeight="medium">
-                          {component.name}
-                        </Text>
-                      </Td>
-                      <Td isNumeric>
-                        <Text fontSize="sm">{component.weight}</Text>
-                      </Td>
-                      <Td isNumeric>
-                        <Text fontSize="sm" fontFamily="mono">
-                          {formatNumber(component.value)} {component.unit}
-                        </Text>
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-              
-              <Box mt={4} p={3} bg="gray.50" borderRadius="md">
-                <HStack justify="space-between">
-                  <Text fontSize="sm" fontWeight="medium">計算結果：</Text>
-                  <Text fontSize="md" fontWeight="bold" fontFamily="mono">
-                    {formatNumber(mockFactor.value)} {mockFactor.unit}
-                  </Text>
+          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
+            <CardHeader pb={3}>
+              <HStack justify="space-between">
+                <HStack>
+                  <Icon as={InfoIcon} color="green.600" boxSize={5} />
+                  <Heading size="md" color="gray.800">組成係數</Heading>
                 </HStack>
-              </Box>
+                <Badge colorScheme="green" fontSize="sm">
+                  {mockCompositeComponents.length} 個係數
+                </Badge>
+              </HStack>
+            </CardHeader>
+            <CardBody pt={0}>
+              <Accordion allowMultiple>
+                {mockCompositeComponents.map((component: any) => {
+                  // 計算最終使用值
+                  const finalValue =
+                    component.unitConversion?.convertedValue ??
+                    component.gwpConversion?.convertedValue ??
+                    component.originalValue
+
+                  const finalUnit =
+                    component.unitConversion?.toUnit ??
+                    component.originalUnit
+
+                  return (
+                    <AccordionItem key={component.id} border="none" mb={2}>
+                      <AccordionButton
+                        bg="gray.50"
+                        _hover={{ bg: 'gray.100' }}
+                        borderRadius="md"
+                        p={4}
+                      >
+                        <HStack flex="1" justify="space-between">
+                          <HStack spacing={3}>
+                            <Text fontSize="md" fontWeight="bold" color="gray.800">
+                              {component.name}
+                            </Text>
+                            <Badge colorScheme="purple" fontSize="xs">
+                              權重: {(component.weight * 100).toFixed(0)}%
+                            </Badge>
+                            {component.gwpConversion && (
+                              <Badge colorScheme="green" fontSize="xs">
+                                GWP {component.gwpConversion.gwpVersion}
+                              </Badge>
+                            )}
+                            {component.unitConversion && (
+                              <Badge colorScheme="blue" fontSize="xs">
+                                單位轉換
+                              </Badge>
+                            )}
+                          </HStack>
+                          <AccordionIcon />
+                        </HStack>
+                      </AccordionButton>
+
+                      <AccordionPanel pb={4} pt={4} bg="white">
+                        <VStack align="stretch" spacing={4}>
+                          {/* 原始值 */}
+                          <Box p={3} bg="gray.50" borderRadius="md">
+                            <HStack justify="space-between">
+                              <Text fontSize="sm" color="gray.600">原始值：</Text>
+                              <Text fontSize="sm" fontWeight="bold" fontFamily="mono">
+                                {formatNumber(component.originalValue)} {component.originalUnit}
+                              </Text>
+                            </HStack>
+                          </Box>
+
+                          {/* GWP 轉換 */}
+                          {component.gwpConversion && (
+                            <Box p={4} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
+                              <VStack align="stretch" spacing={2}>
+                                <HStack>
+                                  <Icon as={CheckIcon} color="green.600" boxSize={4} />
+                                  <Text fontSize="sm" fontWeight="bold" color="green.700">
+                                    GWP {component.gwpConversion.gwpVersion} 轉換
+                                  </Text>
+                                </HStack>
+
+                                <Divider />
+
+                                <VStack align="stretch" spacing={1} pl={6}>
+                                  <HStack justify="space-between">
+                                    <Text fontSize="xs" color="gray.600">CO₂:</Text>
+                                    <HStack spacing={2}>
+                                      <Text fontSize="xs" fontFamily="mono">
+                                        {formatNumber(component.gwpConversion.originalCO2)} × 1
+                                      </Text>
+                                      <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
+                                        = {formatNumber(component.gwpConversion.breakdown.co2_contribution)}
+                                      </Text>
+                                    </HStack>
+                                  </HStack>
+
+                                  {component.gwpConversion.originalCH4 && (
+                                    <HStack justify="space-between">
+                                      <Text fontSize="xs" color="gray.600">CH₄:</Text>
+                                      <HStack spacing={2}>
+                                        <Text fontSize="xs" fontFamily="mono">
+                                          {formatNumber(component.gwpConversion.originalCH4)} × {component.gwpConversion.gwpVersion === 'AR4' ? '25' : component.gwpConversion.gwpVersion === 'AR5' ? '28' : '27.9'}
+                                        </Text>
+                                        <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
+                                          = {formatNumber(component.gwpConversion.breakdown.ch4_contribution)}
+                                        </Text>
+                                      </HStack>
+                                    </HStack>
+                                  )}
+
+                                  {component.gwpConversion.originalN2O && component.gwpConversion.breakdown.n2o_contribution > 0 && (
+                                    <HStack justify="space-between">
+                                      <Text fontSize="xs" color="gray.600">N₂O:</Text>
+                                      <HStack spacing={2}>
+                                        <Text fontSize="xs" fontFamily="mono">
+                                          {formatNumber(component.gwpConversion.originalN2O)} × {component.gwpConversion.gwpVersion === 'AR4' ? '298' : component.gwpConversion.gwpVersion === 'AR5' ? '265' : '273'}
+                                        </Text>
+                                        <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
+                                          = {formatNumber(component.gwpConversion.breakdown.n2o_contribution)}
+                                        </Text>
+                                      </HStack>
+                                    </HStack>
+                                  )}
+                                </VStack>
+
+                                <Divider />
+
+                                <HStack justify="space-between" bg="green.100" p={2} borderRadius="md">
+                                  <Text fontSize="sm" fontWeight="bold" color="green.800">轉換後：</Text>
+                                  <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="green.700">
+                                    {formatNumber(component.gwpConversion.convertedValue)} {component.originalUnit}
+                                  </Text>
+                                </HStack>
+                              </VStack>
+                            </Box>
+                          )}
+
+                          {/* 單位轉換 */}
+                          {component.unitConversion && (
+                            <Box p={4} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+                              <VStack align="stretch" spacing={2}>
+                                <HStack>
+                                  <Icon as={CheckIcon} color="blue.600" boxSize={4} />
+                                  <Text fontSize="sm" fontWeight="bold" color="blue.700">
+                                    單位轉換 ({component.unitConversion.mode === 'auto' ? 'Auto' : 'Custom'})
+                                  </Text>
+                                </HStack>
+
+                                <Divider />
+
+                                <HStack justify="space-between" pl={6}>
+                                  <Text fontSize="xs" color="gray.600">轉換方式：</Text>
+                                  <Text fontSize="xs" fontFamily="mono">
+                                    {component.unitConversion.fromUnit} → {component.unitConversion.toUnit}
+                                  </Text>
+                                </HStack>
+
+                                <HStack justify="space-between" pl={6}>
+                                  <Text fontSize="xs" color="gray.600">轉換因子：</Text>
+                                  <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
+                                    × {component.unitConversion.conversionFactor}
+                                  </Text>
+                                </HStack>
+
+                                <Divider />
+
+                                <HStack justify="space-between" bg="blue.100" p={2} borderRadius="md">
+                                  <Text fontSize="sm" fontWeight="bold" color="blue.800">轉換後：</Text>
+                                  <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="blue.700">
+                                    {formatNumber(component.unitConversion.convertedValue)} {component.unitConversion.toUnit}
+                                  </Text>
+                                </HStack>
+                              </VStack>
+                            </Box>
+                          )}
+
+                          {/* 無轉換提示 */}
+                          {!component.gwpConversion && !component.unitConversion && (
+                            <Box p={3} bg="gray.50" borderRadius="md">
+                              <Text fontSize="sm" color="gray.600" textAlign="center">
+                                無需轉換，直接使用原始值
+                              </Text>
+                            </Box>
+                          )}
+
+                          {/* 實際使用值 */}
+                          <Box p={4} bg="purple.50" borderRadius="md" border="2px solid" borderColor="purple.300">
+                            <HStack justify="space-between">
+                              <Text fontSize="sm" fontWeight="bold" color="purple.800">實際使用值：</Text>
+                              <Text fontSize="lg" fontWeight="bold" fontFamily="mono" color="purple.700">
+                                {formatNumber(finalValue)} {finalUnit}
+                              </Text>
+                            </HStack>
+                          </Box>
+                        </VStack>
+                      </AccordionPanel>
+                    </AccordionItem>
+                  )
+                })}
+              </Accordion>
             </CardBody>
           </Card>
         )}

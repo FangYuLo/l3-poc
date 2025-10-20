@@ -54,7 +54,7 @@ import {
   InfoIcon,
   CheckCircleIcon,
 } from '@chakra-ui/icons'
-import { useState, Fragment, useMemo } from 'react'
+import { useState, Fragment, useMemo, useEffect } from 'react'
 import { formatNumber } from '@/lib/utils'
 import FactorSelectorModal from './FactorSelectorModal'
 import FormulaBuilderContent from './formula-builder/FormulaBuilderContent'
@@ -65,6 +65,7 @@ interface CompositeEditorDrawerProps {
   isOpen: boolean
   onClose: () => void
   onSave?: (compositeData: any) => void
+  editingFactor?: any // 編輯模式：傳入現有係數資料
 }
 
 interface ComponentItem {
@@ -102,14 +103,83 @@ interface ComponentItem {
   }
 }
 
-// 單位類別定義
+// 單位分類結構
 const UNIT_CATEGORIES = {
-  mass: ['kg', 'g', 't', 'ton', 'lb'],
-  energy: ['kWh', 'MJ', 'GJ', 'MWh', 'TJ'],
-  volume: ['L', 'mL', 'm³', 'cm³', 'gal'],
-  distance: ['km', 'm', 'cm', 'mm', 'mi'],
-  time: ['hr', 'min', 's', 'day', 'year'],
-  area: ['m²', 'km²', 'ha', 'acre'],
+  mass: {
+    label: '質量',
+    units: [
+      { value: 'kg', label: 'kg (公斤)' },
+      { value: 'g', label: 'g (公克)' },
+      { value: 't', label: 't (公噸)' },
+      { value: 'ton', label: 'ton (噸)' },
+      { value: 'lb', label: 'lb (磅)' },
+    ]
+  },
+  energy: {
+    label: '能量',
+    units: [
+      { value: 'kWh', label: 'kWh (千瓦時)' },
+      { value: 'MJ', label: 'MJ (兆焦耳)' },
+      { value: 'GJ', label: 'GJ (吉焦耳)' },
+      { value: 'MWh', label: 'MWh (百萬瓦時)' },
+      { value: 'TJ', label: 'TJ (兆兆焦耳)' },
+    ]
+  },
+  volume: {
+    label: '體積',
+    units: [
+      { value: 'L', label: 'L (公升)' },
+      { value: 'mL', label: 'mL (毫升)' },
+      { value: 'm³', label: 'm³ (立方公尺)' },
+      { value: 'cm³', label: 'cm³ (立方公分)' },
+      { value: 'gal', label: 'gal (加侖)' },
+    ]
+  },
+  distance: {
+    label: '距離',
+    units: [
+      { value: 'km', label: 'km (公里)' },
+      { value: 'm', label: 'm (公尺)' },
+      { value: 'cm', label: 'cm (公分)' },
+      { value: 'mm', label: 'mm (公釐)' },
+      { value: 'mi', label: 'mi (英里)' },
+    ]
+  },
+  time: {
+    label: '時間',
+    units: [
+      { value: 'hr', label: 'hr (小時)' },
+      { value: 'min', label: 'min (分鐘)' },
+      { value: 's', label: 's (秒)' },
+      { value: 'day', label: 'day (天)' },
+      { value: 'year', label: 'year (年)' },
+    ]
+  },
+  area: {
+    label: '面積',
+    units: [
+      { value: 'm²', label: 'm² (平方公尺)' },
+      { value: 'km²', label: 'km² (平方公里)' },
+      { value: 'ha', label: 'ha (公頃)' },
+      { value: 'acre', label: 'acre (英畝)' },
+    ]
+  },
+  count: {
+    label: '數量',
+    units: [
+      { value: 'unit', label: 'unit (單位)' },
+      { value: 'piece', label: 'piece (件)' },
+      { value: 'item', label: 'item (項)' },
+    ]
+  },
+  transport: {
+    label: '運輸',
+    units: [
+      { value: 'passenger·km', label: 'passenger·km (人公里)' },
+      { value: 'tkm', label: 'tkm (噸公里)' },
+      { value: 'vehicle·km', label: 'vehicle·km (車公里)' },
+    ]
+  },
 } as const
 
 // 自動單位轉換對照表
@@ -138,6 +208,7 @@ export default function CompositeEditorDrawer({
   isOpen,
   onClose,
   onSave,
+  editingFactor,
 }: CompositeEditorDrawerProps) {
   const toast = useToast()
 
@@ -188,6 +259,8 @@ export default function CompositeEditorDrawer({
   const [description, setDescription] = useState('')
   const [formulaType, setFormulaType] = useState<'sum' | 'weighted'>('weighted')
   const [targetUnit, setTargetUnit] = useState('kg CO2e/kg')
+  const [unitCategory, setUnitCategory] = useState('')  // 單位類別
+  const [unitValue, setUnitValue] = useState('')        // 具體單位值
   const [components, setComponents] = useState<ComponentItem[]>([
     {
       id: 1,
@@ -211,7 +284,71 @@ export default function CompositeEditorDrawer({
       weight: 0.1,
     },
   ])
-  
+
+  // 編輯模式：預填現有資料
+  useEffect(() => {
+    if (editingFactor && isOpen) {
+      // 預填基本資訊
+      setCompositeName(editingFactor.name || '')
+      setDescription(editingFactor.description || '')
+      setFormulaType(editingFactor.formula_type || 'weighted')
+      setTargetUnit(editingFactor.unit || 'kg CO2e/kg')
+
+      // 預填組成係數
+      if (editingFactor.components && editingFactor.components.length > 0) {
+        const loadedComponents: ComponentItem[] = editingFactor.components.map((comp: any) => ({
+          id: comp.id || Date.now() + Math.random(),
+          factorId: comp.factorId,
+          name: comp.name,
+          value: comp.originalValue,
+          unit: comp.originalUnit,
+          weight: comp.weight,
+          gwpConversion: comp.gwpConversion,
+          unitConversion: comp.unitConversion,
+        }))
+        setComponents(loadedComponents)
+      }
+    } else if (!editingFactor && isOpen) {
+      // 新建模式：使用預設值
+      setCompositeName('')
+      setDescription('')
+      setFormulaType('weighted')
+      setTargetUnit('kg CO2e/kg')
+      setComponents([])
+    }
+  }, [editingFactor, isOpen])
+
+  // 根據 unitValue 自動更新 targetUnit
+  useEffect(() => {
+    if (unitValue) {
+      setTargetUnit(`kg CO₂e/${unitValue}`)
+    } else {
+      setTargetUnit('')
+    }
+  }, [unitValue])
+
+  // 編輯模式：解析 targetUnit 到 unitCategory 和 unitValue
+  useEffect(() => {
+    if (editingFactor?.unit && isOpen) {
+      // 解析 "kg CO₂e/kg" -> category: 'mass', value: 'kg'
+      const unitPart = editingFactor.unit.replace(/kg CO[₂2]e\//i, '').trim()
+
+      // 查找對應的類別
+      for (const [catKey, category] of Object.entries(UNIT_CATEGORIES)) {
+        const found = category.units.find((u: { value: string }) => u.value === unitPart)
+        if (found) {
+          setUnitCategory(catKey)
+          setUnitValue(unitPart)
+          break
+        }
+      }
+    } else if (!editingFactor && isOpen) {
+      // 新建模式：清空
+      setUnitCategory('')
+      setUnitValue('')
+    }
+  }, [editingFactor, isOpen])
+
   // Factor selector state
   const [isFactorSelectorOpen, setIsFactorSelectorOpen] = useState(false)
 
@@ -226,8 +363,8 @@ export default function CompositeEditorDrawer({
   const getUnitCategory = (unit: string): string | null => {
     const denominator = unit.split('/').pop()?.trim() || unit
 
-    for (const [category, units] of Object.entries(UNIT_CATEGORIES)) {
-      if (units.some(u => denominator.toLowerCase().includes(u.toLowerCase()))) {
+    for (const [category, categoryData] of Object.entries(UNIT_CATEGORIES)) {
+      if (categoryData.units.some((u: { value: string }) => denominator.toLowerCase().includes(u.value.toLowerCase()))) {
         return category
       }
     }
@@ -535,39 +672,55 @@ export default function CompositeEditorDrawer({
     }
 
     const compositeData = {
+      ...(editingFactor?.id && { id: editingFactor.id }), // 編輯模式：傳遞 id
       name: compositeName,
       description,
       formula_type: formulaType,
       unit: targetUnit,
       computed_value: computedValue,
       components: components.map(comp => ({
-        ef_id: comp.id,
+        id: comp.id,
+        factorId: comp.factorId, // 保存原始係數 ID
+        name: comp.name, // 保存係數名稱
+        originalValue: comp.value, // 保存原始值
+        originalUnit: comp.unit, // 保存原始單位
         weight: comp.weight,
-        // 新增：單位轉換資訊
-        unit_conversion: comp.unitConversion ? {
-          original_value: comp.value,
-          original_unit: comp.unit,
-          conversion_mode: comp.unitConversion.mode,
-          conversion_factor: comp.unitConversion.conversionFactor,
-          converted_value: comp.unitConversion.convertedValue,
-          can_auto_convert: comp.unitConversion.canAutoConvert,
+
+        // GWP 轉換資訊
+        gwpConversion: comp.gwpConversion ? {
+          gwpVersion: comp.gwpConversion.gwpVersion,
+          originalCO2: comp.gwpConversion.originalCO2,
+          originalCH4: comp.gwpConversion.originalCH4,
+          originalN2O: comp.gwpConversion.originalN2O,
+          convertedValue: comp.gwpConversion.convertedValue,
+          breakdown: comp.gwpConversion.breakdown,
+        } : null,
+
+        // 單位轉換資訊
+        unitConversion: comp.unitConversion ? {
+          mode: comp.unitConversion.mode,
+          fromUnit: comp.unitConversion.fromUnit,
+          toUnit: comp.unitConversion.toUnit,
+          canAutoConvert: comp.unitConversion.canAutoConvert,
+          conversionFactor: comp.unitConversion.conversionFactor,
+          convertedValue: comp.unitConversion.convertedValue,
         } : null,
       })),
     }
 
     console.log('Saving composite factor:', compositeData)
-    
+
     // 呼叫父組件的儲存函數
     onSave?.(compositeData)
-    
+
     toast({
-      title: '組合係數已建立',
-      description: `「${compositeName}」已儲存到自建係數資料夾`,
+      title: editingFactor ? '組合係數已更新' : '組合係數已建立',
+      description: `「${compositeName}」已${editingFactor ? '更新' : '儲存到自建係數資料夾'}`,
       status: 'success',
       duration: 3000,
       isClosable: true,
     })
-    
+
     // 清除表單
     setCompositeName('')
     setDescription('')
@@ -590,7 +743,9 @@ export default function CompositeEditorDrawer({
       <DrawerOverlay />
       <DrawerContent>
         <DrawerCloseButton />
-        <DrawerHeader>自建組合係數編輯器</DrawerHeader>
+        <DrawerHeader>
+          {editingFactor ? '編輯組合係數' : '自建組合係數編輯器'}
+        </DrawerHeader>
 
         <DrawerBody>
           <Tabs variant="enclosed" colorScheme="brand">
@@ -641,16 +796,55 @@ export default function CompositeEditorDrawer({
 
                   <FormControl>
                     <FormLabel fontSize="sm">目標單位</FormLabel>
-                    <Select
-                      value={targetUnit}
-                      onChange={(e) => setTargetUnit(e.target.value)}
-                    >
-                      <option value="kg CO2e/kg">kg CO2e/kg</option>
-                      <option value="kg CO2e/kWh">kg CO2e/kWh</option>
-                      <option value="kg CO2e/unit">kg CO2e/unit</option>
-                      <option value="kg CO2e/m³">kg CO2e/m³</option>
-                      <option value="kg CO2e/L">kg CO2e/L</option>
-                    </Select>
+                    <VStack align="stretch" spacing={2}>
+                      <HStack spacing={2}>
+                        {/* 固定分子 */}
+                        <Text fontSize="sm" fontWeight="medium" minW="80px">
+                          kg CO₂e /
+                        </Text>
+
+                        {/* 第一層：單位類別 */}
+                        <Select
+                          placeholder="請選擇類別"
+                          value={unitCategory}
+                          onChange={(e) => {
+                            setUnitCategory(e.target.value)
+                            setUnitValue('')  // 清空具體單位
+                          }}
+                          flex={1}
+                          size="sm"
+                        >
+                          {Object.entries(UNIT_CATEGORIES).map(([key, category]) => (
+                            <option key={key} value={key}>
+                              {category.label}
+                            </option>
+                          ))}
+                        </Select>
+
+                        {/* 第二層：具體單位 */}
+                        <Select
+                          placeholder="請選擇單位"
+                          value={unitValue}
+                          onChange={(e) => setUnitValue(e.target.value)}
+                          flex={1}
+                          size="sm"
+                          isDisabled={!unitCategory}
+                        >
+                          {unitCategory && UNIT_CATEGORIES[unitCategory as keyof typeof UNIT_CATEGORIES].units.map((unit) => (
+                            <option key={unit.value} value={unit.value}>
+                              {unit.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </HStack>
+
+                      {/* 顯示完整單位 */}
+                      {unitValue && (
+                        <Text fontSize="xs" color="gray.600">
+                          完整單位：kg CO₂e/{unitValue}
+                        </Text>
+                      )}
+                    </VStack>
                   </FormControl>
                 </HStack>
               </VStack>

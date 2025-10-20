@@ -64,6 +64,8 @@ export default function HomePage() {
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
   // 自建係數狀態管理
   const [userDefinedFactors, setUserDefinedFactors] = useState<any[]>([])
+  // 編輯中的組合係數
+  const [editingComposite, setEditingComposite] = useState<any | null>(null)
   
   // 資料集狀態管理
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -110,23 +112,57 @@ export default function HomePage() {
     setSelectedFactor(null)
   }
 
-  // 處理新組合係數儲存
+  // 處理新組合係數儲存或更新
   const handleCompositeFactorSave = (compositeData: any) => {
-    const newFactor = {
-      id: Date.now(), // 生成唯一ID
-      type: 'composite_factor',
-      name: compositeData.name,
-      value: compositeData.computed_value,
-      unit: compositeData.unit,
-      method_gwp: 'GWP100',
-      source_type: 'user_defined',
-      version: '1.0',
-      created_at: new Date().toISOString(),
-      ...compositeData
+    if (compositeData.id) {
+      // 更新模式
+      const updatedFactor = {
+        ...compositeData,
+        type: 'composite_factor',
+        value: compositeData.computed_value,
+        source_type: 'user_defined',
+        updated_at: new Date().toISOString(),
+      }
+
+      setUserDefinedFactors(prev =>
+        prev.map(factor =>
+          factor.id === compositeData.id ? updatedFactor : factor
+        )
+      )
+
+      // 如果當前選中的是被編輯的係數，更新選中狀態
+      if (selectedFactor && selectedFactor.id === compositeData.id) {
+        setSelectedFactor(updatedFactor)
+      }
+
+      console.log('更新自建組合係數:', updatedFactor)
+    } else {
+      // 新增模式
+      const newFactor = {
+        id: Date.now(), // 生成唯一ID
+        type: 'composite_factor',
+        name: compositeData.name,
+        value: compositeData.computed_value,
+        unit: compositeData.unit,
+        method_gwp: 'GWP100',
+        source_type: 'user_defined',
+        version: '1.0',
+        created_at: new Date().toISOString(),
+        ...compositeData
+      }
+
+      setUserDefinedFactors(prev => [...prev, newFactor])
+      console.log('新增自建組合係數:', newFactor)
     }
 
-    setUserDefinedFactors(prev => [...prev, newFactor])
-    console.log('新增自建係數:', newFactor)
+    // 清除編輯狀態
+    setEditingComposite(null)
+  }
+
+  // 處理編輯組合係數
+  const handleCompositeFactorEdit = (factor: any) => {
+    setEditingComposite(factor)
+    onCompositeOpen()
   }
 
   // 處理公式建構器儲存
@@ -707,6 +743,7 @@ export default function HomePage() {
               <FactorDetail
                 selectedFactor={selectedFactor}
                 onEditFactor={handleEditFactor}
+                onEditComposite={handleCompositeFactorEdit}
                 isUserDefinedFactor={selectedFactor?.source_type === 'user_defined'}
               />
             )}
@@ -717,8 +754,12 @@ export default function HomePage() {
       {/* Modals & Drawers */}
       <CompositeEditorDrawer
         isOpen={isCompositeOpen}
-        onClose={onCompositeClose}
+        onClose={() => {
+          setEditingComposite(null)
+          onCompositeClose()
+        }}
         onSave={handleCompositeFactorSave}
+        editingFactor={editingComposite}
       />
       
       {/* Delete Confirmation Dialog */}

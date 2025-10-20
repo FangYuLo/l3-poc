@@ -30,26 +30,28 @@ import {
   Th,
   Td,
   Badge,
-  Flex,
-  Spacer,
   Tabs,
   TabList,
-  TabPanels,
   Tab,
-  TabPanel,
   Card,
   CardBody,
-  Divider,
   Alert,
   AlertIcon,
   Tooltip,
   Icon,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  PopoverArrow,
+  PopoverHeader,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
   CheckIcon,
   CloseIcon,
   SettingsIcon,
+  ChevronDownIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
@@ -264,7 +266,6 @@ export default function FactorSelectorModal({
     switch (activeTab) {
       case 0: return localFactors
       case 1: return globalFactorsData
-      case 2: return [...localFactors, ...globalFactorsData]
       default: return localFactors
     }
   }
@@ -393,206 +394,238 @@ export default function FactorSelectorModal({
       <ModalContent maxH="90vh" maxW="90vw">
         <ModalHeader>選擇排放係數</ModalHeader>
         <ModalCloseButton />
-        
-        <ModalBody pb={6} overflow="hidden">
-          <VStack spacing={4} align="stretch" h="70vh">
+
+        <ModalBody pb={6}>
+          <Tabs index={activeTab} onChange={setActiveTab}>
             {/* 標籤切換 */}
-            <Tabs index={activeTab} onChange={setActiveTab} display="flex" flexDirection="column" h="100%">
-              <TabList>
-                <Tab>中央係數庫 ({localFactors.length})</Tab>
-                <Tab>全庫搜尋 ({globalFactorsData.length})</Tab>
-                <Tab>全部 ({localFactors.length + globalFactorsData.length})</Tab>
-              </TabList>
+            <TabList>
+              <Tab>中央係數庫 ({localFactors.length})</Tab>
+              <Tab>希達係數庫 ({globalFactorsData.length})</Tab>
+            </TabList>
 
-              {/* 搜尋和篩選區 */}
-              <Box py={4} flexShrink={0}>
-                <HStack spacing={4} mb={4}>
-                  <InputGroup flex={1}>
-                    <InputLeftElement>
-                      <SearchIcon color="gray.400" />
-                    </InputLeftElement>
-                    <Input
-                      placeholder="搜尋係數名稱、單位或地區..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </InputGroup>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setSearchTerm('')
-                    setSelectedRegions([])
-                    setSelectedSourceTypes([])
-                    setSelectedUnits([])
-                  }}>
-                    清除篩選
-                  </Button>
-                </HStack>
+          <VStack spacing={4} align="stretch" mt={4}>
 
-                {/* 快速篩選 */}
-                <HStack spacing={4} wrap="wrap">
-                  <Text fontSize="sm" fontWeight="medium">快速篩選：</Text>
-                  <CheckboxGroup
-                    value={selectedSourceTypes}
-                    onChange={(value) => setSelectedSourceTypes(value as string[])}
-                  >
-                    <HStack wrap="wrap">
-                      {filterOptions.sourceTypes.map((sourceType) => (
-                        <Checkbox key={sourceType.value} value={sourceType.value} size="sm">
-                          {sourceType.label}
-                        </Checkbox>
-                      ))}
-                    </HStack>
-                  </CheckboxGroup>
-                </HStack>
-              </Box>
+            {/* 搜尋和篩選區 */}
+            <Box py={4} flexShrink={0}>
+              <HStack spacing={3}>
+                <InputGroup flex={1}>
+                  <InputLeftElement>
+                    <SearchIcon color="gray.400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="搜尋係數名稱、單位或地區..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </InputGroup>
 
-              <HStack spacing={6} align="stretch" flex={1} overflow="hidden">
-                {/* 左側：篩選面板 */}
-                <Box w="250px" overflowY="auto" borderRight="1px solid" borderColor="gray.200" pr={4}>
-                  <Accordion allowMultiple defaultIndex={[0, 1]}>
-                    {/* 地區篩選 */}
-                    <AccordionItem border="none">
-                      <AccordionButton px={0}>
-                        <Box flex="1" textAlign="left">
-                          <Text fontSize="sm" fontWeight="medium">地區</Text>
-                        </Box>
-                        <AccordionIcon />
-                      </AccordionButton>
-                      <AccordionPanel px={0} pb={4}>
-                        <CheckboxGroup
-                          value={selectedRegions}
-                          onChange={(value) => setSelectedRegions(value as string[])}
-                        >
-                          <VStack align="start" spacing={2} maxH="250px" overflowY="auto">
-                            {filterOptions.regions.map((region) => (
-                              <Checkbox key={region} value={region} size="sm">
-                                {region}
-                              </Checkbox>
-                            ))}
-                          </VStack>
-                        </CheckboxGroup>
-                      </AccordionPanel>
-                    </AccordionItem>
+                {/* 篩選器 Popover */}
+                <Popover placement="bottom-start">
+                  <PopoverTrigger>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftIcon={<SettingsIcon />}
+                      rightIcon={<ChevronDownIcon />}
+                    >
+                      篩選
+                      {(selectedSourceTypes.length > 0 || selectedRegions.length > 0 || selectedUnits.length > 0) && (
+                        <Badge ml={2} colorScheme="blue" borderRadius="full">
+                          {selectedSourceTypes.length + selectedRegions.length + selectedUnits.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent w="320px">
+                    <PopoverArrow />
+                    <PopoverHeader fontWeight="semibold" border="0" pb={2}>
+                      進階篩選
+                    </PopoverHeader>
+                    <PopoverBody maxH="400px" overflowY="auto">
+                      <Accordion allowMultiple defaultIndex={[0, 1, 2]}>
+                        {/* 來源類型篩選 */}
+                        <AccordionItem border="none">
+                          <AccordionButton px={0}>
+                            <Box flex="1" textAlign="left">
+                              <Text fontSize="sm" fontWeight="medium">來源類型</Text>
+                            </Box>
+                            <AccordionIcon />
+                          </AccordionButton>
+                          <AccordionPanel px={0} pb={4}>
+                            <CheckboxGroup
+                              value={selectedSourceTypes}
+                              onChange={(value) => setSelectedSourceTypes(value as string[])}
+                            >
+                              <VStack align="start" spacing={2}>
+                                {filterOptions.sourceTypes.map((sourceType) => (
+                                  <Checkbox key={sourceType.value} value={sourceType.value} size="sm">
+                                    {sourceType.label}
+                                  </Checkbox>
+                                ))}
+                              </VStack>
+                            </CheckboxGroup>
+                          </AccordionPanel>
+                        </AccordionItem>
 
-                    {/* 單位篩選 */}
-                    <AccordionItem border="none">
-                      <AccordionButton px={0}>
-                        <Box flex="1" textAlign="left">
-                          <Text fontSize="sm" fontWeight="medium">單位</Text>
-                        </Box>
-                        <AccordionIcon />
-                      </AccordionButton>
-                      <AccordionPanel px={0} pb={4}>
-                        <CheckboxGroup
-                          value={selectedUnits}
-                          onChange={(value) => setSelectedUnits(value as string[])}
-                        >
-                          <VStack align="start" spacing={2} maxH="250px" overflowY="auto">
-                            {filterOptions.units.map((unit) => (
-                              <Checkbox key={unit} value={unit} size="sm">
-                                {unit}
-                              </Checkbox>
-                            ))}
-                          </VStack>
-                        </CheckboxGroup>
-                      </AccordionPanel>
-                    </AccordionItem>
-                  </Accordion>
-                </Box>
+                        {/* 地區篩選 */}
+                        <AccordionItem border="none">
+                          <AccordionButton px={0}>
+                            <Box flex="1" textAlign="left">
+                              <Text fontSize="sm" fontWeight="medium">地區</Text>
+                            </Box>
+                            <AccordionIcon />
+                          </AccordionButton>
+                          <AccordionPanel px={0} pb={4}>
+                            <CheckboxGroup
+                              value={selectedRegions}
+                              onChange={(value) => setSelectedRegions(value as string[])}
+                            >
+                              <VStack align="start" spacing={2} maxH="200px" overflowY="auto">
+                                {filterOptions.regions.map((region) => (
+                                  <Checkbox key={region} value={region} size="sm">
+                                    {region}
+                                  </Checkbox>
+                                ))}
+                              </VStack>
+                            </CheckboxGroup>
+                          </AccordionPanel>
+                        </AccordionItem>
 
-                {/* 中間：係數列表 */}
-                <Box flex={1} overflowY="auto">
-                  <Text fontSize="sm" color="gray.600" mb={3}>
+                        {/* 單位篩選 */}
+                        <AccordionItem border="none">
+                          <AccordionButton px={0}>
+                            <Box flex="1" textAlign="left">
+                              <Text fontSize="sm" fontWeight="medium">單位</Text>
+                            </Box>
+                            <AccordionIcon />
+                          </AccordionButton>
+                          <AccordionPanel px={0} pb={4}>
+                            <CheckboxGroup
+                              value={selectedUnits}
+                              onChange={(value) => setSelectedUnits(value as string[])}
+                            >
+                              <VStack align="start" spacing={2} maxH="200px" overflowY="auto">
+                                {filterOptions.units.map((unit) => (
+                                  <Checkbox key={unit} value={unit} size="sm">
+                                    {unit}
+                                  </Checkbox>
+                                ))}
+                              </VStack>
+                            </CheckboxGroup>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+                    </PopoverBody>
+                  </PopoverContent>
+                </Popover>
+
+                <Button size="sm" variant="outline" onClick={() => {
+                  setSearchTerm('')
+                  setSelectedRegions([])
+                  setSelectedSourceTypes([])
+                  setSelectedUnits([])
+                }}>
+                  清除篩選
+                </Button>
+              </HStack>
+            </Box>
+
+            <HStack spacing={6} align="start">
+                {/* 係數列表 */}
+                <Box flex={1}>
+                  <Text fontSize="sm" color="gray.600" mb={2}>
                     找到 {filteredFactors.length} 筆係數
-                    {activeTab === 2 && ` (中央係數庫 ${localFactors.filter(f => !excludeIds.includes(f.id)).length} + 全庫 ${globalFactorsData.length})`}
                   </Text>
-                  
-                  <Table size="sm" variant="simple">
-                    <Thead position="sticky" top={0} bg="white" zIndex={1}>
-                      <Tr>
-                        <Th width="40px"></Th>
-                        <Th>係數名稱</Th>
-                        <Th isNumeric>數值</Th>
-                        <Th>單位</Th>
-                        <Th>地區</Th>
-                        <Th>來源</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {filteredFactors.map((factor) => {
-                        const isSelected = selectedFactorIds.includes(factor.id)
-                        const unitCompatibility = getUnitCompatibility(factor.unit)
-                        
-                        return (
-                          <Tr
-                            key={factor.id}
-                            bg={isSelected ? 'blue.50' : 'transparent'}
-                            _hover={{ bg: isSelected ? 'blue.100' : 'gray.50' }}
-                            cursor="pointer"
-                            onClick={() => handleFactorToggle(factor.id)}
-                          >
-                            <Td>
-                              <Checkbox
-                                isChecked={isSelected}
-                                onChange={() => handleFactorToggle(factor.id)}
-                              />
-                            </Td>
-                            <Td>
-                              <HStack spacing={1}>
-                                <Text fontSize="sm" fontWeight="medium">
-                                  {factor.name}
+
+                  <Box overflowY="auto" border="1px solid" borderColor="gray.200" borderRadius="md" maxH="500px">
+                    <Table size="sm" variant="simple">
+                      <Thead position="sticky" top={0} bg="white" zIndex={1} boxShadow="sm">
+                        <Tr>
+                          <Th width="40px"></Th>
+                          <Th>係數名稱</Th>
+                          <Th isNumeric>數值</Th>
+                          <Th>單位</Th>
+                          <Th>地區</Th>
+                          <Th>來源</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {filteredFactors.map((factor) => {
+                          const isSelected = selectedFactorIds.includes(factor.id)
+                          const unitCompatibility = getUnitCompatibility(factor.unit)
+
+                          return (
+                            <Tr
+                              key={factor.id}
+                              bg={isSelected ? 'blue.50' : 'transparent'}
+                              _hover={{ bg: isSelected ? 'blue.100' : 'gray.50' }}
+                              cursor="pointer"
+                              onClick={() => handleFactorToggle(factor.id)}
+                            >
+                              <Td>
+                                <Checkbox
+                                  isChecked={isSelected}
+                                  onChange={() => handleFactorToggle(factor.id)}
+                                />
+                              </Td>
+                              <Td>
+                                <HStack spacing={1}>
+                                  <Text fontSize="sm" fontWeight="medium">
+                                    {factor.name}
+                                  </Text>
+                                  {factor.requires_gwp_conversion && (
+                                    <Tooltip
+                                      label={`此係數包含多種氣體（CO₂${factor.ch4_factor ? ', CH₄' : ''}${factor.n2o_factor ? ', N₂O' : ''}），需選擇 GWP 版本轉換`}
+                                      placement="top"
+                                    >
+                                      <Icon as={SettingsIcon} color="orange.500" boxSize={3} />
+                                    </Tooltip>
+                                  )}
+                                </HStack>
+                                <HStack spacing={1} mt={1}>
+                                  {factor.dataSource === 'global' && (
+                                    <Badge size="xs" colorScheme="cyan">全庫</Badge>
+                                  )}
+                                  {factor.requires_gwp_conversion && (
+                                    <Badge size="xs" colorScheme="orange">需GWP轉換</Badge>
+                                  )}
+                                </HStack>
+                              </Td>
+                              <Td isNumeric>
+                                <Text fontSize="sm" fontFamily="mono">
+                                  {formatNumber(factor.value)}
                                 </Text>
-                                {factor.requires_gwp_conversion && (
-                                  <Tooltip
-                                    label={`此係數包含多種氣體（CO₂${factor.ch4_factor ? ', CH₄' : ''}${factor.n2o_factor ? ', N₂O' : ''}），需選擇 GWP 版本轉換`}
-                                    placement="top"
-                                  >
-                                    <Icon as={SettingsIcon} color="orange.500" boxSize={3} />
-                                  </Tooltip>
-                                )}
-                              </HStack>
-                              <HStack spacing={1} mt={1}>
-                                {factor.dataSource === 'global' && (
-                                  <Badge size="xs" colorScheme="cyan">全庫</Badge>
-                                )}
-                                {factor.requires_gwp_conversion && (
-                                  <Badge size="xs" colorScheme="orange">需GWP轉換</Badge>
-                                )}
-                              </HStack>
-                            </Td>
-                            <Td isNumeric>
-                              <Text fontSize="sm" fontFamily="mono">
-                                {formatNumber(factor.value)}
-                              </Text>
-                            </Td>
-                            <Td>
-                              <HStack>
-                                <Text fontSize="sm">{factor.unit}</Text>
-                                {targetUnit && unitCompatibility === 'incompatible' && (
-                                  <Badge size="xs" colorScheme="red">不相容</Badge>
-                                )}
-                              </HStack>
-                            </Td>
-                            <Td>
-                              <Text fontSize="sm">{factor.region || '-'}</Text>
-                            </Td>
-                            <Td>
-                              {getSourceTypeBadge(factor.source_type)}
-                            </Td>
-                          </Tr>
-                        )
-                      })}
-                    </Tbody>
-                  </Table>
-                  
-                  {filteredFactors.length === 0 && (
-                    <Box textAlign="center" py={8} color="gray.500">
-                      <Text>沒有找到符合條件的係數</Text>
-                    </Box>
-                  )}
+                              </Td>
+                              <Td>
+                                <HStack>
+                                  <Text fontSize="sm">{factor.unit}</Text>
+                                  {targetUnit && unitCompatibility === 'incompatible' && (
+                                    <Badge size="xs" colorScheme="red">不相容</Badge>
+                                  )}
+                                </HStack>
+                              </Td>
+                              <Td>
+                                <Text fontSize="sm">{factor.region || '-'}</Text>
+                              </Td>
+                              <Td>
+                                {getSourceTypeBadge(factor.source_type)}
+                              </Td>
+                            </Tr>
+                          )
+                        })}
+                      </Tbody>
+                    </Table>
+
+                    {filteredFactors.length === 0 && (
+                      <Box textAlign="center" py={8} color="gray.500">
+                        <Text>沒有找到符合條件的係數</Text>
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
 
                 {/* 右側：已選係數 */}
-                <Box w="300px" overflowY="auto" borderLeft="1px solid" borderColor="gray.200" pl={4}>
+                <Box w="300px" borderLeft="1px solid" borderColor="gray.200" pl={4} flexShrink={0}>
                   <HStack justify="space-between" mb={3}>
                     <Text fontSize="sm" fontWeight="medium">
                       已選係數 ({selectedFactors.length})
@@ -604,6 +637,7 @@ export default function FactorSelectorModal({
                     )}
                   </HStack>
 
+                  <Box overflowY="auto" maxH="500px">
                   {selectedFactors.length > 0 ? (
                     <VStack spacing={2} align="stretch">
                       {selectedFactors.map((factor) => (
@@ -643,10 +677,11 @@ export default function FactorSelectorModal({
                       <Text fontSize="xs" mt={1}>勾選左側列表中的係數</Text>
                     </Box>
                   )}
+                  </Box>
                 </Box>
-              </HStack>
-            </Tabs>
+            </HStack>
           </VStack>
+          </Tabs>
         </ModalBody>
 
         <ModalFooter>
