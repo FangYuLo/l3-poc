@@ -148,7 +148,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
     ]
   },
 
-  // 自建係數 - 維持現狀
+  // 自建係數 - 與中央/希達係數庫欄位一致
   user_defined: {
     folderType: 'user_defined',
     displayName: '自建係數',
@@ -157,8 +157,8 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       {
         key: 'name',
         label: '名稱',
-        width: '25%',
-        type: 'text',
+        width: '30%',
+        type: 'custom',
         formatter: (value: any) => (
           <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
             {value}
@@ -166,57 +166,53 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         )
       },
       {
-        key: 'formula_type',
-        label: '計算公式',
-        width: '15%',
-        type: 'text',
-        formatter: (value: any, row: any) => (
-          <Text fontSize="sm" color="gray.700">
-            {row.formula_type || '組合計算'}
-          </Text>
-        )
-      },
-      {
         key: 'value',
-        label: '計算結果',
+        label: '排放係數',
         width: '15%',
         type: 'custom',
         isNumeric: true,
         formatter: (value: any, row: any) => renderEmissionValue(value, row.unit)
       },
       {
-        key: 'created_at',
-        label: '創建日期',
+        key: 'region',
+        label: '國家/區域',
         width: '12%',
-        type: 'date',
-        formatter: (value: any) => (
+        type: 'text',
+        formatter: (value: any, row: any) => (
           <Text fontSize="sm" color="gray.700">
-            {value ? new Date(value).toLocaleDateString('zh-TW') : '今日'}
+            {value || row.data?.region || '組織自建'}
           </Text>
         )
       },
       {
-        key: 'components',
-        label: '組件係數',
+        key: 'source_ref',
+        label: '係數來源',
         width: '15%',
         type: 'text',
-        formatter: (value: any, row: any) => (
-          <Text fontSize="sm" color="gray.600">
-            {row.components?.length || 0} 個
-          </Text>
-        )
+        formatter: (value: any, row: any) => {
+          // 顯示組合係數的組件數量
+          const componentCount = row.components?.length || row.data?.components?.length || 0
+          const sourceText = componentCount > 0
+            ? `組合係數 (${componentCount}個)`
+            : '自建係數'
+          return (
+            <Text fontSize="sm" color="gray.700">
+              {sourceText}
+            </Text>
+          )
+        }
       },
       {
         key: 'quality_label',
-        label: '標籤',
-        width: '8%',
+        label: '數據品質',
+        width: '10%',
         type: 'custom',
         formatter: (value: any, row: any) => renderQualityBadge(row)
       },
       {
         key: 'usage_projects',
-        label: '使用專案',
-        width: '10%',
+        label: '引用專案',
+        width: '20%',
         type: 'custom',
         formatter: (value: any, row: any) => (
           <Text fontSize="xs" color="gray.500" noOfLines={2}>
