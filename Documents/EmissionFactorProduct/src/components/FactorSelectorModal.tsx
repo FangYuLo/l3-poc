@@ -45,6 +45,8 @@ import {
   PopoverBody,
   PopoverArrow,
   PopoverHeader,
+  IconButton,
+  Collapse,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
@@ -52,9 +54,13 @@ import {
   CloseIcon,
   SettingsIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
+  InfoIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
+import EmissionFactorCards from './EmissionFactorCards'
+import { renderQualityBadge } from '@/config/tableColumns'
 
 interface FactorSelectorModalProps {
   isOpen: boolean
@@ -77,12 +83,17 @@ interface UnifiedFactor {
   method_gwp?: string
   source_type: string
   source_ref?: string
+  source?: string
   version: string
   dataSource: 'local' | 'global'
   requires_gwp_conversion?: boolean  // 標記需要 GWP 轉換
   co2_factor?: number
   ch4_factor?: number
   n2o_factor?: number
+  co2_unit?: string
+  ch4_unit?: string
+  n2o_unit?: string
+  data_quality?: string
 }
 
 export default function FactorSelectorModal({
@@ -100,6 +111,7 @@ export default function FactorSelectorModal({
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
   const [selectedUnits, setSelectedUnits] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState(0) // 0: 中央係數庫, 1: 全庫搜尋, 2: 全部
+  const [expandedFactorIds, setExpandedFactorIds] = useState<Set<number>>(new Set())
 
   // 使用傳入的真實資料，如果沒有則使用預設 mock data
   const localFactorsMock: UnifiedFactor[] = [
@@ -340,11 +352,24 @@ export default function FactorSelectorModal({
 
   // 處理係數選擇
   const handleFactorToggle = (factorId: number) => {
-    setSelectedFactorIds(prev => 
-      prev.includes(factorId) 
+    setSelectedFactorIds(prev =>
+      prev.includes(factorId)
         ? prev.filter(id => id !== factorId)
         : [...prev, factorId]
     )
+  }
+
+  // 處理展開/收合
+  const toggleExpand = (factorId: number) => {
+    setExpandedFactorIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(factorId)) {
+        newSet.delete(factorId)
+      } else {
+        newSet.add(factorId)
+      }
+      return newSet
+    })
   }
 
   // 移除已選係數
@@ -542,75 +567,226 @@ export default function FactorSelectorModal({
                       <Thead position="sticky" top={0} bg="white" zIndex={1} boxShadow="sm">
                         <Tr>
                           <Th width="40px"></Th>
-                          <Th>係數名稱</Th>
-                          <Th isNumeric>數值</Th>
-                          <Th>單位</Th>
-                          <Th>地區</Th>
-                          <Th>來源</Th>
+                          <Th width="30%">名稱</Th>
+                          <Th width="18%" isNumeric>排放係數</Th>
+                          <Th width="12%">國家/區域</Th>
+                          <Th width="15%">係數來源</Th>
+                          <Th width="10%">數據品質</Th>
+                          <Th width="40px"></Th>
                         </Tr>
                       </Thead>
                       <Tbody>
                         {filteredFactors.map((factor) => {
                           const isSelected = selectedFactorIds.includes(factor.id)
-                          const unitCompatibility = getUnitCompatibility(factor.unit)
+                          const isExpanded = expandedFactorIds.has(factor.id)
 
                           return (
-                            <Tr
-                              key={factor.id}
-                              bg={isSelected ? 'blue.50' : 'transparent'}
-                              _hover={{ bg: isSelected ? 'blue.100' : 'gray.50' }}
-                              cursor="pointer"
-                              onClick={() => handleFactorToggle(factor.id)}
-                            >
-                              <Td>
-                                <Checkbox
-                                  isChecked={isSelected}
-                                  onChange={() => handleFactorToggle(factor.id)}
-                                />
-                              </Td>
-                              <Td>
-                                <HStack spacing={1}>
-                                  <Text fontSize="sm" fontWeight="medium">
-                                    {factor.name}
+                            <>
+                              <Tr
+                                key={factor.id}
+                                bg={isSelected ? 'blue.50' : 'transparent'}
+                                _hover={{ bg: isSelected ? 'blue.100' : 'gray.50' }}
+                              >
+                                <Td>
+                                  <Checkbox
+                                    isChecked={isSelected}
+                                    onChange={() => handleFactorToggle(factor.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </Td>
+                                <Td>
+                                  <VStack align="start" spacing={1}>
+                                    <HStack spacing={1}>
+                                      <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
+                                        {factor.name}
+                                      </Text>
+                                      {factor.requires_gwp_conversion && (
+                                        <Tooltip
+                                          label={`此係數包含多種氣體（CO₂${factor.ch4_factor ? ', CH₄' : ''}${factor.n2o_factor ? ', N₂O' : ''}），需選擇 GWP 版本轉換`}
+                                          placement="top"
+                                        >
+                                          <Icon as={SettingsIcon} color="orange.500" boxSize={3} />
+                                        </Tooltip>
+                                      )}
+                                    </HStack>
+                                    <HStack spacing={1}>
+                                      {factor.dataSource === 'global' && (
+                                        <Badge size="xs" colorScheme="cyan">全庫</Badge>
+                                      )}
+                                      {factor.requires_gwp_conversion && (
+                                        <Badge size="xs" colorScheme="orange">需GWP轉換</Badge>
+                                      )}
+                                    </HStack>
+                                  </VStack>
+                                </Td>
+                                <Td isNumeric>
+                                  <VStack align="end" spacing={0}>
+                                    <Text fontSize="sm" fontWeight="medium" fontFamily="mono">
+                                      {formatNumber(factor.value)}
+                                    </Text>
+                                    <Text fontSize="xs" color="gray.500">
+                                      {factor.unit}
+                                    </Text>
+                                  </VStack>
+                                </Td>
+                                <Td>
+                                  <Text fontSize="sm">{factor.region || '台灣'}</Text>
+                                </Td>
+                                <Td>
+                                  <Text fontSize="sm" noOfLines={2}>
+                                    {factor.source_ref || factor.source || 'ecoinvent'}
                                   </Text>
-                                  {factor.requires_gwp_conversion && (
-                                    <Tooltip
-                                      label={`此係數包含多種氣體（CO₂${factor.ch4_factor ? ', CH₄' : ''}${factor.n2o_factor ? ', N₂O' : ''}），需選擇 GWP 版本轉換`}
-                                      placement="top"
+                                </Td>
+                                <Td>
+                                  {renderQualityBadge(factor)}
+                                </Td>
+                                <Td>
+                                  <IconButton
+                                    aria-label="展開詳情"
+                                    icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                                    size="sm"
+                                    variant="ghost"
+                                    colorScheme={isExpanded ? 'blue' : 'gray'}
+                                    onClick={(e: React.MouseEvent) => {
+                                      e.stopPropagation()
+                                      toggleExpand(factor.id)
+                                    }}
+                                  />
+                                </Td>
+                              </Tr>
+                              {/* 展開的詳情行 */}
+                              <Tr key={`${factor.id}-detail`}>
+                                <Td colSpan={7} p={0} border="none">
+                                  <Collapse in={isExpanded} animateOpacity>
+                                    <Box
+                                      p={6}
+                                      bg="gray.50"
+                                      borderTop="1px solid"
+                                      borderColor="gray.200"
                                     >
-                                      <Icon as={SettingsIcon} color="orange.500" boxSize={3} />
-                                    </Tooltip>
-                                  )}
-                                </HStack>
-                                <HStack spacing={1} mt={1}>
-                                  {factor.dataSource === 'global' && (
-                                    <Badge size="xs" colorScheme="cyan">全庫</Badge>
-                                  )}
-                                  {factor.requires_gwp_conversion && (
-                                    <Badge size="xs" colorScheme="orange">需GWP轉換</Badge>
-                                  )}
-                                </HStack>
-                              </Td>
-                              <Td isNumeric>
-                                <Text fontSize="sm" fontFamily="mono">
-                                  {formatNumber(factor.value)}
-                                </Text>
-                              </Td>
-                              <Td>
-                                <HStack>
-                                  <Text fontSize="sm">{factor.unit}</Text>
-                                  {targetUnit && unitCompatibility === 'incompatible' && (
-                                    <Badge size="xs" colorScheme="red">不相容</Badge>
-                                  )}
-                                </HStack>
-                              </Td>
-                              <Td>
-                                <Text fontSize="sm">{factor.region || '-'}</Text>
-                              </Td>
-                              <Td>
-                                {getSourceTypeBadge(factor.source_type)}
-                              </Td>
-                            </Tr>
+                                      <VStack spacing={4} align="stretch">
+                                        {/* 係數資訊區塊 */}
+                                        <Box>
+                                          <HStack mb={3}>
+                                            <Icon as={InfoIcon} color="blue.600" boxSize={4} />
+                                            <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                                              係數資訊
+                                            </Text>
+                                          </HStack>
+                                          <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+                                            <VStack spacing={3} align="stretch">
+                                              <HStack spacing={6}>
+                                                <Box flex="1">
+                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                                                    係數來源
+                                                  </Text>
+                                                  <Text fontSize="sm" color="gray.800">
+                                                    {factor.source_ref || factor.source || 'ecoinvent'}
+                                                  </Text>
+                                                </Box>
+                                                <Box flex="1">
+                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                                                    年份
+                                                  </Text>
+                                                  <Text fontSize="sm" color="gray.800">
+                                                    {factor.year || 2024}
+                                                  </Text>
+                                                </Box>
+                                              </HStack>
+                                              <HStack spacing={6}>
+                                                <Box flex="1">
+                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                                                    國家/區域
+                                                  </Text>
+                                                  <Text fontSize="sm" color="gray.800">
+                                                    {factor.region || '台灣'}
+                                                  </Text>
+                                                </Box>
+                                                <Box flex="1">
+                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                                                    方法學
+                                                  </Text>
+                                                  <Text fontSize="sm" color="gray.800">
+                                                    {factor.method_gwp || 'GWP100'}
+                                                  </Text>
+                                                </Box>
+                                              </HStack>
+                                              <Box>
+                                                <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                                                  版本
+                                                </Text>
+                                                <Text fontSize="sm" color="gray.800">
+                                                  {factor.version || 'v1.0'}
+                                                </Text>
+                                              </Box>
+                                            </VStack>
+                                          </Box>
+                                        </Box>
+
+                                        {/* 排放係數區塊 - 使用 EmissionFactorCards */}
+                                        {(factor.co2_factor || factor.ch4_factor || factor.n2o_factor) && (
+                                          <Box>
+                                            <HStack mb={3}>
+                                              <Icon as={InfoIcon} color="green.600" boxSize={4} />
+                                              <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                                                排放係數
+                                              </Text>
+                                            </HStack>
+                                            <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+                                              <EmissionFactorCards
+                                                co2_factor={factor.co2_factor || factor.value}
+                                                co2_unit={factor.co2_unit || factor.unit}
+                                                ch4_factor={factor.ch4_factor}
+                                                ch4_unit={factor.ch4_unit}
+                                                n2o_factor={factor.n2o_factor}
+                                                n2o_unit={factor.n2o_unit}
+                                              />
+                                            </Box>
+                                          </Box>
+                                        )}
+
+                                        {/* 組合係數計算公式 */}
+                                        {factor.type === 'composite_factor' && (
+                                          <Box>
+                                            <HStack mb={3}>
+                                              <Icon as={InfoIcon} color="purple.600" boxSize={4} />
+                                              <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                                                計算公式
+                                              </Text>
+                                            </HStack>
+                                            <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="purple.200">
+                                              <VStack spacing={2} align="stretch">
+                                                <HStack justify="space-between">
+                                                  <Text fontSize="xs" color="gray.600">計算方式：</Text>
+                                                  <Badge colorScheme="purple">組合計算</Badge>
+                                                </HStack>
+                                                <HStack justify="space-between" p={2} bg="purple.50" borderRadius="md">
+                                                  <Text fontSize="sm" fontWeight="bold" color="purple.800">結果：</Text>
+                                                  <Text fontSize="lg" fontWeight="bold" fontFamily="mono" color="purple.700">
+                                                    {formatNumber(factor.value)} {factor.unit}
+                                                  </Text>
+                                                </HStack>
+                                              </VStack>
+                                            </Box>
+                                          </Box>
+                                        )}
+
+                                        {/* 關閉按鈕 */}
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          rightIcon={<ChevronDownIcon transform="rotate(180deg)" />}
+                                          onClick={() => toggleExpand(factor.id)}
+                                          w="full"
+                                        >
+                                          收合詳情
+                                        </Button>
+                                      </VStack>
+                                    </Box>
+                                  </Collapse>
+                                </Td>
+                              </Tr>
+                            </>
                           )
                         })}
                       </Tbody>

@@ -725,6 +725,267 @@ function determineConversionMode(fromUnit: string, toUnit: string): 'auto' | 'cu
 
 ---
 
+##### A-2. Detailed UI Components (Based on Implementation)
+
+根據實際介面設計，溫室氣體轉換設定對話框包含以下詳細組件：
+
+**1. 警告標題列**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ ⚠️ 溫室氣體轉換設定                                          │
+└───────────────────────────────────────────────────────────────┘
+```
+
+- **圖示：** ⚠️ 橘色警告圖示
+- **文字：** "溫室氣體轉換設定"
+- **樣式：** 橘色背景 (#FFF3E0)，深橘色文字 (#F57C00)
+- **字體：** 粗體，16px
+- **用途：** 提醒使用者需要進行必要的轉換操作
+
+---
+
+**2. 資訊提示卡片**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ ℹ️ 您選擇了 1 個包含多種溫室氣體的係數                       │
+│                                                               │
+│ 這些係數包含 CO₂、CH₄、N₂O 等氣體數據，需要選擇 GWP       │
+│ 標準轉換為 CO₂e 當量                                         │
+└───────────────────────────────────────────────────────────────┘
+```
+
+- **背景色：** 淺藍色 (#E3F2FD)
+- **圖示：** ℹ️ 藍色資訊圖示
+- **內容：**
+  - 第一行：動態顯示選擇的係數數量
+  - 第二行：說明需要進行 GWP 轉換的原因
+- **樣式：** 圓角 8px，padding 16px
+- **字體大小：** 14px (第一行粗體，第二行正常)
+
+---
+
+**3. 範例係數顯示區塊**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 範例係數：                                                    │
+│                                                               │
+│ 台灣-天然氣-工業用-2024                                       │
+│ CO₂: 1.879    CH₄: 3.40e-5    N₂O: 3.60e-5                  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Component Specifications:**
+
+| 元素 | 規格 | 說明 |
+|------|------|------|
+| **標題** | "範例係數：" | 14px，粗體，灰色 (#616161) |
+| **係數名稱** | 動態內容 | 16px，粗體，黑色 (#212121) |
+| **氣體數值** | 科學記號格式 | 14px，等寬字體 (monospace)，灰色 (#757575) |
+| **排版** | 水平排列 | 使用適當間距分隔各氣體數值 |
+
+**數值格式化規則：**
+```typescript
+// 顯示格式：
+// - 如果 value >= 0.01: 顯示小數點後 3 位 (e.g., "1.879")
+// - 如果 value < 0.01: 使用科學記號 (e.g., "3.40e-5")
+
+function formatGasValue(value: number): string {
+  if (value >= 0.01) {
+    return value.toFixed(3);
+  } else {
+    return value.toExponential(2);
+  }
+}
+```
+
+---
+
+**4. GWP 標準選擇區塊**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 請選擇 GWP 計算標準：                                         │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ○ IPCC AR4 (2007)                                        │ │
+│ │    CH₄=25, N₂O=298                                       │ │
+│ │    💡 適用於較舊的盤查標準                               │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ● IPCC AR5 (2013)  [推薦]                                │ │
+│ │    CH₄=28, N₂O=265                                       │ │
+│ │    💡 目前多數國際標準採用                               │ │
+│ └─────────────────────────────────────────────────────────┘ │
+│                                                               │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ○ IPCC AR6 (2021)                                        │ │
+│ │    CH₄=27.9, N₂O=273                                     │ │
+│ │    💡 最新科學數據，部分標準開始採用                     │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Radio Button Card Specifications:**
+
+| 狀態 | 樣式 | 說明 |
+|------|------|------|
+| **未選中** | 灰色邊框 (#E0E0E0)，白色背景 | 圓角 8px，padding 16px |
+| **選中** | 藍色邊框 (#2196F3, 2px)，淡藍色背景 (#E3F2FD) | 圓角 8px，padding 16px |
+| **Hover** | 灰色邊框加深 (#BDBDBD) | 滑鼠懸停時顯示 |
+| **推薦標籤** | 綠色 badge (#4CAF50) | 圓角 4px，文字 "推薦" |
+
+**Radio Button 內容結構：**
+
+```typescript
+interface GWPOption {
+  id: 'AR4' | 'AR5' | 'AR6';
+  title: string;           // e.g., "IPCC AR5 (2013)"
+  coefficients: {
+    ch4: number;
+    n2o: number;
+  };
+  description: string;     // e.g., "目前多數國際標準採用"
+  icon: string;            // "💡"
+  isRecommended: boolean;  // true for AR5
+}
+```
+
+**互動行為：**
+- 點擊整個卡片區域即可選擇該選項
+- 選擇後立即觸發計算預覽更新
+- 使用淡入淡出動畫 (200ms) 切換選中狀態
+
+---
+
+**5. 預覽轉換結果區塊**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 📊 預覽轉換結果（以第一個係數為例）：                         │
+│                                                               │
+│ ┌───────────────────────────────────────────────────────────┐│
+│ │                                                            ││
+│ │ CO₂        1.879 × 1        = 1.879                       ││
+│ │ CH₄        3.40e-5 × 28     = 9.52e-4                     ││
+│ │ N₂O        3.60e-5 × 265    = 0.009540                    ││
+│ │                                                            ││
+│ │ ───────────────────────────────────────────────           ││
+│ │ 合計                           1.889 kg CO₂e/Nm³          ││
+│ │                                                            ││
+│ └───────────────────────────────────────────────────────────┘│
+└───────────────────────────────────────────────────────────────┘
+```
+
+**預覽區塊樣式：**
+
+| 元素 | 規格 | 說明 |
+|------|------|------|
+| **背景色** | 淺灰色 (#FAFAFA) | 與主背景區分 |
+| **內邊距** | 16px | 四周留白 |
+| **圓角** | 8px | 柔和視覺 |
+| **字體** | Monospace (等寬) | 數字對齊 |
+
+**計算行格式：**
+```
+[氣體名稱] [空格] [原始值] × [GWP係數] = [結果值]
+│       │         │         │           │
+│       │         │         │           └─ 右對齊，4位小數
+│       │         │         └─────────────── 粗體顯示
+│       │         └─────────────────────────── 科學記號或小數
+│       └───────────────────────────────────── 8字元寬度
+└───────────────────────────────────────────── 灰色文字 (#616161)
+```
+
+**分隔線樣式：**
+- 寬度：100%
+- 顏色：灰色 (#E0E0E0)
+- 粗細：1px
+- Margin：12px 上下
+
+**合計行樣式：**
+- 字體大小：16px（比其他行大）
+- 字體粗細：Bold (700)
+- 顏色：深色 (#212121)
+- 結果值顏色：綠色 (#4CAF50)
+
+**實時更新邏輯：**
+```typescript
+function calculateGWPPreview(
+  gasData: { co2: number; ch4: number; n2o: number },
+  gwpVersion: 'AR4' | 'AR5' | 'AR6'
+): ConversionResult {
+  const gwp = GWP_COEFFICIENTS[gwpVersion];
+
+  const co2Contribution = gasData.co2 * gwp.co2;
+  const ch4Contribution = gasData.ch4 * gwp.ch4;
+  const n2oContribution = gasData.n2o * gwp.n2o;
+
+  const total = co2Contribution + ch4Contribution + n2oContribution;
+
+  return {
+    breakdown: [
+      { gas: 'CO₂', original: gasData.co2, gwp: gwp.co2, result: co2Contribution },
+      { gas: 'CH₄', original: gasData.ch4, gwp: gwp.ch4, result: ch4Contribution },
+      { gas: 'N₂O', original: gasData.n2o, gwp: gwp.n2o, result: n2oContribution },
+    ],
+    total,
+    unit: 'kg CO₂e/Nm³' // 根據原始單位動態生成
+  };
+}
+```
+
+**數值更新動畫：**
+- 當切換 GWP 標準時，數值使用淡入淡出效果
+- 持續時間：300ms
+- Easing：ease-in-out
+- 新數值從右側淡入，舊數值向左淡出
+
+---
+
+**6. 操作按鈕區域**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                              [取消]  [確認並套用轉換]         │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**按鈕規格：**
+
+| 按鈕 | 類型 | 樣式 | 行為 |
+|------|------|------|------|
+| **取消** | Secondary | 灰色邊框，白色背景，灰色文字 (#757575) | 關閉對話框，不保存任何變更 |
+| **確認並套用轉換** | Primary | 藍色背景 (#2196F3)，白色文字 | 確認選擇，執行轉換並關閉對話框 |
+
+**按鈕尺寸：**
+- 高度：40px
+- 最小寬度：120px
+- 內邊距：12px 24px
+- 圓角：4px
+- 字體大小：14px
+- 字體粗細：Medium (500)
+
+**按鈕間距：**
+- 兩按鈕間距：12px
+- 與上方內容間距：24px
+- 距離對話框底部：24px
+
+**按鈕狀態：**
+
+| 狀態 | 樣式變化 | 觸發條件 |
+|------|----------|----------|
+| **Normal** | 預設樣式 | - |
+| **Hover** | 背景色加深 10% | 滑鼠懸停 |
+| **Active** | 背景色加深 20%，輕微縮小 (scale 0.98) | 點擊時 |
+| **Disabled** | 灰色背景，cursor: not-allowed | GWP 標準未選擇時（理論上不會發生，因為有預設值） |
+| **Loading** | 顯示 spinner，文字變為 "轉換中..." | 執行轉換操作時 |
+
+---
+
 ##### B. Component Specifications
 
 | Component | Field Type | Data Type | Required | Validation Rules | Default Value |
@@ -733,6 +994,142 @@ function determineConversionMode(fromUnit: string, toUnit: string): 'auto' | 'cu
 | **Gas Amount Display** | Read-only table | Object {co2, ch4, n2o} | N/A | - Display with 3 decimal precision<br>- Show source data exactly as stored | From database |
 | **Calculated Result** | Read-only display | Number (Decimal) | N/A | - Calculate in real-time when GWP version changes<br>- Use full precision coefficients<br>- Display with 3 decimal places | Calculated value |
 | **Conversion Detail** | Read-only formula breakdown | String | N/A | - Show each gas contribution separately<br>- Display formula: `amount × GWP = CO₂e`<br>- Update when GWP version changes | Auto-generated |
+
+---
+
+##### B-2. Complete Component Configuration Table
+
+根據實際介面實作，溫室氣體轉換設定對話框的完整組件配置：
+
+| 組件名稱 | 組件類型 | 必填 | 預設值 | 樣式規格 | 驗證規則 | 互動行為 |
+|---------|---------|------|--------|---------|---------|---------|
+| **警告標題** | Alert Header | ✓ | "溫室氣體轉換設定" | 橘色背景 (#FFF3E0)<br>深橘色文字 (#F57C00)<br>⚠️ 圖示 | - | 靜態顯示 |
+| **資訊提示卡片** | Info Card | ✓ | 動態生成文字 | 淺藍色背景 (#E3F2FD)<br>ℹ️ 圖示<br>圓角 8px | - | 根據選擇的係數數量動態更新文字 |
+| **範例係數區塊** | Display Section | ✓ | 第一個係數 | 白色背景<br>黑色標題文字<br>灰色數值文字 | 氣體數值需為有效數字 | 顯示第一個需轉換的係數詳情 |
+| **氣體數值顯示** | Formatted Text | ✓ | 從資料庫讀取 | Monospace 字體<br>科學記號/小數格式 | - | 自動判斷顯示格式（≥0.01用小數，<0.01用科學記號） |
+| **GWP標準選項卡片組** | Radio Card Group | ✓ | AR5 (selected) | 未選中：灰框白底<br>選中：藍框淡藍底<br>圓角 8px | 必須選擇一個選項 | 點擊卡片選擇，即時更新預覽 |
+| **AR4 選項卡片** | Radio Card | - | Unselected | 灰色邊框 (#E0E0E0)<br>padding 16px | - | Hover 時邊框加深 |
+| **AR5 選項卡片** | Radio Card | - | Selected | 藍色邊框 (#2196F3, 2px)<br>淡藍背景 (#E3F2FD)<br>"推薦" 綠色 badge | - | 預設選中，Hover 保持高亮 |
+| **AR6 選項卡片** | Radio Card | - | Unselected | 灰色邊框 (#E0E0E0)<br>padding 16px | - | Hover 時邊框加深 |
+| **選項卡片內容** | Composite | ✓ | - | 標題：16px Medium<br>係數：14px Monospace<br>說明：13px Regular | - | 包含標題、係數值、💡說明 |
+| **預覽結果標題** | Section Header | ✓ | "預覽轉換結果（以第一個係數為例）" | 14px Medium<br>灰色文字 (#616161)<br>📊 圖示 | - | 靜態顯示 |
+| **預覽計算區塊** | Calculation Display | ✓ | 動態計算 | 淺灰背景 (#FAFAFA)<br>Monospace 字體<br>圓角 8px<br>padding 16px | 計算結果必須為有效數字 | 切換 GWP 標準時實時重新計算，使用淡入淡出動畫 (300ms) |
+| **計算明細行** | Formula Row | ✓ | 自動生成 | 左對齊氣體名稱<br>中間等寬字體數值<br>右對齊結果 | - | 顯示格式：<br>`CO₂  1.879 × 1 = 1.879`<br>`CH₄  3.40e-5 × 28 = 9.52e-4` |
+| **分隔線** | Divider | ✓ | - | 灰色 (#E0E0E0)<br>1px<br>margin 12px | - | 視覺分隔 |
+| **合計行** | Summary Row | ✓ | 自動計算 | 16px Bold<br>深色文字 (#212121)<br>結果值綠色 (#4CAF50) | 必須為正數 | 顯示格式：<br>`合計  1.889 kg CO₂e/Nm³` |
+| **取消按鈕** | Secondary Button | ✓ | "取消" | 灰色邊框<br>白色背景<br>高度 40px | - | 點擊關閉對話框，不儲存 |
+| **確認按鈕** | Primary Button | ✓ | "確認並套用轉換" | 藍色背景 (#2196F3)<br>白色文字<br>高度 40px | - | 點擊執行轉換，顯示 Loading 狀態，完成後關閉 |
+
+---
+
+##### B-3. Component State Management
+
+**狀態管理架構：**
+
+```typescript
+interface GWPConversionState {
+  // 對話框狀態
+  isOpen: boolean;
+  isLoading: boolean;
+
+  // 係數資料
+  selectedFactors: Array<{
+    id: string;
+    name: string;
+    gasData: {
+      co2: number;
+      ch4: number;
+      n2o: number;
+    };
+    originalUnit: string;
+  }>;
+
+  // GWP 選擇
+  selectedGWP: 'AR4' | 'AR5' | 'AR6';
+
+  // 計算結果
+  previewResults: Array<{
+    factorId: string;
+    breakdown: Array<{
+      gas: 'CO₂' | 'CH₄' | 'N₂O';
+      original: number;
+      gwp: number;
+      result: number;
+    }>;
+    total: number;
+    unit: string;
+  }>;
+
+  // 錯誤處理
+  error: string | null;
+}
+```
+
+**狀態更新觸發點：**
+
+| 觸發事件 | 狀態更新 | 副作用 |
+|---------|---------|--------|
+| **開啟對話框** | `isOpen = true`<br>`selectedGWP = 'AR5'` | 1. 載入係數資料<br>2. 計算初始預覽 |
+| **切換 GWP 標準** | `selectedGWP = newValue` | 1. 重新計算所有係數<br>2. 更新 `previewResults`<br>3. 觸發淡入淡出動畫 |
+| **點擊確認** | `isLoading = true` | 1. 執行轉換<br>2. 儲存 metadata<br>3. 更新係數列表<br>4. 關閉對話框 |
+| **點擊取消** | `isOpen = false` | 1. 清空狀態<br>2. 關閉對話框 |
+| **計算錯誤** | `error = errorMessage` | 1. 顯示錯誤提示<br>2. 停用確認按鈕 |
+
+**React Hook 範例：**
+
+```typescript
+const useGWPConversion = () => {
+  const [state, setState] = useState<GWPConversionState>({
+    isOpen: false,
+    isLoading: false,
+    selectedFactors: [],
+    selectedGWP: 'AR5',
+    previewResults: [],
+    error: null
+  });
+
+  // 計算預覽
+  const calculatePreview = useCallback((gwpVersion: 'AR4' | 'AR5' | 'AR6') => {
+    const results = state.selectedFactors.map(factor => {
+      return calculateGWPPreview(factor.gasData, gwpVersion);
+    });
+
+    setState(prev => ({ ...prev, previewResults: results }));
+  }, [state.selectedFactors]);
+
+  // 切換 GWP 標準
+  const selectGWP = useCallback((version: 'AR4' | 'AR5' | 'AR6') => {
+    setState(prev => ({ ...prev, selectedGWP: version }));
+    calculatePreview(version);
+  }, [calculatePreview]);
+
+  // 確認轉換
+  const confirmConversion = useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      // 執行 API 呼叫
+      await applyGWPConversion(state.selectedFactors, state.selectedGWP);
+
+      // 關閉對話框
+      setState(prev => ({ ...prev, isOpen: false, isLoading: false }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error.message,
+        isLoading: false
+      }));
+    }
+  }, [state.selectedFactors, state.selectedGWP]);
+
+  return {
+    state,
+    selectGWP,
+    confirmConversion,
+    cancelConversion: () => setState(prev => ({ ...prev, isOpen: false }))
+  };
+};
+```
 
 ---
 
