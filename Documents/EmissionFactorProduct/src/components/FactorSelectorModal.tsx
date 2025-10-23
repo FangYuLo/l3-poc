@@ -45,8 +45,8 @@ import {
   PopoverBody,
   PopoverArrow,
   PopoverHeader,
-  IconButton,
-  Collapse,
+  CloseButton,
+  Divider,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
@@ -54,13 +54,11 @@ import {
   CloseIcon,
   SettingsIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   InfoIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo } from 'react'
 import { formatNumber } from '@/lib/utils'
 import EmissionFactorCards from './EmissionFactorCards'
-import { renderQualityBadge } from '@/config/tableColumns'
 
 interface FactorSelectorModalProps {
   isOpen: boolean
@@ -111,7 +109,9 @@ export default function FactorSelectorModal({
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
   const [selectedUnits, setSelectedUnits] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState(0) // 0: 中央係數庫, 1: 全庫搜尋, 2: 全部
-  const [expandedFactorIds, setExpandedFactorIds] = useState<Set<number>>(new Set())
+  // 右側滑出詳情面板狀態
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
+  const [selectedDetailFactor, setSelectedDetailFactor] = useState<UnifiedFactor | null>(null)
 
   // 使用傳入的真實資料，如果沒有則使用預設 mock data
   const localFactorsMock: UnifiedFactor[] = [
@@ -359,17 +359,16 @@ export default function FactorSelectorModal({
     )
   }
 
-  // 處理展開/收合
-  const toggleExpand = (factorId: number) => {
-    setExpandedFactorIds(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(factorId)) {
-        newSet.delete(factorId)
-      } else {
-        newSet.add(factorId)
-      }
-      return newSet
-    })
+  // 處理打開詳情面板
+  const handleOpenDetailPanel = (factor: UnifiedFactor) => {
+    setSelectedDetailFactor(factor)
+    setIsDetailPanelOpen(true)
+  }
+
+  // 處理關閉詳情面板
+  const handleCloseDetailPanel = () => {
+    setIsDetailPanelOpen(false)
+    setSelectedDetailFactor(null)
   }
 
   // 移除已選係數
@@ -395,7 +394,7 @@ export default function FactorSelectorModal({
       supplier: { label: '供應商', colorScheme: 'purple' },
       user_defined: { label: '自建', colorScheme: 'orange' },
     }
-    
+
     const config = configs[sourceType as keyof typeof configs] || { label: '未知', colorScheme: 'gray' }
     return (
       <Badge size="sm" colorScheme={config.colorScheme}>
@@ -404,23 +403,32 @@ export default function FactorSelectorModal({
     )
   }
 
-  // 單位相容性檢查
-  const getUnitCompatibility = (unit: string) => {
-    if (!targetUnit) return 'unknown'
-    if (unit === targetUnit) return 'compatible'
-    // 簡單的單位相容性檢查
-    const normalize = (u: string) => u.toLowerCase().replace(/\s+/g, '')
-    return normalize(unit) === normalize(targetUnit) ? 'compatible' : 'incompatible'
+  // 數據品質 Badge - 只顯示 PRIMARY 和 SECONDARY
+  const getDataQualityBadge = (factor: UnifiedFactor) => {
+    // 根據 dataSource 決定數據品質
+    // local (中央係數庫) -> Primary
+    // global (希達係數庫) -> Secondary
+    const isPrimary = factor.dataSource === 'local'
+
+    return (
+      <Badge
+        size="sm"
+        colorScheme={isPrimary ? 'green' : 'yellow'}
+        variant="solid"
+      >
+        {isPrimary ? 'PRIMARY' : 'SECONDARY'}
+      </Badge>
+    )
   }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="6xl">
       <ModalOverlay />
-      <ModalContent maxH="90vh" maxW="90vw">
-        <ModalHeader>選擇排放係數</ModalHeader>
+      <ModalContent maxH="90vh" maxW="90vw" display="flex" flexDirection="column">
+        <ModalHeader flexShrink={0}>選擇排放係數</ModalHeader>
         <ModalCloseButton />
 
-        <ModalBody pb={6}>
+        <ModalBody pb={6} overflowY="auto" flex="1" minH={0}>
           <Tabs index={activeTab} onChange={setActiveTab}>
             {/* 標籤切換 */}
             <TabList>
@@ -555,38 +563,35 @@ export default function FactorSelectorModal({
               </HStack>
             </Box>
 
-            <HStack spacing={6} align="start">
-                {/* 係數列表 */}
-                <Box flex={1}>
-                  <Text fontSize="sm" color="gray.600" mb={2}>
-                    找到 {filteredFactors.length} 筆係數
-                  </Text>
+            {/* 係數列表 - 全寬 */}
+            <Box>
+              <Text fontSize="sm" color="gray.600" mb={2}>
+                找到 {filteredFactors.length} 筆係數
+              </Text>
 
-                  <Box overflowY="auto" border="1px solid" borderColor="gray.200" borderRadius="md" maxH="500px">
-                    <Table size="sm" variant="simple">
-                      <Thead position="sticky" top={0} bg="white" zIndex={1} boxShadow="sm">
-                        <Tr>
-                          <Th width="40px"></Th>
-                          <Th width="30%">名稱</Th>
-                          <Th width="18%" isNumeric>排放係數</Th>
-                          <Th width="12%">國家/區域</Th>
-                          <Th width="15%">係數來源</Th>
-                          <Th width="10%">數據品質</Th>
-                          <Th width="40px"></Th>
-                        </Tr>
-                      </Thead>
+              <Box border="1px solid" borderColor="gray.200" borderRadius="md">
+                <Table size="sm" variant="simple">
+                  <Thead position="sticky" top={0} bg="white" zIndex={1} boxShadow="sm">
+                    <Tr>
+                      <Th width="40px"></Th>
+                      <Th width="35%">名稱</Th>
+                      <Th width="18%" isNumeric>排放係數</Th>
+                      <Th width="12%">國家/區域</Th>
+                      <Th width="20%">係數來源</Th>
+                      <Th width="15%">數據品質</Th>
+                    </Tr>
+                  </Thead>
                       <Tbody>
                         {filteredFactors.map((factor) => {
                           const isSelected = selectedFactorIds.includes(factor.id)
-                          const isExpanded = expandedFactorIds.has(factor.id)
 
                           return (
-                            <>
-                              <Tr
-                                key={factor.id}
-                                bg={isSelected ? 'blue.50' : 'transparent'}
-                                _hover={{ bg: isSelected ? 'blue.100' : 'gray.50' }}
-                              >
+                            <Tr
+                              key={factor.id}
+                              bg={isSelected ? 'blue.50' : 'transparent'}
+                              _hover={{ bg: isSelected ? 'blue.100' : 'gray.50', cursor: 'pointer' }}
+                              onClick={() => handleOpenDetailPanel(factor)}
+                            >
                                 <Td>
                                   <Checkbox
                                     isChecked={isSelected}
@@ -638,233 +643,294 @@ export default function FactorSelectorModal({
                                   </Text>
                                 </Td>
                                 <Td>
-                                  {renderQualityBadge(factor)}
-                                </Td>
-                                <Td>
-                                  <IconButton
-                                    aria-label="展開詳情"
-                                    icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                                    size="sm"
-                                    variant="ghost"
-                                    colorScheme={isExpanded ? 'blue' : 'gray'}
-                                    onClick={(e: React.MouseEvent) => {
-                                      e.stopPropagation()
-                                      toggleExpand(factor.id)
-                                    }}
-                                  />
+                                  {getDataQualityBadge(factor)}
                                 </Td>
                               </Tr>
-                              {/* 展開的詳情行 */}
-                              <Tr key={`${factor.id}-detail`}>
-                                <Td colSpan={7} p={0} border="none">
-                                  <Collapse in={isExpanded} animateOpacity>
-                                    <Box
-                                      p={6}
-                                      bg="gray.50"
-                                      borderTop="1px solid"
-                                      borderColor="gray.200"
-                                    >
-                                      <VStack spacing={4} align="stretch">
-                                        {/* 係數資訊區塊 */}
-                                        <Box>
-                                          <HStack mb={3}>
-                                            <Icon as={InfoIcon} color="blue.600" boxSize={4} />
-                                            <Text fontSize="sm" fontWeight="bold" color="gray.700">
-                                              係數資訊
-                                            </Text>
-                                          </HStack>
-                                          <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
-                                            <VStack spacing={3} align="stretch">
-                                              <HStack spacing={6}>
-                                                <Box flex="1">
-                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
-                                                    係數來源
-                                                  </Text>
-                                                  <Text fontSize="sm" color="gray.800">
-                                                    {factor.source_ref || factor.source || 'ecoinvent'}
-                                                  </Text>
-                                                </Box>
-                                                <Box flex="1">
-                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
-                                                    年份
-                                                  </Text>
-                                                  <Text fontSize="sm" color="gray.800">
-                                                    {factor.year || 2024}
-                                                  </Text>
-                                                </Box>
-                                              </HStack>
-                                              <HStack spacing={6}>
-                                                <Box flex="1">
-                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
-                                                    國家/區域
-                                                  </Text>
-                                                  <Text fontSize="sm" color="gray.800">
-                                                    {factor.region || '台灣'}
-                                                  </Text>
-                                                </Box>
-                                                <Box flex="1">
-                                                  <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
-                                                    方法學
-                                                  </Text>
-                                                  <Text fontSize="sm" color="gray.800">
-                                                    {factor.method_gwp || 'GWP100'}
-                                                  </Text>
-                                                </Box>
-                                              </HStack>
-                                              <Box>
-                                                <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
-                                                  版本
-                                                </Text>
-                                                <Text fontSize="sm" color="gray.800">
-                                                  {factor.version || 'v1.0'}
-                                                </Text>
-                                              </Box>
-                                            </VStack>
-                                          </Box>
-                                        </Box>
-
-                                        {/* 排放係數區塊 - 使用 EmissionFactorCards */}
-                                        {(factor.co2_factor || factor.ch4_factor || factor.n2o_factor) && (
-                                          <Box>
-                                            <HStack mb={3}>
-                                              <Icon as={InfoIcon} color="green.600" boxSize={4} />
-                                              <Text fontSize="sm" fontWeight="bold" color="gray.700">
-                                                排放係數
-                                              </Text>
-                                            </HStack>
-                                            <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
-                                              <EmissionFactorCards
-                                                co2_factor={factor.co2_factor || factor.value}
-                                                co2_unit={factor.co2_unit || factor.unit}
-                                                ch4_factor={factor.ch4_factor}
-                                                ch4_unit={factor.ch4_unit}
-                                                n2o_factor={factor.n2o_factor}
-                                                n2o_unit={factor.n2o_unit}
-                                              />
-                                            </Box>
-                                          </Box>
-                                        )}
-
-                                        {/* 組合係數計算公式 */}
-                                        {factor.type === 'composite_factor' && (
-                                          <Box>
-                                            <HStack mb={3}>
-                                              <Icon as={InfoIcon} color="purple.600" boxSize={4} />
-                                              <Text fontSize="sm" fontWeight="bold" color="gray.700">
-                                                計算公式
-                                              </Text>
-                                            </HStack>
-                                            <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="purple.200">
-                                              <VStack spacing={2} align="stretch">
-                                                <HStack justify="space-between">
-                                                  <Text fontSize="xs" color="gray.600">計算方式：</Text>
-                                                  <Badge colorScheme="purple">組合計算</Badge>
-                                                </HStack>
-                                                <HStack justify="space-between" p={2} bg="purple.50" borderRadius="md">
-                                                  <Text fontSize="sm" fontWeight="bold" color="purple.800">結果：</Text>
-                                                  <Text fontSize="lg" fontWeight="bold" fontFamily="mono" color="purple.700">
-                                                    {formatNumber(factor.value)} {factor.unit}
-                                                  </Text>
-                                                </HStack>
-                                              </VStack>
-                                            </Box>
-                                          </Box>
-                                        )}
-
-                                        {/* 關閉按鈕 */}
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          rightIcon={<ChevronDownIcon transform="rotate(180deg)" />}
-                                          onClick={() => toggleExpand(factor.id)}
-                                          w="full"
-                                        >
-                                          收合詳情
-                                        </Button>
-                                      </VStack>
-                                    </Box>
-                                  </Collapse>
-                                </Td>
-                              </Tr>
-                            </>
                           )
                         })}
                       </Tbody>
                     </Table>
 
-                    {filteredFactors.length === 0 && (
-                      <Box textAlign="center" py={8} color="gray.500">
-                        <Text>沒有找到符合條件的係數</Text>
-                      </Box>
-                    )}
+                {filteredFactors.length === 0 && (
+                  <Box textAlign="center" py={8} color="gray.500">
+                    <Text>沒有找到符合條件的係數</Text>
                   </Box>
-                </Box>
-
-                {/* 右側：已選係數 */}
-                <Box w="300px" borderLeft="1px solid" borderColor="gray.200" pl={4} flexShrink={0}>
-                  <HStack justify="space-between" mb={3}>
-                    <Text fontSize="sm" fontWeight="medium">
-                      已選係數 ({selectedFactors.length})
-                    </Text>
-                    {selectedFactors.length > 0 && (
-                      <Button size="xs" variant="ghost" onClick={handleClearAll}>
-                        清空全部
-                      </Button>
-                    )}
-                  </HStack>
-
-                  <Box overflowY="auto" maxH="500px">
-                  {selectedFactors.length > 0 ? (
-                    <VStack spacing={2} align="stretch">
-                      {selectedFactors.map((factor) => (
-                        <Card key={factor.id} size="sm">
-                          <CardBody p={3}>
-                            <HStack justify="space-between">
-                              <VStack align="start" spacing={1} flex={1}>
-                                <Text fontSize="xs" fontWeight="medium" noOfLines={2}>
-                                  {factor.name}
-                                </Text>
-                                <Text fontSize="xs" color="gray.600" fontFamily="mono">
-                                  {formatNumber(factor.value)} {factor.unit}
-                                </Text>
-                                <HStack>
-                                  {getSourceTypeBadge(factor.source_type)}
-                                  {factor.dataSource === 'global' && (
-                                    <Badge size="xs" colorScheme="cyan">全庫</Badge>
-                                  )}
-                                </HStack>
-                              </VStack>
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                colorScheme="red"
-                                onClick={() => handleRemoveSelected(factor.id)}
-                              >
-                                <CloseIcon boxSize={2} />
-                              </Button>
-                            </HStack>
-                          </CardBody>
-                        </Card>
-                      ))}
-                    </VStack>
-                  ) : (
-                    <Box textAlign="center" py={8} color="gray.500">
-                      <Text fontSize="sm">尚未選擇係數</Text>
-                      <Text fontSize="xs" mt={1}>勾選左側列表中的係數</Text>
-                    </Box>
-                  )}
-                  </Box>
-                </Box>
-            </HStack>
+                )}
+              </Box>
+            </Box>
           </VStack>
           </Tabs>
         </ModalBody>
 
-        <ModalFooter>
+        {/* 遮罩層 */}
+        {isDetailPanelOpen && (
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="blackAlpha.500"
+            zIndex={100}
+            onClick={handleCloseDetailPanel}
+            cursor="pointer"
+          />
+        )}
+
+        {/* 右側滑出詳情面板 */}
+        {isDetailPanelOpen && selectedDetailFactor && (
+          <Box
+            position="absolute"
+            top={0}
+            right={0}
+            w="420px"
+            h="100%"
+            bg="white"
+            borderLeft="1px solid"
+            borderColor="gray.200"
+            overflow="auto"
+            boxShadow="-2px 0 10px rgba(0,0,0,0.1)"
+            zIndex={101}
+            transform="translateX(0)"
+            transition="transform 0.3s ease-in-out"
+          >
+            {/* 關閉按鈕 */}
+            <CloseButton
+              position="absolute"
+              top={4}
+              right={4}
+              zIndex={102}
+              onClick={handleCloseDetailPanel}
+              size="lg"
+              bg="gray.100"
+              _hover={{ bg: "gray.200" }}
+            />
+
+            {/* 詳情內容 */}
+            <VStack spacing={6} align="stretch" p={6} pt={16}>
+              {/* 標題 */}
+              <Box>
+                <HStack spacing={2} mb={2}>
+                  <Text fontSize="lg" fontWeight="bold">
+                    {selectedDetailFactor.name}
+                  </Text>
+                  {selectedDetailFactor.requires_gwp_conversion && (
+                    <Badge colorScheme="orange">需GWP轉換</Badge>
+                  )}
+                </HStack>
+                <HStack spacing={2}>
+                  {getSourceTypeBadge(selectedDetailFactor.source_type)}
+                  {selectedDetailFactor.dataSource === 'global' && (
+                    <Badge size="sm" colorScheme="cyan">全庫搜尋</Badge>
+                  )}
+                </HStack>
+              </Box>
+
+              <Divider />
+
+              {/* 係數資訊區塊 */}
+              <Box>
+                <HStack mb={3}>
+                  <Icon as={InfoIcon} color="blue.600" boxSize={4} />
+                  <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                    係數資訊
+                  </Text>
+                </HStack>
+                <Box p={4} bg="gray.50" borderRadius="md">
+                  <VStack spacing={3} align="stretch">
+                    <HStack spacing={6}>
+                      <Box flex="1">
+                        <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                          排放係數
+                        </Text>
+                        <Text fontSize="md" fontWeight="bold" fontFamily="mono">
+                          {formatNumber(selectedDetailFactor.value)} {selectedDetailFactor.unit}
+                        </Text>
+                      </Box>
+                      <Box flex="1">
+                        <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                          年份
+                        </Text>
+                        <Text fontSize="sm" color="gray.800">
+                          {selectedDetailFactor.year || 2024}
+                        </Text>
+                      </Box>
+                    </HStack>
+                    <HStack spacing={6}>
+                      <Box flex="1">
+                        <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                          國家/區域
+                        </Text>
+                        <Text fontSize="sm" color="gray.800">
+                          {selectedDetailFactor.region || '台灣'}
+                        </Text>
+                      </Box>
+                      <Box flex="1">
+                        <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                          方法學
+                        </Text>
+                        <Text fontSize="sm" color="gray.800">
+                          {selectedDetailFactor.method_gwp || 'GWP100'}
+                        </Text>
+                      </Box>
+                    </HStack>
+                    <Box>
+                      <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                        係數來源
+                      </Text>
+                      <Text fontSize="sm" color="gray.800">
+                        {selectedDetailFactor.source_ref || selectedDetailFactor.source || 'ecoinvent'}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" color="gray.500" fontWeight="medium" mb={1}>
+                        版本
+                      </Text>
+                      <Text fontSize="sm" color="gray.800">
+                        {selectedDetailFactor.version || 'v1.0'}
+                      </Text>
+                    </Box>
+                  </VStack>
+                </Box>
+              </Box>
+
+              {/* 排放係數區塊 - 使用 EmissionFactorCards */}
+              {(selectedDetailFactor.co2_factor || selectedDetailFactor.ch4_factor || selectedDetailFactor.n2o_factor) && (
+                <Box>
+                  <HStack mb={3}>
+                    <Icon as={InfoIcon} color="green.600" boxSize={4} />
+                    <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                      排放係數
+                    </Text>
+                  </HStack>
+                  <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="gray.200">
+                    <EmissionFactorCards
+                      co2_factor={selectedDetailFactor.co2_factor || selectedDetailFactor.value}
+                      co2_unit={selectedDetailFactor.co2_unit || selectedDetailFactor.unit}
+                      ch4_factor={selectedDetailFactor.ch4_factor}
+                      ch4_unit={selectedDetailFactor.ch4_unit}
+                      n2o_factor={selectedDetailFactor.n2o_factor}
+                      n2o_unit={selectedDetailFactor.n2o_unit}
+                    />
+                  </Box>
+                </Box>
+              )}
+
+              {/* 組合係數計算公式 */}
+              {selectedDetailFactor.type === 'composite_factor' && (
+                <Box>
+                  <HStack mb={3}>
+                    <Icon as={InfoIcon} color="purple.600" boxSize={4} />
+                    <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                      計算公式
+                    </Text>
+                  </HStack>
+                  <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="purple.200">
+                    <VStack spacing={2} align="stretch">
+                      <HStack justify="space-between">
+                        <Text fontSize="xs" color="gray.600">計算方式：</Text>
+                        <Badge colorScheme="purple">組合計算</Badge>
+                      </HStack>
+                      <HStack justify="space-between" p={2} bg="purple.50" borderRadius="md">
+                        <Text fontSize="sm" fontWeight="bold" color="purple.800">結果：</Text>
+                        <Text fontSize="lg" fontWeight="bold" fontFamily="mono" color="purple.700">
+                          {formatNumber(selectedDetailFactor.value)} {selectedDetailFactor.unit}
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </Box>
+                </Box>
+              )}
+            </VStack>
+          </Box>
+        )}
+
+        <ModalFooter flexShrink={0} flexDirection="column" alignItems="stretch" gap={3}>
+          {/* 已選係數區域 */}
+          <Box>
+            <HStack justify="space-between" mb={2}>
+              <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                已選係數 ({selectedFactors.length})
+              </Text>
+              {selectedFactors.length > 0 && (
+                <Button size="xs" variant="ghost" onClick={handleClearAll} colorScheme="red">
+                  清空全部
+                </Button>
+              )}
+            </HStack>
+
+            {/* 橫向滾動的已選係數卡片 */}
+            <Box
+              overflowX="auto"
+              css={{
+                '&::-webkit-scrollbar': {
+                  height: '6px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#CBD5E0',
+                  borderRadius: '3px',
+                },
+              }}
+            >
+              {selectedFactors.length > 0 ? (
+                <HStack spacing={2} pb={2}>
+                  {selectedFactors.map((factor) => (
+                    <Card
+                      key={factor.id}
+                      size="sm"
+                      minW="200px"
+                      maxW="250px"
+                      variant="outline"
+                      bg="blue.50"
+                      borderColor="blue.200"
+                    >
+                      <CardBody p={2}>
+                        <HStack justify="space-between" spacing={2}>
+                          <VStack align="start" spacing={0.5} flex={1} minW={0}>
+                            <Text fontSize="xs" fontWeight="medium" noOfLines={1}>
+                              {factor.name}
+                            </Text>
+                            <Text fontSize="xs" color="gray.600" fontFamily="mono">
+                              {formatNumber(factor.value)} {factor.unit}
+                            </Text>
+                            <HStack spacing={1}>
+                              {getSourceTypeBadge(factor.source_type)}
+                              {factor.dataSource === 'global' && (
+                                <Badge size="xs" colorScheme="cyan">全庫</Badge>
+                              )}
+                            </HStack>
+                          </VStack>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            colorScheme="red"
+                            minW="auto"
+                            h="auto"
+                            p={1}
+                            onClick={() => handleRemoveSelected(factor.id)}
+                          >
+                            <CloseIcon boxSize={2} />
+                          </Button>
+                        </HStack>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </HStack>
+              ) : (
+                <Box textAlign="center" py={3} color="gray.400" fontSize="sm">
+                  尚未選擇係數
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          <Divider />
+
+          {/* 操作按鈕區域 */}
           <HStack w="100%" justify="space-between">
             <Box>
               {targetUnit && (
-                <Alert status="info" size="sm" borderRadius="md">
+                <Alert status="info" size="sm" borderRadius="md" py={1}>
                   <AlertIcon />
                   <Text fontSize="xs">目標單位：{targetUnit}</Text>
                 </Alert>

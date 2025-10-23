@@ -146,7 +146,7 @@ export default function GWPConversionModal({
             {/* 顯示第一個係數的資訊作為範例 */}
             {previewFactor && (
               <Box>
-                <Text fontSize="sm" fontWeight="medium" mb={2}>範例係數：</Text>
+                <Text fontSize="sm" fontWeight="medium" mb={2}>已選係數：</Text>
                 <Box p={3} bg="gray.50" borderRadius="md" fontSize="sm">
                   <Text fontWeight="medium">{previewFactor.name}</Text>
                   <HStack mt={2} spacing={4} fontSize="xs" color="gray.600">
