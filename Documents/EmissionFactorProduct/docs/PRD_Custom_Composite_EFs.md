@@ -1,8 +1,8 @@
 # Product Requirements Document (PRD)
 # Custom Composite Emission Factors Process
 
-**Document Version:** 1.0
-**Last Updated:** 2025-10-20
+**Document Version:** 1.1
+**Last Updated:** 2025-10-23
 **Product Owner:** Emission Factor Product Team
 **Status:** ✅ Implemented
 
@@ -37,10 +37,12 @@
 
 - **Factor Name Input:** Text field for composite factor naming
 - **Description Field:** Multi-line description with formatting
+- **Country/Region Selection:** Dropdown for geographical context (optional)
+- **Enabled Date:** Date picker for activation timeline (defaults to today)
+- **Calculation Method Selection:** Radio buttons for weighted average/sum
 - **Unit Type Selection:** Two-tier dropdown for result unit specification (category → specific unit)
 - **Component Factor List:** Interface for factor management with drag-and-drop reordering
 - **Weight Assignment:** Numeric input fields with validation and real-time sum display
-- **Calculation Method Selection:** Radio buttons for weighted average/sum
 - **Real-time Preview:** Live calculation display showing formula and result
 - **Warning Notification:** Alerts when combining factors with potentially incompatible units
 
@@ -52,6 +54,8 @@
 |-----------|------------|-----------|----------|------------------|------------------|-------------------|------------------|---------------|
 | **Factor Name Input** | Text input (single-line) | String | Yes | 3 characters | 100 characters | Alphanumeric (A-Z, a-z, 0-9), spaces, hyphens (-), underscores (_), parentheses (), slashes (/) | 1. Must not be empty<br>2. Must not contain only whitespace<br>3. Must be unique within organization scope (case-insensitive)<br>4. Cannot start or end with space<br>5. Validates on blur and on save attempt<br>6. Trim leading/trailing spaces on blur<br>7. Check uniqueness with 300ms debounce | Empty string |
 | **Description Field** | Textarea (multi-line, auto-expanding) | String | No | 0 characters | 500 characters | All Unicode characters including emojis | 1. Character count must not exceed 500<br>2. Line breaks allowed (counted as 1 char)<br>3. Validation on input (real-time character count)<br>4. Auto-expand height as user types (max 120px) | Empty string |
+| **Country/Region Selection** | Dropdown select | Enum: '台灣' \| '美國' \| '英國' \| '中國' \| '日本' \| '歐盟' \| '全球' \| '國際' | No | N/A | N/A | Predefined options only | 1. Optional field for geographical context<br>2. Can be left unselected<br>3. Single selection only<br>4. Saves with composite factor metadata<br>5. Used for filtering and reporting | Empty (unselected) |
+| **Enabled Date** | Date picker (HTML5 date input) | Date (ISO 8601 format: YYYY-MM-DD) | No | 1900-01-01 | 2100-12-31 | Date format only | 1. Default to current date on creation<br>2. Can be modified to past or future dates<br>3. Validates date format on input<br>4. Stored in ISO 8601 format<br>5. Used for version tracking and activation timeline | Current date (today) |
 | **Weight Assignment** | Numeric input with stepper controls | Number (Decimal) | Yes (for each component) | 0.001 | 999.999 | Numeric characters and decimal point only | **Weighted Average Mode:**<br>- Each weight: 0.001 - 1.0<br>- Sum of all weights: 1.0 ± 0.001<br><br>**Weighted Sum Mode:**<br>- Each weight: 0.001 - 999.999<br>- No sum constraint<br><br>**Common:**<br>- Must be positive<br>- Auto-round to 3 decimals on blur<br>- Validates on blur and on save<br>- Strip non-numeric except decimal<br>- Update sum indicator (300ms debounce) | Auto-distributed equally:<br>- 2 components: 0.500 each<br>- 3 components: 0.333, 0.333, 0.334<br>- 4 components: 0.250 each |
 | **Calculation Method** | Radio button group (horizontal layout) | Enum: 'weighted_average' \| 'weighted_sum' | Yes | N/A | N/A | N/A | 1. Exactly one option must be selected (enforced by radio group)<br>2. Show confirmation modal when switching with existing data<br>3. Re-validate all weights on method change<br>4. Update weight sum indicator<br>5. Recalculate preview result | 'weighted_sum' |
 | **Unit Conversion Mode** | Dropdown select | Enum: 'auto' \| 'custom' | Yes (when unit conversion required) | N/A | N/A | N/A | 1. System determines mode availability<br>2. Auto mode available only for same-category units<br>3. Custom mode always available<br>4. Mode selection triggers conversion panel display<br>5. Cannot be empty if units are incompatible<br>6. Switching modes updates conversion preview | 'auto' (if available), otherwise 'custom' |
@@ -123,10 +127,12 @@
 │                                                                                       │
 │ Description: [Multi-line description field__________]                                │
 │                                                                                       │
-│ Result Unit: [kg CO₂e/ [Category ▼] [Unit ▼] ]                                      │
-│ Preview: kg CO₂e/kg                                                                  │
+│ Country/Region: [Taiwan ▼]                Enabled Date: [2025-10-23]                 │
 │                                                                                       │
 │ Calculation Method:  ○ Weighted Average  ● Weighted Sum                             │
+│                                                                                       │
+│ Result Unit: [kg CO₂e/ [Category ▼] [Unit ▼] ]                                      │
+│ Preview: kg CO₂e/kg                                                                  │
 │                                                                                       │
 ├───────────────────────────────────────────────────────────────────────────────────────┤
 │ Factor Component Management                                         [+ Add Factor]   │

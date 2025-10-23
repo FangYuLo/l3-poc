@@ -984,23 +984,6 @@ export default function FactorDetail({
                         📐 計算過程：
                       </Text>
 
-                      {/* 計算公式展開 */}
-                      <Box p={3} bg="gray.50" borderRadius="md" overflowX="auto">
-                        <Text fontSize="sm" fontFamily="mono" color="gray.700" whiteSpace="nowrap">
-                          {mockCompositeComponents.map((comp: any, idx: number) => {
-                            // 計算實際使用值
-                            const actualValue =
-                              comp.unitConversion?.convertedValue ??
-                              comp.gwpConversion?.convertedValue ??
-                              comp.originalValue
-
-                            const part = `(${formatNumber(actualValue)} × ${comp.weight})`
-                            const operator = idx < mockCompositeComponents.length - 1 ? ' + ' : ''
-                            return part + operator
-                          }).join('')}
-                        </Text>
-                      </Box>
-
                       {/* 各項計算結果 */}
                       <VStack align="stretch" spacing={1} pl={2}>
                         {mockCompositeComponents.map((comp: any, idx: number) => {

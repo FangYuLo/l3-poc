@@ -257,6 +257,8 @@ export default function CompositeEditorDrawer({
   // Form state
   const [compositeName, setCompositeName] = useState('')
   const [description, setDescription] = useState('')
+  const [region, setRegion] = useState('')  // 國家/區域
+  const [enabledDate, setEnabledDate] = useState(new Date().toISOString().split('T')[0])  // 啟用日期，預設今天
   const [formulaType, setFormulaType] = useState<'sum' | 'weighted'>('weighted')
   const [targetUnit, setTargetUnit] = useState('kg CO2e/kg')
   const [unitCategory, setUnitCategory] = useState('')  // 單位類別
@@ -291,6 +293,8 @@ export default function CompositeEditorDrawer({
       // 預填基本資訊
       setCompositeName(editingFactor.name || '')
       setDescription(editingFactor.description || '')
+      setRegion(editingFactor.region || '')
+      setEnabledDate(editingFactor.enabled_date || new Date().toISOString().split('T')[0])
       setFormulaType(editingFactor.formula_type || 'weighted')
       setTargetUnit(editingFactor.unit || 'kg CO2e/kg')
 
@@ -312,6 +316,8 @@ export default function CompositeEditorDrawer({
       // 新建模式：使用預設值
       setCompositeName('')
       setDescription('')
+      setRegion('')
+      setEnabledDate(new Date().toISOString().split('T')[0])
       setFormulaType('weighted')
       setTargetUnit('kg CO2e/kg')
       setComponents([])
@@ -675,6 +681,8 @@ export default function CompositeEditorDrawer({
       ...(editingFactor?.id && { id: editingFactor.id }), // 編輯模式：傳遞 id
       name: compositeName,
       description,
+      region,
+      enabled_date: enabledDate,
       formula_type: formulaType,
       unit: targetUnit,
       computed_value: computedValue,
@@ -781,6 +789,35 @@ export default function CompositeEditorDrawer({
                     rows={3}
                   />
                 </FormControl>
+
+                <HStack spacing={4}>
+                  <FormControl>
+                    <FormLabel fontSize="sm">國家/區域</FormLabel>
+                    <Select
+                      placeholder="請選擇國家/區域"
+                      value={region}
+                      onChange={(e) => setRegion(e.target.value)}
+                    >
+                      <option value="台灣">台灣</option>
+                      <option value="美國">美國</option>
+                      <option value="英國">英國</option>
+                      <option value="中國">中國</option>
+                      <option value="日本">日本</option>
+                      <option value="歐盟">歐盟</option>
+                      <option value="全球">全球</option>
+                      <option value="國際">國際</option>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel fontSize="sm">啟用日期</FormLabel>
+                    <Input
+                      type="date"
+                      value={enabledDate}
+                      onChange={(e) => setEnabledDate(e.target.value)}
+                    />
+                  </FormControl>
+                </HStack>
 
                 <HStack>
                   <FormControl>
