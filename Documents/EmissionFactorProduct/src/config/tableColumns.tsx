@@ -157,7 +157,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       {
         key: 'name',
         label: '名稱',
-        width: '30%',
+        width: '35%',
         type: 'custom',
         formatter: (value: any) => (
           <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
@@ -168,7 +168,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       {
         key: 'value',
         label: '排放係數',
-        width: '15%',
+        width: '20%',
         type: 'custom',
         isNumeric: true,
         formatter: (value: any, row: any) => renderEmissionValue(value, row.unit)
@@ -176,7 +176,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       {
         key: 'region',
         label: '國家/區域',
-        width: '12%',
+        width: '15%',
         type: 'text',
         formatter: (value: any, row: any) => (
           <Text fontSize="sm" color="gray.700">
@@ -187,7 +187,7 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
       {
         key: 'source_ref',
         label: '係數來源',
-        width: '15%',
+        width: '20%',
         type: 'text',
         formatter: (value: any, row: any) => {
           // 顯示組合係數的組件數量
@@ -208,17 +208,6 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         width: '10%',
         type: 'custom',
         formatter: (value: any, row: any) => renderQualityBadge(row)
-      },
-      {
-        key: 'usage_projects',
-        label: '引用專案',
-        width: '20%',
-        type: 'custom',
-        formatter: (value: any, row: any) => (
-          <Text fontSize="xs" color="gray.500" noOfLines={2}>
-            {row.usageText || '未被使用'}
-          </Text>
-        )
       }
     ]
   },
