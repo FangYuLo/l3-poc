@@ -112,6 +112,8 @@ export default function FactorSelectorModal({
   // 右側滑出詳情面板狀態
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
   const [selectedDetailFactor, setSelectedDetailFactor] = useState<UnifiedFactor | null>(null)
+  // 驗證錯誤狀態
+  const [validationError, setValidationError] = useState<string>('')
 
   // 使用傳入的真實資料，如果沒有則使用預設 mock data
   const localFactorsMock: UnifiedFactor[] = [
@@ -357,6 +359,11 @@ export default function FactorSelectorModal({
         ? prev.filter(id => id !== factorId)
         : [...prev, factorId]
     )
+
+    // 清除驗證錯誤
+    if (validationError) {
+      setValidationError('')
+    }
   }
 
   // 處理打開詳情面板
@@ -383,6 +390,14 @@ export default function FactorSelectorModal({
 
   // 確認選擇
   const handleConfirm = () => {
+    // 驗證是否至少選擇一個係數
+    if (selectedFactors.length === 0) {
+      setValidationError('請至少選擇一個係數')
+      return
+    }
+
+    // 清除錯誤並執行確認
+    setValidationError('')
     onConfirm(selectedFactors)
   }
 
@@ -917,11 +932,26 @@ export default function FactorSelectorModal({
                   ))}
                 </HStack>
               ) : (
-                <Box textAlign="center" py={3} color="gray.400" fontSize="sm">
+                <Box
+                  textAlign="center"
+                  py={3}
+                  color="gray.400"
+                  fontSize="sm"
+                  border="2px dashed"
+                  borderColor={validationError ? "red.300" : "transparent"}
+                  borderRadius="md"
+                >
                   尚未選擇係數
                 </Box>
               )}
             </Box>
+
+            {/* 驗證錯誤訊息 */}
+            {validationError && (
+              <Text color="red.500" fontSize="sm" mt={2}>
+                {validationError}
+              </Text>
+            )}
           </Box>
 
           <Divider />
@@ -943,7 +973,6 @@ export default function FactorSelectorModal({
               <Button
                 colorScheme="blue"
                 onClick={handleConfirm}
-                isDisabled={selectedFactors.length === 0}
                 leftIcon={<CheckIcon />}
               >
                 確認加入 ({selectedFactors.length} 項)

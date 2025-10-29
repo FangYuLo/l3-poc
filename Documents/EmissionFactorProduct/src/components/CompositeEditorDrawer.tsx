@@ -12,6 +12,7 @@ import {
   HStack,
   FormControl,
   FormLabel,
+  FormErrorMessage,
   Input,
   Textarea,
   Select,
@@ -287,6 +288,14 @@ export default function CompositeEditorDrawer({
     },
   ])
 
+  // 驗證錯誤狀態
+  const [validationErrors, setValidationErrors] = useState<{
+    compositeName?: string
+    components?: string
+    weightTotal?: string
+    weightValues?: string
+  }>({})
+
   // 編輯模式：預填現有資料
   useEffect(() => {
     if (editingFactor && isOpen) {
@@ -555,9 +564,18 @@ export default function CompositeEditorDrawer({
   const computedValue = calculateCompositeValue()
 
   const handleWeightChange = (id: number, weight: number) => {
-    setComponents(components.map(comp => 
+    setComponents(components.map(comp =>
       comp.id === id ? { ...comp, weight } : comp
     ))
+
+    // 清除權重相關錯誤
+    if (validationErrors.weightTotal || validationErrors.weightValues) {
+      setValidationErrors(prev => ({
+        ...prev,
+        weightTotal: undefined,
+        weightValues: undefined
+      }))
+    }
   }
 
   const handleRemoveComponent = (id: number) => {
@@ -630,6 +648,11 @@ export default function CompositeEditorDrawer({
 
     setComponents(prev => [...prev, ...newComponents])
 
+    // 清除組成係數錯誤
+    if (validationErrors.components) {
+      setValidationErrors(prev => ({ ...prev, components: undefined }))
+    }
+
     toast({
       title: '係數已加入',
       description: `成功加入 ${factors.length} 個係數到組合中`,
@@ -640,40 +663,42 @@ export default function CompositeEditorDrawer({
   }
 
   const validateForm = () => {
-    const errors = []
-    
+    const errors: {
+      compositeName?: string
+      components?: string
+      weightTotal?: string
+      weightValues?: string
+    } = {}
+
     if (!compositeName.trim()) {
-      errors.push('請輸入組合係數名稱')
+      errors.compositeName = '請輸入組合係數名稱'
     }
-    
+
     if (components.length === 0) {
-      errors.push('至少需要一個組成係數')
+      errors.components = '至少需要一個組成係數'
     }
-    
+
     const totalWeight = components.reduce((sum, comp) => sum + comp.weight, 0)
     if (formulaType === 'weighted' && Math.abs(totalWeight - 1) > 0.001) {
-      errors.push('權重總和應該等於 1.0')
+      errors.weightTotal = '權重總和應該等於 1.0'
     }
-    
+
     const invalidWeights = components.filter(comp => comp.weight <= 0)
     if (invalidWeights.length > 0) {
-      errors.push('所有權重必須大於 0')
+      errors.weightValues = '所有權重必須大於 0'
     }
-    
+
     return errors
   }
 
   const handleSave = () => {
     const errors = validateForm()
-    
-    if (errors.length > 0) {
-      toast({
-        title: '驗證失敗',
-        description: errors.join('; '),
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      })
+
+    // 設定驗證錯誤狀態
+    setValidationErrors(errors)
+
+    // 如果有任何錯誤，不執行儲存
+    if (Object.keys(errors).length > 0) {
       return
     }
 
@@ -729,10 +754,11 @@ export default function CompositeEditorDrawer({
       isClosable: true,
     })
 
-    // 清除表單
+    // 清除表單和驗證錯誤
     setCompositeName('')
     setDescription('')
     setComponents([])
+    setValidationErrors({})
     onClose()
   }
 
@@ -740,6 +766,7 @@ export default function CompositeEditorDrawer({
     setCompositeName('')
     setDescription('')
     setComponents([])
+    setValidationErrors({}) // 清除所有驗證錯誤
   }
 
   const totalWeight = components.reduce((sum, comp) => sum + comp.weight, 0)
@@ -771,13 +798,20 @@ export default function CompositeEditorDrawer({
               <Text fontSize="md" fontWeight="medium" mb={4}>基本資訊</Text>
               
               <VStack spacing={4} align="stretch">
-                <FormControl isRequired>
+                <FormControl isRequired isInvalid={!!validationErrors.compositeName}>
                   <FormLabel fontSize="sm">組合係數名稱</FormLabel>
                   <Input
                     value={compositeName}
-                    onChange={(e) => setCompositeName(e.target.value)}
+                    onChange={(e) => {
+                      setCompositeName(e.target.value)
+                      // 清除錯誤訊息
+                      if (validationErrors.compositeName) {
+                        setValidationErrors(prev => ({ ...prev, compositeName: undefined }))
+                      }
+                    }}
                     placeholder="請輸入組合係數名稱"
                   />
+                  <FormErrorMessage>{validationErrors.compositeName}</FormErrorMessage>
                 </FormControl>
 
                 <FormControl>
@@ -1165,7 +1199,7 @@ export default function CompositeEditorDrawer({
                   p={8}
                   textAlign="center"
                   border="2px dashed"
-                  borderColor="gray.300"
+                  borderColor={validationErrors.components ? "red.300" : "gray.300"}
                   borderRadius="md"
                   color="gray.500"
                 >
@@ -1174,23 +1208,51 @@ export default function CompositeEditorDrawer({
                 </Box>
               )}
 
+              {/* 組成係數錯誤訊息 */}
+              {validationErrors.components && (
+                <Text color="red.500" fontSize="sm" mt={2}>
+                  {validationErrors.components}
+                </Text>
+              )}
+
               {/* Weight Summary */}
               {components.length > 0 && (
-                <HStack justify="space-between" mt={4} p={3} bg="gray.50" borderRadius="md">
-                  <Text fontSize="sm" fontWeight="medium">
-                    權重總計:
-                  </Text>
-                  <HStack>
-                    <Text fontSize="sm" fontFamily="mono">
-                      {totalWeight.toFixed(3)}
+                <Box>
+                  <HStack
+                    justify="space-between"
+                    mt={4}
+                    p={3}
+                    bg="gray.50"
+                    borderRadius="md"
+                    borderWidth={validationErrors.weightTotal || validationErrors.weightValues ? "1px" : "0px"}
+                    borderColor="red.300"
+                  >
+                    <Text fontSize="sm" fontWeight="medium">
+                      權重總計:
                     </Text>
-                    {weightError && (
-                      <Badge colorScheme="red" size="sm">
-                        應為 1.0
-                      </Badge>
-                    )}
+                    <HStack>
+                      <Text fontSize="sm" fontFamily="mono">
+                        {totalWeight.toFixed(3)}
+                      </Text>
+                      {weightError && (
+                        <Badge colorScheme="red" size="sm">
+                          應為 1.0
+                        </Badge>
+                      )}
+                    </HStack>
                   </HStack>
-                </HStack>
+                  {/* 權重錯誤訊息 */}
+                  {validationErrors.weightTotal && (
+                    <Text color="red.500" fontSize="sm" mt={2}>
+                      {validationErrors.weightTotal}
+                    </Text>
+                  )}
+                  {validationErrors.weightValues && (
+                    <Text color="red.500" fontSize="sm" mt={2}>
+                      {validationErrors.weightValues}
+                    </Text>
+                  )}
+                </Box>
               )}
 
               {/* 單位相容性警告 */}
@@ -1295,7 +1357,6 @@ export default function CompositeEditorDrawer({
                 colorScheme="brand"
                 onClick={handleSave}
                 leftIcon={<CheckIcon />}
-                isDisabled={components.length === 0 || !compositeName.trim()}
               >
                 儲存組合係數
               </Button>
