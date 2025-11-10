@@ -43,6 +43,342 @@ export interface CollectionCounts {
 export interface ExtendedFactorTableItem extends FactorTableItem {
   projectUsage?: ProjectUsage[]
   usageText?: string
+  // 同步追蹤欄位（用於從自建係數匯入到中央庫的係數）
+  source_composite_id?: number        // 來源自建係數 ID
+  source_version?: string             // 來源係數版本
+  synced_at?: string                  // 同步時間
+  synced_version?: string             // 已同步版本
+  imported_to_central?: boolean       // 標記為已匯入中央庫
+  imported_at?: string                // 首次匯入時間
+  last_synced_at?: string             // 最後同步時間
+  last_synced_version?: string        // 最後同步版本
+  formula_type?: 'weighted' | 'sum'   // 計算方法
+  components?: any[]                  // 組成係數
+}
+
+// 全局存儲匯入到中央庫的組合係數
+let importedCompositeFactors: ExtendedFactorTableItem[] = []
+
+// 全局存儲從中央庫移除的係數 ID 列表
+let removedFromCentralIds: Set<number> = new Set()
+
+/**
+ * 添加匯入的組合係數到中央庫
+ */
+export function addImportedCompositeToCentral(factor: ExtendedFactorTableItem) {
+  // 檢查是否已存在（避免重複匯入）
+  const exists = importedCompositeFactors.some(f => f.id === factor.id)
+  if (!exists) {
+    importedCompositeFactors.push(factor)
+  }
+}
+
+/**
+ * 取得所有匯入的組合係數
+ */
+export function getImportedCompositeFactors(): ExtendedFactorTableItem[] {
+  return importedCompositeFactors
+}
+
+/**
+ * 從中央庫移除係數（支持所有類型）
+ */
+export function removeFromCentralLibrary(
+  factor: any
+): {
+  success: boolean
+  sourceCompositeId?: number
+  error?: string
+} {
+  try {
+    console.log('[removeFromCentralLibrary] 開始移除係數:', {
+      id: factor.id,
+      name: factor.name,
+      type: factor.type,
+      source_composite_id: factor.source_composite_id,
+      source_type: factor.source_type
+    })
+
+    // 情況 1: 從自建係數匯入的組合係數（在 importedCompositeFactors 中）
+    if (factor.source_composite_id) {
+      const index = importedCompositeFactors.findIndex(f => f.id === factor.id)
+
+      if (index !== -1) {
+        const centralFactor = importedCompositeFactors[index]
+        const sourceCompositeId = centralFactor.source_composite_id
+
+        // 從中央庫陣列中移除
+        importedCompositeFactors.splice(index, 1)
+        console.log('[useMockData] 從中央庫移除組合係數:', centralFactor.name, '剩餘:', importedCompositeFactors.length)
+
+        // 更新對應的自建係數狀態
+        if (sourceCompositeId) {
+          const sourceFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
+          if (sourceFactor) {
+            updateUserDefinedCompositeFactor(sourceCompositeId, {
+              ...sourceFactor,
+              imported_to_central: false,
+              central_library_id: undefined,
+            })
+            console.log('[useMockData] 更新自建係數狀態:', sourceFactor.name, 'imported_to_central = false')
+          }
+        }
+
+        return {
+          success: true,
+          sourceCompositeId
+        }
+      }
+    }
+
+    // 情況 2: 其他類型的係數（標準排放係數、產品碳足跡係數等）
+    // 這些係數由專案使用或其他方式加入中央庫，移除它們只是從視圖中移除
+    // 實際數據仍然存在，只是不再顯示在中央庫中
+    console.log('[useMockData] 從中央庫移除其他類型係數:', factor.name, 'ID:', factor.id, 'Type:', factor.type)
+
+    // 標記為已從中央庫移除
+    removedFromCentralIds.add(factor.id)
+    console.log('[useMockData] 已移除係數列表:', Array.from(removedFromCentralIds))
+
+    return {
+      success: true,
+      error: undefined
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '移除失敗'
+    }
+  }
+}
+
+/**
+ * 從中央庫移除匯入的組合係數（向後兼容）
+ * @deprecated 使用 removeFromCentralLibrary 代替
+ */
+export function removeImportedCompositeFromCentral(
+  centralFactorId: number
+): {
+  success: boolean
+  sourceCompositeId?: number
+  error?: string
+} {
+  // 轉發到新函數
+  return removeFromCentralLibrary({ id: centralFactorId })
+}
+
+// 版本歷史記錄介面
+export interface VersionHistoryEntry {
+  version: string          // 版本號 (v1.0, v1.1, etc.)
+  date: string            // 更新日期 ISO 8601 格式
+  isCurrent: boolean      // 是否為當前版本
+  changes?: string        // 變更摘要（選填）
+  value?: number          // 該版本的計算值
+  components?: any[]      // 該版本的組成係數快照
+}
+
+// 自建組合係數介面（帶同步追蹤）
+export interface UserDefinedCompositeFactor {
+  id: number
+  name: string
+  value: number
+  unit: string
+  type: 'composite_factor' | 'formula_factor'
+  formulaType?: 'weighted' | 'sum'
+  components?: any[]
+  // 同步追蹤欄位
+  imported_to_central: boolean      // 是否已匯入中央庫
+  central_library_id?: number       // 中央庫中的 ID
+  imported_at?: string              // 首次匯入時間
+  last_synced_at?: string           // 最後同步時間
+  version: string                   // 當前版本號（格式：v1.0, v1.1, v2.0）
+  last_synced_version?: string      // 中央庫的版本號（格式：v1.0, v1.1, v2.0）
+  version_history?: VersionHistoryEntry[]  // 版本歷史記錄
+  // 其他欄位
+  [key: string]: any
+}
+
+// 全局存儲自建組合係數
+let userDefinedCompositeFactors: UserDefinedCompositeFactor[] = []
+
+/**
+ * 添加自建組合係數
+ */
+export function addUserDefinedCompositeFactor(factor: any) {
+  const currentTime = new Date().toISOString()
+  const version = factor.version || 'v1.0'
+
+  const newFactor: UserDefinedCompositeFactor = {
+    ...factor,
+    imported_to_central: false,
+    version,
+    // 初始化版本歷史
+    version_history: [
+      {
+        version,
+        date: currentTime,
+        isCurrent: true,
+        changes: '首次建立',
+        value: factor.value || factor.computed_value,
+        components: factor.components ? JSON.parse(JSON.stringify(factor.components)) : []
+      }
+    ]
+  }
+  userDefinedCompositeFactors.push(newFactor)
+  console.log('[useMockData] 添加自建組合係數:', newFactor.name, '版本:', newFactor.version, '目前總數:', userDefinedCompositeFactors.length)
+}
+
+/**
+ * 更新自建組合係數
+ */
+export function updateUserDefinedCompositeFactor(id: number, factor: any) {
+  const index = userDefinedCompositeFactors.findIndex(f => f.id === id)
+  if (index !== -1) {
+    userDefinedCompositeFactors[index] = factor
+    console.log('[useMockData] 更新自建組合係數:', factor.name)
+  }
+}
+
+/**
+ * 檢查係數是否可以刪除
+ */
+export function canDeleteCompositeFactor(factor: UserDefinedCompositeFactor): {
+  canDelete: boolean
+  reason?: string
+  needAction?: 'remove_from_central'
+} {
+  // 檢查是否已匯入中央庫
+  if (factor.imported_to_central) {
+    return {
+      canDelete: false,
+      reason: '此係數已匯入中央庫，請先從中央庫移除後再刪除',
+      needAction: 'remove_from_central'
+    }
+  }
+
+  // 可以刪除
+  return {
+    canDelete: true
+  }
+}
+
+/**
+ * 刪除自建組合係數
+ */
+export function deleteUserDefinedCompositeFactor(id: number) {
+  const index = userDefinedCompositeFactors.findIndex(f => f.id === id)
+  if (index !== -1) {
+    const deleted = userDefinedCompositeFactors.splice(index, 1)
+    console.log('[useMockData] 刪除自建組合係數:', deleted[0]?.name, '剩餘總數:', userDefinedCompositeFactors.length)
+    return true
+  }
+  return false
+}
+
+/**
+ * 刪除自建組合係數（帶保護檢查）
+ */
+export function deleteUserDefinedCompositeFactorSafe(id: number): {
+  success: boolean
+  error?: string
+  reason?: string
+} {
+  const factor = getUserDefinedCompositeFactorById(id)
+
+  if (!factor) {
+    return {
+      success: false,
+      error: '找不到指定的係數'
+    }
+  }
+
+  // 檢查是否可以刪除
+  const checkResult = canDeleteCompositeFactor(factor)
+
+  if (!checkResult.canDelete) {
+    return {
+      success: false,
+      reason: checkResult.reason,
+      error: 'blocked_by_import'
+    }
+  }
+
+  // 執行刪除
+  const deleted = deleteUserDefinedCompositeFactor(id)
+
+  return {
+    success: deleted
+  }
+}
+
+/**
+ * 取得所有自建組合係數
+ */
+export function getUserDefinedCompositeFactors(): any[] {
+  return userDefinedCompositeFactors
+}
+
+/**
+ * 根據 ID 取得自建組合係數
+ */
+export function getUserDefinedCompositeFactorById(id: number): UserDefinedCompositeFactor | undefined {
+  return userDefinedCompositeFactors.find(f => f.id === id)
+}
+
+/**
+ * 版本號比較函數
+ * @returns 0: 相等, >0: v1 > v2, <0: v1 < v2
+ */
+export function compareVersions(v1: string, v2: string): number {
+  // 解析版本號 "v1.2" → [1, 2]
+  const parse = (v: string): [number, number] => {
+    const match = v.match(/^v?(\d+)\.(\d+)$/)
+    if (!match) return [1, 0]  // 預設為 v1.0
+    return [parseInt(match[1]), parseInt(match[2])]
+  }
+
+  const [major1, minor1] = parse(v1)
+  const [major2, minor2] = parse(v2)
+
+  if (major1 !== major2) return major1 - major2
+  return minor1 - minor2
+}
+
+/**
+ * 同步狀態類型
+ */
+export type SyncStatus =
+  | 'not_imported'      // 尚未匯入
+  | 'synced'            // 已同步
+  | 'needs_sync'        // 需要同步
+  | 'sync_error'        // 同步錯誤
+
+/**
+ * 取得係數同步狀態
+ */
+export function getSyncStatus(factor: UserDefinedCompositeFactor): SyncStatus {
+  // 未匯入
+  if (!factor.imported_to_central) {
+    return 'not_imported'
+  }
+
+  // 檢查版本號
+  const currentVersion = factor.version || 'v1.0'
+  const syncedVersion = factor.last_synced_version || 'v1.0'
+
+  // 版本號比較
+  if (compareVersions(currentVersion, syncedVersion) > 0) {
+    return 'needs_sync'  // 當前版本 > 已同步版本
+  }
+
+  return 'synced'  // 已同步
+}
+
+/**
+ * 檢查係數是否需要同步（向後兼容）
+ */
+export function checkIfNeedsSync(factor: UserDefinedCompositeFactor): boolean {
+  return getSyncStatus(factor) === 'needs_sync'
 }
 
 /**
@@ -135,10 +471,8 @@ export function useMockData() {
   // 不使用 useMemo，每次都動態計算以確保能讀取新增的係數
   const allEmissionFactorItems = getAllEmissionFactors().map(convertToTableItem)
 
-  const allCompositeFactorItems = useMemo(
-    () => mockCompositeFactors.map(convertCompositeToTableItem),
-    []
-  )
+  // 不使用 useMemo，每次都動態計算以確保能讀取最新的自建係數狀態
+  const allCompositeFactorItems = getUserDefinedCompositeFactors().map(convertCompositeToTableItem)
 
   // 產品碳足跡係數項目
   const allProductFootprintItems = useMemo(
@@ -227,6 +561,7 @@ export function useMockData() {
 
   // 中央係數庫資料（不使用 useMemo 以確保能讀取新增的係數）
   const centralLibraryFactors = (): ExtendedFactorTableItem[] => {
+    console.log('[getCentralLibraryFactors] 開始獲取中央庫係數...')
     const usageMap = new Map(factorUsageMap.map(u => [u.factorId, u.usedInProjects]))
 
     // 選擇被專案使用的係數（標準排放係數）
@@ -255,7 +590,10 @@ export function useMockData() {
         usageText: `從產品碳足跡匯入`
       }))
 
-    // 合併三種係數（去重）
+    // 加入匯入的組合係數
+    const importedComposites = getImportedCompositeFactors()
+
+    // 合併四種係數（去重）
     const allCentralItemsMap = new Map<number, ExtendedFactorTableItem>()
 
     // 先加入使用過的係數
@@ -264,10 +602,26 @@ export function useMockData() {
     // 再加入產品碳足跡係數（來自 mockProductFootprintFactors）
     productFootprintItems.forEach(item => allCentralItemsMap.set(item.id, item))
 
-    // 最後加入匯入的產品碳足跡係數（新增的）
+    // 加入匯入的產品碳足跡係數（新增的）
     importedProductFactors.forEach(item => allCentralItemsMap.set(item.id, item))
 
+    // 加入匯入的組合係數
+    importedComposites.forEach(item => allCentralItemsMap.set(item.id, item))
+
+    console.log('[getCentralLibraryFactors] 匯入的組合係數數量:', importedComposites.length)
+    console.log('[getCentralLibraryFactors] 已移除的係數IDs:', Array.from(removedFromCentralIds))
+
+    // 過濾掉已從中央庫移除的係數
     const allCentralItems = Array.from(allCentralItemsMap.values())
+      .filter(item => {
+        const shouldRemove = removedFromCentralIds.has(item.id)
+        if (shouldRemove) {
+          console.log('[getCentralLibraryFactors] 過濾掉係數:', item.id, item.name)
+        }
+        return !shouldRemove
+      })
+
+    console.log('[getCentralLibraryFactors] 最終中央庫係數數量:', allCentralItems.length)
 
     // 按使用次數降序排序，次數相同時按名稱排序
     return allCentralItems.sort((a, b) => {

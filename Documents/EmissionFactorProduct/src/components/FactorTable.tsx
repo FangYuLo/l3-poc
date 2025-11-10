@@ -6,6 +6,8 @@ import {
   Thead,
   Tbody,
   Tr,
+  Td,
+  Th,
   Text,
   Button,
   HStack,
@@ -24,6 +26,14 @@ import {
   AccordionIcon,
   CheckboxGroup,
   Checkbox,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useToast,
+  Badge,
+  Tooltip,
+  Icon,
 } from '@chakra-ui/react'
 import {
   SearchIcon,
@@ -31,10 +41,18 @@ import {
   ChevronRightIcon,
   AddIcon,
   SettingsIcon,
+  EditIcon,
+  DeleteIcon,
+  HamburgerIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  WarningIcon,
+  RepeatIcon,
 } from '@chakra-ui/icons'
 import { useState, useMemo, useCallback } from 'react'
-import { useMockData } from '@/hooks/useMockData'
+import { useMockData, checkIfNeedsSync } from '@/hooks/useMockData'
 import { useFactors } from '@/hooks/useFactors'
+import { useComposites } from '@/hooks/useComposites'
 // 引入配置驅動系統
 import { getTableConfig } from '@/config/tableColumns'
 import { renderTableHeader, renderTableRow, renderEmptyState } from '@/utils/tableRenderer'
@@ -42,6 +60,8 @@ import { FactorTableItem } from '@/types/types'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import ProjectOverviewView from '@/components/ProjectOverviewView'
 import OrganizationalInventoryOverview from '@/components/OrganizationalInventoryOverview'
+import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
+import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
@@ -92,6 +112,8 @@ interface FactorTableProps {
   onSyncL1Project?: () => Promise<void> // 新增同步 L1 專案的回調
   productSummaries?: any[] // 產品碳足跡摘要列表
   onImportProduct?: (productId: string, formData: any) => Promise<void> // 匯入產品到中央庫
+  onRefreshSelectedFactor?: () => void // 刷新當前選中係數的資料
+  dataRefreshKey?: number // 用於強制刷新數據的 key
 }
 
 export default function FactorTable({
@@ -102,17 +124,21 @@ export default function FactorTable({
   onOpenComposite,
   datasetFactors = [],
   onOpenGlobalSearch,
+  onRefreshSelectedFactor,
   onNavigateToProduct,
   onSyncL2Project,
   onNavigateToYear,
   onSyncL1Project,
-  productSummaries = [],
-  onImportProduct
+  productSummaries: _productSummaries,
+  onImportProduct,
+  dataRefreshKey = 0
 }: FactorTableProps) {
+  const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selectedFactor, setSelectedFactor] = useState<FactorTableItem | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0) // 用於強制重新渲染
 
   // 全庫搜尋專用的篩選狀態
   const [showFilters, setShowFilters] = useState(false)
@@ -121,6 +147,12 @@ export default function FactorTable({
   const [selectedUnits, setSelectedUnits] = useState<string[]>([])
   const [selectedMethods, setSelectedMethods] = useState<string[]>([])
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
+
+  // 自建組合係數操作相關狀態
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [selectedComposite, setSelectedComposite] = useState<any | null>(null)
+  const { deleteCompositeFactor, importCompositeToCentral, isLoading: compositeLoading } = useComposites()
 
   // 獲取表格配置
   const tableConfig = getTableConfig(selectedNodeType)
@@ -157,7 +189,8 @@ export default function FactorTable({
     collectionId: selectedNodeType === 'favorites' ? 'favorites' :
                   selectedNodeType === 'user_defined' ? 'user_defined' :
                   selectedNodeType === 'pact' ? 'pact' :
-                  selectedNodeType === 'supplier' ? 'supplier' : undefined
+                  selectedNodeType === 'supplier' ? 'supplier' : undefined,
+    refreshKey: dataRefreshKey // 添加外部傳入的 refreshKey 以強制重新載入數據
   })
 
   // 全庫搜尋的動態篩選選項
@@ -211,7 +244,7 @@ export default function FactorTable({
       default:
         return dataService.getAllFactorItems()
     }
-  }, [selectedNodeType, dataService])
+  }, [selectedNodeType, dataService, dataRefreshKey])  // 添加 dataRefreshKey 到依賴
 
   // 使用統一資料管理 - 不再使用硬編碼假資料
 
@@ -503,6 +536,7 @@ export default function FactorTable({
       } else if (selectedNodeType === 'favorites') {
         // 中央係數庫：直接使用擴展的係數資料，保留 projectUsage 和 usageText
         baseData = factorData as any[] // factorData 已經是 ExtendedFactorTableItem[]
+        console.log('[FactorTable] 中央係數庫 baseData 數量:', baseData.length, 'dataRefreshKey:', dataRefreshKey)
       } else if (selectedNodeType === 'global_search') {
         // 全庫搜尋：取得所有係數並應用篩選
         baseData = factorData.map(factor => ({
@@ -591,7 +625,7 @@ export default function FactorTable({
         return basicMatch || usageMatch
       })
     }
-  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType, selectedRegions, selectedYears, selectedUnits, selectedMethods, selectedSourceTypes])
+  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType, selectedRegions, selectedYears, selectedUnits, selectedMethods, selectedSourceTypes, refreshKey])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -604,6 +638,125 @@ export default function FactorTable({
   const handleRowClick = (factor: FactorTableItem) => {
     setSelectedFactor(factor)
     onFactorSelect?.(factor)
+  }
+
+  // 渲染同步狀態 Badge
+  const renderSyncStatus = (factor: any) => {
+    if (!factor.imported_to_central) {
+      return null // 未匯入，不顯示 Badge
+    }
+
+    const needsSync = checkIfNeedsSync(factor)
+
+    if (needsSync) {
+      // 需要同步
+      return (
+        <Tooltip label="此係數已修改，需要同步到中央庫">
+          <Badge colorScheme="orange" size="sm" display="flex" alignItems="center" gap={1}>
+            <Icon as={WarningIcon} boxSize={3} />
+            需同步
+          </Badge>
+        </Tooltip>
+      )
+    }
+
+    // 已同步
+    return (
+      <Tooltip label={`已於 ${new Date(factor.imported_at).toLocaleString('zh-TW')} 匯入`}>
+        <Badge colorScheme="green" size="sm" display="flex" alignItems="center" gap={1}>
+          <Icon as={CheckIcon} boxSize={3} />
+          已匯入
+        </Badge>
+      </Tooltip>
+    )
+  }
+
+  // 組合係數操作處理函數
+  const handleDeleteClick = (composite: any) => {
+    // 檢查是否已匯入中央庫
+    if (composite.imported_to_central) {
+      // 顯示阻止刪除對話框
+      setSelectedComposite(composite)
+      // 這個狀態會由父組件 page.tsx 處理
+      return
+    }
+
+    setSelectedComposite(composite)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleSyncClick = (composite: any) => {
+    // TODO: 打開同步確認對話框
+    setSelectedComposite(composite)
+    handleImportClick(composite) // 暫時使用匯入流程，後續會改為專門的同步流程
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedComposite) return
+
+    const result = await deleteCompositeFactor(selectedComposite.id)
+    if (result.success) {
+      toast({
+        title: '組合係數已刪除',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+      setDeleteDialogOpen(false)
+      setSelectedComposite(null)
+      // TODO: 重新整理列表
+    } else {
+      toast({
+        title: '刪除失敗',
+        description: (result as any).error || '未知錯誤',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
+  const handleImportClick = (composite: any) => {
+    setSelectedComposite(composite)
+    setImportModalOpen(true)
+  }
+
+  const handleImportConfirm = async (formData: any) => {
+    if (!selectedComposite) return
+
+    const result = await importCompositeToCentral(selectedComposite.id, formData, selectedComposite)
+    if (result.success) {
+      // Modal 內部已經處理了成功提示和關閉
+      setImportModalOpen(false)
+      setSelectedComposite(null)
+
+      // 觸發重新渲染以顯示新匯入的係數
+      setRefreshKey(prev => prev + 1)
+
+      // 刷新當前選中係數的資料（如果父組件提供了此回調）
+      onRefreshSelectedFactor?.()
+    }
+    // 錯誤處理在 Modal 內部完成
+  }
+
+  const handleEditClick = (_composite: any) => {
+    // TODO: 整合編輯功能
+    toast({
+      title: '編輯功能',
+      description: '編輯功能即將推出',
+      status: 'info',
+      duration: 3000,
+      isClosable: true,
+    })
+  }
+
+  // Mock 使用情況檢查
+  const checkCompositeUsage = (_compositeId: number) => {
+    return {
+      usedInProjects: 0,
+      usedInComposites: [],
+      usedInDatasets: 0,
+    }
   }
 
 
@@ -907,15 +1060,138 @@ export default function FactorTable({
             <Thead position="sticky" top={0} bg="white" zIndex={1}>
               <Tr>
                 {renderTableHeader(tableConfig.columns)}
+                {/* 自建係數添加狀態和操作列表頭 */}
+                {selectedNodeType === 'user_defined' && (
+                  <>
+                    <Th width="120px" textAlign="center">狀態</Th>
+                    <Th width="80px" textAlign="center">操作</Th>
+                  </>
+                )}
               </Tr>
             </Thead>
             <Tbody>
-              {paginatedData.map(row =>
-                renderTableRow(
-                  tableConfig.columns,
-                  row,
-                  handleRowClick,
-                  selectedFactor?.id === row.id
+              {selectedNodeType === 'user_defined' ? (
+                // 自建係數：需要額外的操作列
+                paginatedData.map(row => (
+                  <Tr
+                    key={row.id}
+                    onClick={() => handleRowClick(row as FactorTableItem)}
+                    cursor="pointer"
+                    bg={selectedFactor?.id === row.id ? 'gray.50' : 'white'}
+                    _hover={{ bg: selectedFactor?.id === row.id ? 'gray.50' : 'gray.25' }}
+                  >
+                    {tableConfig.columns.map((column) => {
+                      const value = (row as any)[column.key]
+                      return (
+                        <Td key={`${row.id}-${column.key}`} py={4} isNumeric={column.isNumeric}>
+                          {column.formatter ? column.formatter(value, row) : (
+                            <Text fontSize="sm" fontWeight={column.key === 'name' ? 'medium' : 'normal'}>
+                              {value || '-'}
+                            </Text>
+                          )}
+                        </Td>
+                      )
+                    })}
+                    {/* 狀態列 */}
+                    <Td textAlign="center">
+                      {renderSyncStatus((row as any).data || row)}
+                    </Td>
+                    {/* 操作列 */}
+                    <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
+                      <Menu>
+                        <MenuButton
+                          as={IconButton}
+                          icon={<HamburgerIcon />}
+                          size="sm"
+                          variant="ghost"
+                          aria-label="操作選單"
+                        />
+                        <MenuList>
+                          {(() => {
+                            const factor = (row as any).data || row
+                            const needsSync = checkIfNeedsSync(factor)
+
+                            if (!factor.imported_to_central) {
+                              // 未匯入：顯示匯入選項
+                              return (
+                                <MenuItem
+                                  icon={<ArrowUpIcon />}
+                                  onClick={() => handleImportClick(factor)}
+                                >
+                                  匯入中央庫
+                                </MenuItem>
+                              )
+                            } else if (needsSync) {
+                              // 需要同步：顯示同步選項
+                              return (
+                                <MenuItem
+                                  icon={<RepeatIcon />}
+                                  onClick={() => handleSyncClick(factor)}
+                                  color="blue.500"
+                                >
+                                  同步到中央庫
+                                </MenuItem>
+                              )
+                            } else {
+                              // 已同步：顯示已匯入（禁用）
+                              return (
+                                <Tooltip label={`已於 ${new Date(factor.imported_at).toLocaleString('zh-TW')} 匯入`}>
+                                  <MenuItem
+                                    icon={<CheckIcon />}
+                                    isDisabled
+                                    _disabled={{ color: 'gray.400', cursor: 'not-allowed' }}
+                                  >
+                                    已匯入中央庫
+                                  </MenuItem>
+                                </Tooltip>
+                              )
+                            }
+                          })()}
+                          {/* 刪除按鈕 - 已匯入的係數禁用 */}
+                          {(() => {
+                            const rowData = (row as any).data || row
+                            const isImported = rowData.imported_to_central === true
+
+                            if (isImported) {
+                              return (
+                                <Tooltip label="此係數已匯入中央庫，無法直接刪除" placement="left">
+                                  <MenuItem
+                                    icon={<DeleteIcon />}
+                                    color="gray.400"
+                                    isDisabled={true}
+                                    cursor="not-allowed"
+                                    _hover={{ bg: 'transparent' }}
+                                  >
+                                    刪除
+                                  </MenuItem>
+                                </Tooltip>
+                              )
+                            }
+
+                            return (
+                              <MenuItem
+                                icon={<DeleteIcon />}
+                                onClick={() => handleDeleteClick(rowData)}
+                                color="red.500"
+                              >
+                                刪除
+                              </MenuItem>
+                            )
+                          })()}
+                        </MenuList>
+                      </Menu>
+                    </Td>
+                  </Tr>
+                ))
+              ) : (
+                // 其他類型：使用原有的 renderTableRow
+                paginatedData.map(row =>
+                  renderTableRow(
+                    tableConfig.columns,
+                    row,
+                    handleRowClick,
+                    selectedFactor?.id === row.id
+                  )
                 )
               )}
             </Tbody>
@@ -925,6 +1201,45 @@ export default function FactorTable({
           </>
         )}
       </Box>
+
+      {/* 刪除確認對話框 */}
+      {selectedComposite && (
+        <DeleteConfirmDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false)
+            setSelectedComposite(null)
+          }}
+          onConfirm={handleDeleteConfirm}
+          factorName={selectedComposite.name}
+          factorType="composite_factor"
+          usageInfo={checkCompositeUsage(selectedComposite.id)}
+          isLoading={compositeLoading}
+        />
+      )}
+
+      {/* 匯入中央庫 Modal */}
+      {selectedComposite && (
+        <ImportCompositeToCentralModal
+          isOpen={importModalOpen}
+          onClose={() => {
+            setImportModalOpen(false)
+            setSelectedComposite(null)
+          }}
+          compositeFactor={{
+            id: selectedComposite.id,
+            name: selectedComposite.name,
+            description: selectedComposite.description,
+            value: selectedComposite.value,
+            unit: selectedComposite.unit,
+            formulaType: selectedComposite.formulaType || 'weighted',
+            components: selectedComposite.components || [],
+            region: selectedComposite.region,
+            enabledDate: selectedComposite.enabledDate,
+          }}
+          onConfirm={handleImportConfirm}
+        />
+      )}
 
       {/* Pagination */}
       <Flex p={4} borderTop="1px solid" borderColor="gray.200" align="center" justify="space-between">

@@ -178,6 +178,18 @@ export interface FactorTableItem {
   quality_score?: number
   usage_info?: FactorUsageInfo
   usageText?: string // 格式化後的使用摘要文字（向後相容）
+
+  // 同步追蹤欄位（用於從自建係數匯入到中央庫的係數）
+  source_composite_id?: number        // 來源自建係數 ID
+  source_version?: string             // 來源係數版本
+  synced_at?: string                  // 同步時間
+  synced_version?: string             // 已同步版本
+  imported_to_central?: boolean       // 標記為已匯入中央庫
+  imported_at?: string                // 首次匯入時間
+  last_synced_at?: string             // 最後同步時間
+  last_synced_version?: string        // 最後同步版本
+  formula_type?: 'weighted' | 'sum'   // 計算方法
+  components?: any[]                  // 組成係數
 }
 
 export interface SearchFacets {
@@ -421,6 +433,32 @@ export interface ImportToCentralFormData {
   // 使用建議
   usage_notes?: string
   reference_documents?: File[]
+}
+
+// Import Composite to Central Form Data (組合係數匯入中央庫表單資料)
+export interface ImportCompositeToCentralFormData {
+  // 基本資訊（自動帶入，可編輯）
+  factor_name: string
+  description: string
+  factor_value: number
+  unit: string
+
+  // 適用範圍
+  applicable_categories: string[]
+  geographic_scope: string
+  valid_from: string
+  valid_years: number
+
+  // 組成說明
+  composition_notes: string
+
+  // 數據品質
+  primary_data_percentage: number
+  secondary_data_percentage: number
+  data_quality: DataQuality
+
+  // 使用建議
+  usage_notes?: string
 }
 
 // Utility types

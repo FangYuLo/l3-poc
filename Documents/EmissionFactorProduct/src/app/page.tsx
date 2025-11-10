@@ -27,12 +27,24 @@ import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import FactorSelectorModal from '@/components/FactorSelectorModal'
 import FormulaBuilderModal from '@/components/formula-builder/FormulaBuilderModal'
+import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
+import RemoveFromCentralDialog from '@/components/RemoveFromCentralDialog'
 import { Dataset, ImportToCentralFormData } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
   handleImportProductToCentral
 } from '@/data/mockProjectData'
-import { useMockData } from '@/hooks/useMockData'
+import {
+  useMockData,
+  addUserDefinedCompositeFactor,
+  updateUserDefinedCompositeFactor,
+  deleteUserDefinedCompositeFactor,
+  getUserDefinedCompositeFactors,
+  getUserDefinedCompositeFactorById,
+  canDeleteCompositeFactor,
+} from '@/hooks/useMockData'
+import { useComposites } from '@/hooks/useComposites'
+import { useToast } from '@chakra-ui/react'
 
 // 定義節點類型介面
 interface TreeNodeProps {
@@ -52,6 +64,14 @@ export default function HomePage() {
 
   // 使用 mock data hook 獲取真實資料
   const mockData = useMockData()
+  const toast = useToast()
+  const { removeFromCentral, isLoading: compositeLoading } = useComposites()
+
+  // 新增對話框狀態
+  const [blockDeleteDialogOpen, setBlockDeleteDialogOpen] = useState(false)
+  const [blockedFactor, setBlockedFactor] = useState<any | null>(null)
+  const [removeFromCentralDialogOpen, setRemoveFromCentralDialogOpen] = useState(false)
+  const [factorToRemove, setFactorToRemove] = useState<any | null>(null)
   
   // 新增選中節點狀態（預設選中中央係數庫）
   const [selectedNode, setSelectedNode] = useState<TreeNodeProps | null>({
@@ -62,10 +82,10 @@ export default function HomePage() {
   // 新增選中係數狀態和詳情面板狀態
   const [selectedFactor, setSelectedFactor] = useState<any | null>(null)
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
-  // 自建係數狀態管理
-  const [userDefinedFactors, setUserDefinedFactors] = useState<any[]>([])
   // 編輯中的組合係數
   const [editingComposite, setEditingComposite] = useState<any | null>(null)
+  // 用於觸發重新渲染的狀態
+  const [refreshKey, setRefreshKey] = useState(0)
   
   // 資料集狀態管理
   const [datasets, setDatasets] = useState<Dataset[]>([])
@@ -84,11 +104,11 @@ export default function HomePage() {
   // 處理節點選擇
   const handleNodeSelect = (node: TreeNodeProps) => {
     console.log('選擇節點:', node.name, node.id)
-    
+
     setSelectedNode(node)
     // 切換節點時清空選中的係數
     setSelectedFactor(null)
-    
+
     // 如果選擇的是資料集，設置當前資料集
     if (node.id.startsWith('dataset_')) {
       const datasetId = node.id.replace('dataset_', '')
@@ -97,6 +117,12 @@ export default function HomePage() {
       setCurrentDataset(dataset || null)
     } else {
       setCurrentDataset(null)
+    }
+
+    // 如果選擇的是自建係數節點或中央係數庫，觸發刷新以獲取最新數據
+    if (node.id === 'user_defined' || node.id === 'favorites') {
+      setRefreshKey(prev => prev + 1)
+      console.log('[handleNodeSelect] 觸發數據刷新 - 節點:', node.name)
     }
   }
 
@@ -112,30 +138,121 @@ export default function HomePage() {
     setSelectedFactor(null)
   }
 
+  // 版本號遞增函數（方案一：每次編輯都遞增）
+  const incrementVersion = (currentVersion: string): string => {
+    // 解析版本號 "v1.0" → [1, 0]
+    const match = currentVersion.match(/^v?(\d+)\.(\d+)$/)
+    if (!match) return 'v1.1' // 如果格式錯誤，預設返回 v1.1
+
+    let major = parseInt(match[1])
+    let minor = parseInt(match[2])
+
+    // 小版本 +1
+    minor += 1
+
+    // 如果小版本達到 10，進位到大版本
+    if (minor >= 10) {
+      major += 1
+      minor = 0
+    }
+
+    return `v${major}.${minor}`
+  }
+
+  // 生成變更摘要
+  const generateChangeSummary = (oldFactor: any, newData: any): string => {
+    const changes: string[] = []
+
+    // 檢查名稱變更
+    if (oldFactor.name !== newData.name) {
+      changes.push('更新名稱')
+    }
+
+    // 檢查描述變更
+    if (oldFactor.description !== newData.description) {
+      changes.push('更新描述')
+    }
+
+    // 檢查組成係數數量變更
+    const oldComponentCount = oldFactor.components?.length || 0
+    const newComponentCount = newData.components?.length || 0
+    if (oldComponentCount !== newComponentCount) {
+      changes.push(`組成係數數量 ${oldComponentCount} → ${newComponentCount}`)
+    }
+
+    // 檢查權重變更
+    const hasWeightChange = newData.components?.some((newComp: any, idx: number) => {
+      const oldComp = oldFactor.components?.[idx]
+      return oldComp && oldComp.weight !== newComp.weight
+    })
+    if (hasWeightChange) {
+      changes.push('調整權重')
+    }
+
+    // 檢查計算方法變更
+    if (oldFactor.formula_type !== newData.formula_type) {
+      changes.push('變更計算方法')
+    }
+
+    return changes.length > 0 ? changes.join('、') : '更新係數'
+  }
+
   // 處理新組合係數儲存或更新
   const handleCompositeFactorSave = (compositeData: any) => {
     if (compositeData.id) {
       // 更新模式
+      const existingFactor = getUserDefinedCompositeFactorById(compositeData.id)
+
+      if (!existingFactor) {
+        console.error('[handleCompositeFactorSave] 找不到現有係數:', compositeData.id)
+        return
+      }
+
+      const currentTime = new Date().toISOString()
+      const newVersion = incrementVersion(String(existingFactor.version || 'v1.0'))
+      const changeSummary = generateChangeSummary(existingFactor, compositeData)
+
+      // 更新版本歷史：將舊版本標記為非當前
+      const updatedHistory = (existingFactor.version_history || []).map(entry => ({
+        ...entry,
+        isCurrent: false
+      }))
+
+      // 加入新版本記錄
+      updatedHistory.push({
+        version: newVersion,
+        date: currentTime,
+        isCurrent: true,
+        changes: changeSummary,
+        value: compositeData.computed_value,
+        components: compositeData.components ? JSON.parse(JSON.stringify(compositeData.components)) : []
+      })
+
       const updatedFactor = {
         ...compositeData,
         type: 'composite_factor',
         value: compositeData.computed_value,
         source_type: 'user_defined',
-        updated_at: new Date().toISOString(),
+        updated_at: currentTime,
+        // 使用版本號遞增邏輯
+        version: newVersion,
+        version_history: updatedHistory,
+        // 保留匯入信息，但不更新 last_synced_version（因為還沒同步）
+        imported_to_central: existingFactor?.imported_to_central || false,
+        central_library_id: existingFactor?.central_library_id,
+        imported_at: existingFactor?.imported_at,
+        last_synced_at: existingFactor?.last_synced_at,
+        last_synced_version: existingFactor?.last_synced_version,
       }
 
-      setUserDefinedFactors(prev =>
-        prev.map(factor =>
-          factor.id === compositeData.id ? updatedFactor : factor
-        )
-      )
+      updateUserDefinedCompositeFactor(compositeData.id, updatedFactor)
 
       // 如果當前選中的是被編輯的係數，更新選中狀態
       if (selectedFactor && selectedFactor.id === compositeData.id) {
         setSelectedFactor(updatedFactor)
       }
 
-      console.log('更新自建組合係數:', updatedFactor)
+      console.log('[handleCompositeFactorSave] 更新自建組合係數:', updatedFactor.name, updatedFactor.version, '變更:', changeSummary)
     } else {
       // 新增模式
       const newFactor = {
@@ -146,23 +263,142 @@ export default function HomePage() {
         unit: compositeData.unit,
         method_gwp: 'GWP100',
         source_type: 'user_defined',
-        version: '1.0',
+        version: 'v1.0',  // 新建時固定為 v1.0
         created_at: new Date().toISOString(),
         ...compositeData
       }
 
-      setUserDefinedFactors(prev => [...prev, newFactor])
-      console.log('新增自建組合係數:', newFactor)
+      addUserDefinedCompositeFactor(newFactor)
+      console.log('[handleCompositeFactorSave] 新增自建組合係數:', newFactor.name, newFactor.version)
     }
 
     // 清除編輯狀態
     setEditingComposite(null)
+    // 觸發重新渲染
+    setRefreshKey(prev => prev + 1)
   }
 
   // 處理編輯組合係數
   const handleCompositeFactorEdit = (factor: any) => {
     setEditingComposite(factor)
     onCompositeOpen()
+  }
+
+  // 處理從中央庫移除請求
+  const handleRemoveFromCentralRequest = (factor: any) => {
+    setFactorToRemove(factor)
+    setRemoveFromCentralDialogOpen(true)
+  }
+
+  // 確認從中央庫移除
+  const handleRemoveFromCentralConfirm = async () => {
+    if (!factorToRemove) return
+
+    try {
+      const result = await removeFromCentral(factorToRemove)
+
+      if (result.success) {
+        toast({
+          title: '移除成功',
+          description: '係數已從中央庫移除，自建係數已恢復為未匯入狀態',
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        })
+
+        // 關閉對話框和詳情面板
+        setRemoveFromCentralDialogOpen(false)
+        setIsDetailPanelOpen(false)
+        setSelectedFactor(null)
+        setFactorToRemove(null)
+
+        // 刷新列表
+        refreshSelectedFactor()
+      } else {
+        toast({
+          title: '移除失敗',
+          description: result.error || '未知錯誤',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      toast({
+        title: '移除失敗',
+        description: '請稍後重試',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
+  // 前往中央庫並選中係數
+  const handleNavigateToCentral = (factor: any) => {
+    // 關閉阻止刪除對話框
+    setBlockDeleteDialogOpen(false)
+
+    // 切換到中央係數庫
+    setSelectedNode({
+      id: 'favorites',
+      name: '中央係數庫',
+      type: 'collection'
+    })
+
+    // 尋找對應的中央庫係數並選中
+    setTimeout(() => {
+      const centralFactors = mockData.getCentralLibraryFactors()
+      const centralFactor = centralFactors.find(
+        f => f.source_composite_id === factor.id
+      )
+
+      if (centralFactor) {
+        setSelectedFactor(centralFactor)
+        setIsDetailPanelOpen(true)
+
+        toast({
+          title: '已切換到中央係數庫',
+          description: '請點擊「從中央係數庫移除」按鈕來移除係數',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        })
+      } else {
+        toast({
+          title: '找不到對應的中央庫係數',
+          description: '此係數可能尚未匯入中央庫',
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+        })
+      }
+    }, 100) // 小延遲確保節點切換完成
+  }
+
+  // 處理匯入中央庫
+  const handleImportToCentral = (factor: any) => {
+    console.log('[handleImportToCentral] 匯入係數到中央庫:', factor.name)
+    // TODO: 實作匯入中央庫的邏輯
+    // 這裡可以開啟匯入表單 modal
+  }
+
+  // 刷新當前選中係數的資料
+  const refreshSelectedFactor = () => {
+    if (selectedFactor && selectedFactor.id) {
+      // 如果是自建係數，重新獲取最新資料
+      if (selectedFactor.source_type === 'user_defined') {
+        const updatedFactor = getUserDefinedCompositeFactorById(selectedFactor.id)
+        if (updatedFactor) {
+          console.log('[refreshSelectedFactor] 更新選中係數資料:', updatedFactor.name, updatedFactor.imported_to_central)
+          setSelectedFactor(updatedFactor)
+        }
+      }
+    }
+    // 觸發全局刷新
+    setRefreshKey(prev => prev + 1)
+    // 觸發中央庫刷新（匯入組合係數後需要更新中央庫）
+    setCentralLibraryUpdateKey(prev => prev + 1)
   }
 
   // 處理公式建構器儲存
@@ -182,8 +418,11 @@ export default function HomePage() {
       description: factorData.description
     }
 
-    setUserDefinedFactors(prev => [...prev, newFactor])
+    addUserDefinedCompositeFactor(newFactor)
     console.log('新增視覺化公式係數:', newFactor)
+
+    // 觸發重新渲染
+    setRefreshKey(prev => prev + 1)
   }
 
   // 處理資料集創建
@@ -270,20 +509,32 @@ export default function HomePage() {
 
   // 處理編輯自建係數
   const handleEditFactor = (updatedFactor: any) => {
-    setUserDefinedFactors(prev => 
-      prev.map(factor => 
-        factor.id === updatedFactor.id 
-          ? { ...updatedFactor, updated_at: new Date().toISOString() }
-          : factor
-      )
-    )
-    
+    const existingFactor = getUserDefinedCompositeFactorById(updatedFactor.id)
+
+    const updatedFactorWithTimestamp = {
+      ...updatedFactor,
+      updated_at: new Date().toISOString(),
+      // 版本號 +1
+      version: existingFactor ? (existingFactor.version || 1) + 1 : 1,
+      // 保留匯入信息，但不更新 last_synced_version（因為還沒同步）
+      imported_to_central: existingFactor?.imported_to_central || false,
+      central_library_id: existingFactor?.central_library_id,
+      imported_at: existingFactor?.imported_at,
+      last_synced_at: existingFactor?.last_synced_at,
+      last_synced_version: existingFactor?.last_synced_version,
+    }
+
+    updateUserDefinedCompositeFactor(updatedFactor.id, updatedFactorWithTimestamp)
+
     // 如果當前選中的是被編輯的係數，更新選中狀態
     if (selectedFactor && selectedFactor.id === updatedFactor.id) {
-      setSelectedFactor({ ...updatedFactor, updated_at: new Date().toISOString() })
+      setSelectedFactor(updatedFactorWithTimestamp)
     }
-    
-    console.log('編輯自建係數:', updatedFactor)
+
+    // 觸發重新渲染
+    setRefreshKey(prev => prev + 1)
+
+    console.log('[handleEditFactor] 編輯自建係數:', updatedFactorWithTimestamp.name, 'v' + updatedFactorWithTimestamp.version)
   }
 
   // 處理刪除自建係數請求
@@ -295,6 +546,7 @@ export default function HomePage() {
   // 檢查係數使用情況
   const getFactorUsageInfo = (factorId: number) => {
     // 檢查是否被其他組合係數使用
+    const userDefinedFactors = getUserDefinedCompositeFactors()
     const usedInComposites = userDefinedFactors
       .filter(f => f.type === 'composite_factor' && f.components?.some((c: any) => c.ef_id === factorId))
       .map(f => f.name)
@@ -329,20 +581,23 @@ export default function HomePage() {
   // 確認刪除自建係數
   const handleConfirmDeleteFactor = async () => {
     if (!factorToDelete) return
-    
+
     try {
       setIsDeleting(true)
-      
+
       // 模擬刪除 API 調用
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 從狀態中移除係數
-      setUserDefinedFactors(prev => prev.filter(f => f.id !== factorToDelete.id))
-      
+
+      // 從全局狀態中移除係數
+      deleteUserDefinedCompositeFactor(factorToDelete.id)
+
       // 如果當前選中的是被刪除的係數，清空選中狀態
       if (selectedFactor && selectedFactor.id === factorToDelete.id) {
         setSelectedFactor(null)
       }
+
+      // 觸發重新渲染
+      setRefreshKey(prev => prev + 1)
       
       // 從資料集中移除該係數
       setDatasets(prev => 
@@ -662,7 +917,11 @@ export default function HomePage() {
               selectedNode={selectedNode}
               onCreateDataset={handleCreateDataset}
               datasets={datasets}
-              userDefinedFactors={userDefinedFactors}
+              userDefinedFactors={(() => {
+                const factors = getUserDefinedCompositeFactors()
+                console.log('[SidebarTree] 傳遞自建係數數量:', factors.length)
+                return factors
+              })()}
               onOpenFormulaBuilder={onFormulaBuilderOpen}
               onOpenComposite={onCompositeOpen}
             />
@@ -677,16 +936,22 @@ export default function HomePage() {
             zIndex={isDetailPanelOpen ? 0 : 1}
           >
             <FactorTable
-              key={centralLibraryUpdateKey}
+              key={`${centralLibraryUpdateKey}-${refreshKey}`}
               selectedNodeType={getTableNodeType(selectedNode)}
               selectedNode={selectedNode}
               onFactorSelect={handleFactorSelect}
-              userDefinedFactors={userDefinedFactors}
+              userDefinedFactors={(() => {
+                const factors = getUserDefinedCompositeFactors()
+                console.log('[FactorTable] 傳遞自建係數數量:', factors.length, '節點類型:', getTableNodeType(selectedNode))
+                return factors
+              })()}
               onOpenComposite={onCompositeOpen}
               datasetFactors={getDatasetFactors()}
+              onRefreshSelectedFactor={refreshSelectedFactor}
               onOpenGlobalSearch={handleOpenFactorSelector}
               onNavigateToProduct={handleNavigateToProduct}
               onSyncL2Project={handleSyncL2Project}
+              dataRefreshKey={centralLibraryUpdateKey + refreshKey}
               onNavigateToYear={handleNavigateToYear}
               onSyncL1Project={handleSyncL1Project}
               productSummaries={productSummaries}
@@ -744,7 +1009,10 @@ export default function HomePage() {
                 selectedFactor={selectedFactor}
                 onEditFactor={handleEditFactor}
                 onEditComposite={handleCompositeFactorEdit}
-                isUserDefinedFactor={selectedFactor?.source_type === 'user_defined'}
+                isUserDefinedFactor={selectedNode?.id === 'user_defined'}
+                isCentralLibrary={selectedNode?.id === 'favorites'}
+                onRemoveFromCentral={handleRemoveFromCentralRequest}
+                onImportToCentral={handleImportToCentral}
               />
             )}
           </Box>
@@ -814,6 +1082,22 @@ export default function HomePage() {
         isOpen={isFormulaBuilderOpen}
         onClose={onFormulaBuilderClose}
         onSave={handleFormulaBuilderSave}
+      />
+
+      {/* Block Delete Imported Dialog */}
+      <BlockDeleteImportedDialog
+        isOpen={blockDeleteDialogOpen}
+        onClose={() => setBlockDeleteDialogOpen(false)}
+        factor={blockedFactor}
+        onNavigateToCentral={handleNavigateToCentral}
+      />
+
+      {/* Remove From Central Dialog */}
+      <RemoveFromCentralDialog
+        isOpen={removeFromCentralDialogOpen}
+        onClose={() => setRemoveFromCentralDialogOpen(false)}
+        factor={factorToRemove}
+        onConfirm={handleRemoveFromCentralConfirm}
       />
     </Box>
   )

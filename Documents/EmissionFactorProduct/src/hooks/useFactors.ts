@@ -12,6 +12,7 @@ interface UseFactorsOptions {
   emissionSourceId?: number
   nodeId?: string // 新增：樹狀節點ID
   filters?: Partial<SearchFilters>
+  refreshKey?: number // 新增：用於強制刷新的 key
 }
 
 export function useFactors(options: UseFactorsOptions = {}) {
@@ -158,7 +159,7 @@ export function useFactors(options: UseFactorsOptions = {}) {
           // 使用集合過濾
           switch (options.collectionId) {
             case 'favorites':
-              filteredFactors = mockData.getFavoriteFactors()
+              filteredFactors = mockData.getCentralLibraryFactors()
               break
             case 'user_defined':
               filteredFactors = mockData.getUserDefinedFactors()
@@ -208,7 +209,7 @@ export function useFactors(options: UseFactorsOptions = {}) {
 
   useEffect(() => {
     loadFactors()
-  }, [options.collectionId, options.projectId, options.emissionSourceId, options.nodeId])
+  }, [options.collectionId, options.projectId, options.emissionSourceId, options.nodeId, options.refreshKey])
 
   const refreshFactors = () => {
     loadFactors({ page: 1 })

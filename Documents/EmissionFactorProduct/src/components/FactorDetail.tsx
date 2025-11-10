@@ -51,19 +51,26 @@ import {
 import { useState } from 'react'
 import { formatNumber, formatDate } from '@/lib/utils'
 import EmissionFactorCards from './EmissionFactorCards'
+import { getSyncStatus } from '@/hooks/useMockData'
 
 interface FactorDetailProps {
   selectedFactor?: any // 從父組件傳入的選中係數
   onEditFactor?: (updatedFactor: any) => void // 編輯係數回調
   onEditComposite?: (factor: any) => void // 編輯組合係數回調
   isUserDefinedFactor?: boolean // 是否為自建係數
+  isCentralLibrary?: boolean // 是否為中央係數庫
+  onRemoveFromCentral?: (factor: any) => void // 從中央庫移除回調
+  onImportToCentral?: (factor: any) => void // 匯入中央庫回調
 }
 
 export default function FactorDetail({
   selectedFactor,
   onEditFactor,
   onEditComposite,
-  isUserDefinedFactor = false
+  isUserDefinedFactor = false,
+  isCentralLibrary = false,
+  onRemoveFromCentral,
+  onImportToCentral
 }: FactorDetailProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -643,11 +650,18 @@ export default function FactorDetail({
     updated_at: '2024-01-01T10:30:00Z',
   }
 
-  const mockVersions = [
-    { version: '2.1', date: '2024-01-15', isCurrent: true, hasUpdate: false },
-    { version: '2.0', date: '2023-12-01', isCurrent: false, hasUpdate: false },
-    { version: '1.9', date: '2023-06-15', isCurrent: false, hasUpdate: false },
+  // 版本歷史資料：優先使用真實資料，否則使用 mock 資料
+  const versionHistory = mockFactor.version_history || [
+    { version: mockFactor.version || '2.1', date: mockFactor.updated_at || '2024-01-15', isCurrent: true, changes: '目前版本' },
   ]
+
+  const mockVersions = versionHistory.map(entry => ({
+    version: entry.version,
+    date: entry.date,
+    isCurrent: entry.isCurrent,
+    hasUpdate: false,
+    changes: entry.changes
+  }))
 
   // 組合係數的組成資料 - 優先使用實際資料，否則使用 mock 資料
   const mockCompositeComponents = mockFactor.type === 'composite_factor'
@@ -1270,54 +1284,255 @@ export default function FactorDetail({
           <CardHeader pb={2}>
             <HStack justify="space-between">
               <Heading size="sm">版本歷史</Heading>
-              <Button size="xs" variant="ghost" leftIcon={<UpDownIcon />}>
-                檢查更新
-              </Button>
+              {mockFactor.type !== 'composite_factor' && (
+                <Button size="xs" variant="ghost" leftIcon={<UpDownIcon />}>
+                  檢查更新
+                </Button>
+              )}
             </HStack>
           </CardHeader>
           <CardBody pt={2}>
             <VStack spacing={2} align="stretch">
-              {mockVersions.map((version, index) => (
-                <HStack key={version.version} justify="space-between" p={2} 
-                       bg={version.isCurrent ? 'blue.50' : 'transparent'} 
-                       borderRadius="md">
-                  <HStack>
-                    <Icon as={version.isCurrent ? CheckIcon : TimeIcon} 
-                          color={version.isCurrent ? 'green.500' : 'gray.400'} />
-                    <VStack align="start" spacing={0}>
-                      <Text fontSize="sm" fontWeight={version.isCurrent ? 'medium' : 'normal'}>
-                        v{version.version}
-                        {version.isCurrent && (
-                          <Tag size="sm" colorScheme="blue" ml={2}>
-                            <TagLabel>目前使用</TagLabel>
-                          </Tag>
+              {mockVersions.length === 0 ? (
+                <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+                  尚無版本歷史記錄
+                </Text>
+              ) : (
+                mockVersions.map((version: any) => (
+                  <HStack key={version.version} justify="space-between" p={2}
+                         bg={version.isCurrent ? 'blue.50' : 'transparent'}
+                         borderRadius="md">
+                    <HStack>
+                      <Icon as={version.isCurrent ? CheckIcon : TimeIcon}
+                            color={version.isCurrent ? 'green.500' : 'gray.400'} />
+                      <VStack align="start" spacing={0}>
+                        <HStack>
+                          <Text fontSize="sm" fontWeight={version.isCurrent ? 'medium' : 'normal'}>
+                            {version.version}
+                          </Text>
+                          {version.isCurrent && (
+                            <Tag size="sm" colorScheme="blue">
+                              <TagLabel>目前使用</TagLabel>
+                            </Tag>
+                          )}
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500">
+                          {formatDate(version.date)}
+                        </Text>
+                        {version.changes && (
+                          <Text fontSize="xs" color="gray.600" mt={1}>
+                            {version.changes}
+                          </Text>
                         )}
-                      </Text>
-                      <Text fontSize="xs" color="gray.500">
-                        {formatDate(version.date)}
-                      </Text>
-                    </VStack>
+                      </VStack>
+                    </HStack>
+
+                    {!version.isCurrent && mockFactor.type !== 'composite_factor' && (
+                      <Button size="xs" variant="outline">
+                        切換
+                      </Button>
+                    )}
                   </HStack>
-                  
-                  {!version.isCurrent && (
-                    <Button size="xs" variant="outline">
-                      切換
-                    </Button>
-                  )}
-                </HStack>
-              ))}
+                ))
+              )}
             </VStack>
           </CardBody>
         </Card>
 
+        {/* Sync Status - For user-defined composite factors and imported central library factors */}
+        {mockFactor.type === 'composite_factor' &&
+         (isUserDefinedFactor || (isCentralLibrary && mockFactor.source_composite_id)) && (
+          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
+            <CardHeader pb={2}>
+              <HStack justify="space-between">
+                <Heading size="sm">同步狀態</Heading>
+                {/* 自建係數：檢查 imported_to_central */}
+                {isUserDefinedFactor && mockFactor.imported_to_central && (
+                  <Badge
+                    colorScheme={
+                      getSyncStatus(mockFactor) === 'synced' ? 'green' :
+                      getSyncStatus(mockFactor) === 'needs_sync' ? 'orange' :
+                      'gray'
+                    }
+                  >
+                    {getSyncStatus(mockFactor) === 'synced' && '✓ 已同步'}
+                    {getSyncStatus(mockFactor) === 'needs_sync' && '⚠️ 需要同步'}
+                    {getSyncStatus(mockFactor) === 'not_imported' && '未匯入'}
+                  </Badge>
+                )}
+                {/* 中央庫係數：檢查 source_composite_id 和版本同步狀態 */}
+                {isCentralLibrary && mockFactor.source_composite_id && (
+                  <Badge
+                    colorScheme={
+                      mockFactor.source_version === mockFactor.synced_version ? 'green' : 'orange'
+                    }
+                  >
+                    {mockFactor.source_version === mockFactor.synced_version ? '✓ 已同步' : '⚠️ 來源已更新'}
+                  </Badge>
+                )}
+              </HStack>
+            </CardHeader>
+            <CardBody pt={2}>
+              <VStack spacing={3} align="stretch">
+                {mockFactor.imported_to_central || mockFactor.source_composite_id ? (
+                  <>
+                    {/* 已匯入 - 顯示同步資訊 */}
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">首次匯入：</Text>
+                      <Text fontSize="sm" fontWeight="medium">
+                        {mockFactor.imported_at ? formatDate(mockFactor.imported_at) : '-'}
+                      </Text>
+                    </HStack>
+
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">最後同步：</Text>
+                      <Text fontSize="sm" fontWeight="medium">
+                        {mockFactor.last_synced_at ? formatDate(mockFactor.last_synced_at) : '-'}
+                      </Text>
+                    </HStack>
+
+                    <Divider />
+
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">
+                        {isCentralLibrary ? '來源版本：' : '當前版本：'}
+                      </Text>
+                      <Badge colorScheme="blue">
+                        {isCentralLibrary
+                          ? (mockFactor.source_version || mockFactor.version || 'v1.0')
+                          : (mockFactor.version || 'v1.0')
+                        }
+                      </Badge>
+                    </HStack>
+
+                    <HStack justify="space-between">
+                      <Text fontSize="sm" color="gray.600">
+                        {isCentralLibrary ? '中央庫版本：' : '已同步版本：'}
+                      </Text>
+                      <Badge colorScheme="gray">
+                        {isCentralLibrary
+                          ? (mockFactor.synced_version || mockFactor.version || 'v1.0')
+                          : (mockFactor.last_synced_version || 'v1.0')
+                        }
+                      </Badge>
+                    </HStack>
+
+                    {/* 中央庫係數：顯示來源係數資訊 */}
+                    {isCentralLibrary && mockFactor.source_composite_id && (
+                      <>
+                        <Divider />
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" color="gray.600">來自自建係數：</Text>
+                          <Text fontSize="sm" fontWeight="medium" color="blue.600">
+                            ID: {mockFactor.source_composite_id}
+                          </Text>
+                        </HStack>
+                      </>
+                    )}
+
+                    {/* 需要同步警告 - 自建係數 */}
+                    {isUserDefinedFactor && getSyncStatus(mockFactor) === 'needs_sync' && (
+                      <>
+                        <Divider />
+                        <Alert status="warning" borderRadius="md" fontSize="sm">
+                          <AlertIcon />
+                          <Box flex="1">
+                            <AlertTitle fontSize="sm">需要重新同步</AlertTitle>
+                            <AlertDescription fontSize="xs" mt={1}>
+                              係數已更新至 {mockFactor.version}，但中央庫仍為 {mockFactor.last_synced_version || 'v1.0'}
+                            </AlertDescription>
+                          </Box>
+                        </Alert>
+                      </>
+                    )}
+
+                    {/* 來源更新警告 - 中央庫係數 */}
+                    {isCentralLibrary && mockFactor.source_composite_id &&
+                     mockFactor.source_version !== mockFactor.synced_version && (
+                      <>
+                        <Divider />
+                        <Alert status="warning" borderRadius="md" fontSize="sm">
+                          <AlertIcon />
+                          <Box flex="1">
+                            <AlertTitle fontSize="sm">來源係數已更新</AlertTitle>
+                            <AlertDescription fontSize="xs" mt={1}>
+                              來源係數已更新至 {mockFactor.source_version}，但此中央庫係數仍為 {mockFactor.synced_version}
+                            </AlertDescription>
+                          </Box>
+                        </Alert>
+                      </>
+                    )}
+
+                    {/* 同步按鈕 */}
+                    {isUserDefinedFactor && (
+                      <Button
+                        size="sm"
+                        colorScheme={getSyncStatus(mockFactor) === 'needs_sync' ? 'blue' : 'gray'}
+                        variant={getSyncStatus(mockFactor) === 'needs_sync' ? 'solid' : 'outline'}
+                        isDisabled={getSyncStatus(mockFactor) === 'synced'}
+                      >
+                        {getSyncStatus(mockFactor) === 'needs_sync'
+                          ? '重新同步到中央庫'
+                          : '已是最新版本'
+                        }
+                      </Button>
+                    )}
+
+                    {isCentralLibrary && mockFactor.source_composite_id && (
+                      <Button
+                        size="sm"
+                        colorScheme={mockFactor.source_version !== mockFactor.synced_version ? 'blue' : 'gray'}
+                        variant={mockFactor.source_version !== mockFactor.synced_version ? 'solid' : 'outline'}
+                        isDisabled={mockFactor.source_version === mockFactor.synced_version}
+                      >
+                        {mockFactor.source_version !== mockFactor.synced_version
+                          ? '從來源同步更新'
+                          : '已是最新版本'
+                        }
+                      </Button>
+                    )}
+                  </>
+                ) : !isCentralLibrary ? (
+                  <>
+                    {/* 未匯入 - 顯示匯入提示（僅自建係數庫） */}
+                    <Text fontSize="sm" color="gray.600" textAlign="center" py={2}>
+                      此組合係數尚未匯入中央庫
+                    </Text>
+                    <Button size="sm" colorScheme="blue" variant="outline">
+                      匯入到中央庫
+                    </Button>
+                  </>
+                ) : null}
+              </VStack>
+            </CardBody>
+          </Card>
+        )}
+
         {/* Actions */}
         <VStack spacing={3}>
-          <Button colorScheme="brand" size="sm" leftIcon={<EditIcon />} w="100%">
-            引用到專案
-          </Button>
-          <Button variant="outline" size="sm" leftIcon={<EditIcon />} w="100%">
-            加入組合係數
-          </Button>
+          {/* 在中央庫中：所有係數都可以移除 */}
+          {isCentralLibrary ? (
+            <Button
+              colorScheme="red"
+              size="sm"
+              variant="outline"
+              w="100%"
+              onClick={() => onRemoveFromCentral?.(mockFactor)}
+            >
+              從中央係數庫移除
+            </Button>
+          ) : !isCentralLibrary && mockFactor.type === 'composite_factor' ? (
+            /* 在自建係數庫且是組合係數時顯示匯入按鈕 */
+            <Button
+              colorScheme="brand"
+              size="sm"
+              w="100%"
+              onClick={() => onImportToCentral?.(mockFactor)}
+              isDisabled={mockFactor.imported_to_central}
+            >
+              {mockFactor.imported_to_central ? '已匯入中央庫' : '匯入到中央庫'}
+            </Button>
+          ) : null}
         </VStack>
       </VStack>
     </Box>

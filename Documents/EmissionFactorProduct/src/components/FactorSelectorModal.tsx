@@ -607,11 +607,16 @@ export default function FactorSelectorModal({
                               _hover={{ bg: isSelected ? 'blue.100' : 'gray.50', cursor: 'pointer' }}
                               onClick={() => handleOpenDetailPanel(factor)}
                             >
-                                <Td>
+                                <Td onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleFactorToggle(factor.id)
+                                }}>
                                   <Checkbox
                                     isChecked={isSelected}
-                                    onChange={() => handleFactorToggle(factor.id)}
-                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      e.stopPropagation()
+                                      handleFactorToggle(factor.id)
+                                    }}
                                   />
                                 </Td>
                                 <Td>
