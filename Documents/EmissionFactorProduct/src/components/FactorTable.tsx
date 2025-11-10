@@ -60,7 +60,6 @@ import { FactorTableItem } from '@/types/types'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import ProjectOverviewView from '@/components/ProjectOverviewView'
 import OrganizationalInventoryOverview from '@/components/OrganizationalInventoryOverview'
-import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
 
@@ -114,6 +113,7 @@ interface FactorTableProps {
   onImportProduct?: (productId: string, formData: any) => Promise<void> // 匯入產品到中央庫
   onRefreshSelectedFactor?: () => void // 刷新當前選中係數的資料
   dataRefreshKey?: number // 用於強制刷新數據的 key
+  onDeleteFactor?: (factor: any) => void // 刪除自建係數的回調
 }
 
 export default function FactorTable({
@@ -131,7 +131,8 @@ export default function FactorTable({
   onSyncL1Project,
   productSummaries: _productSummaries,
   onImportProduct,
-  dataRefreshKey = 0
+  dataRefreshKey = 0,
+  onDeleteFactor
 }: FactorTableProps) {
   const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -149,10 +150,9 @@ export default function FactorTable({
   const [selectedSourceTypes, setSelectedSourceTypes] = useState<string[]>([])
 
   // 自建組合係數操作相關狀態
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedComposite, setSelectedComposite] = useState<any | null>(null)
-  const { deleteCompositeFactor, importCompositeToCentral, isLoading: compositeLoading } = useComposites()
+  const { importCompositeToCentral, isLoading: compositeLoading } = useComposites()
 
   // 獲取表格配置
   const tableConfig = getTableConfig(selectedNodeType)
@@ -673,47 +673,14 @@ export default function FactorTable({
 
   // 組合係數操作處理函數
   const handleDeleteClick = (composite: any) => {
-    // 檢查是否已匯入中央庫
-    if (composite.imported_to_central) {
-      // 顯示阻止刪除對話框
-      setSelectedComposite(composite)
-      // 這個狀態會由父組件 page.tsx 處理
-      return
-    }
-
-    setSelectedComposite(composite)
-    setDeleteDialogOpen(true)
+    // 呼叫父組件的刪除回調
+    onDeleteFactor?.(composite)
   }
 
   const handleSyncClick = (composite: any) => {
     // TODO: 打開同步確認對話框
     setSelectedComposite(composite)
     handleImportClick(composite) // 暫時使用匯入流程，後續會改為專門的同步流程
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedComposite) return
-
-    const result = await deleteCompositeFactor(selectedComposite.id)
-    if (result.success) {
-      toast({
-        title: '組合係數已刪除',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      })
-      setDeleteDialogOpen(false)
-      setSelectedComposite(null)
-      // TODO: 重新整理列表
-    } else {
-      toast({
-        title: '刪除失敗',
-        description: (result as any).error || '未知錯誤',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      })
-    }
   }
 
   const handleImportClick = (composite: any) => {
@@ -1202,21 +1169,6 @@ export default function FactorTable({
         )}
       </Box>
 
-      {/* 刪除確認對話框 */}
-      {selectedComposite && (
-        <DeleteConfirmDialog
-          isOpen={deleteDialogOpen}
-          onClose={() => {
-            setDeleteDialogOpen(false)
-            setSelectedComposite(null)
-          }}
-          onConfirm={handleDeleteConfirm}
-          factorName={selectedComposite.name}
-          factorType="composite_factor"
-          usageInfo={checkCompositeUsage(selectedComposite.id)}
-          isLoading={compositeLoading}
-        />
-      )}
 
       {/* 匯入中央庫 Modal */}
       {selectedComposite && (

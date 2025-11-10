@@ -956,6 +956,7 @@ export default function HomePage() {
               onSyncL1Project={handleSyncL1Project}
               productSummaries={productSummaries}
               onImportProduct={handleImportProduct}
+              onDeleteFactor={handleDeleteFactorRequest}
             />
           </Box>
         </Flex>

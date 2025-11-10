@@ -556,8 +556,8 @@ export function useMockData() {
   // 所有係數項目（排放係數 + 組合係數 + 產品碳足跡係數 + 專案資料）
   const allFactorItems = [...allEmissionFactorItems, ...allCompositeFactorItems, ...allProductFootprintItems, ...allProductCarbonFootprintItems, ...allOrganizationalInventoryItems]
 
-  // 快取係數使用情況計算
-  const factorUsageMap = useMemo(() => calculateFactorUsage(), [])
+  // 計算係數使用情況（每次都重新計算以確保資料最新）
+  const factorUsageMap = calculateFactorUsage()
 
   // 中央係數庫資料（不使用 useMemo 以確保能讀取新增的係數）
   const centralLibraryFactors = (): ExtendedFactorTableItem[] => {
