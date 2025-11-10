@@ -655,7 +655,7 @@ export default function FactorDetail({
     { version: mockFactor.version || '2.1', date: mockFactor.updated_at || '2024-01-15', isCurrent: true, changes: '目前版本' },
   ]
 
-  const mockVersions = versionHistory.map(entry => ({
+  const mockVersions = versionHistory.map((entry: any) => ({
     version: entry.version,
     date: entry.date,
     isCurrent: entry.isCurrent,

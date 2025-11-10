@@ -443,22 +443,19 @@ export interface ImportCompositeToCentralFormData {
   factor_value: number
   unit: string
 
-  // 適用範圍
-  applicable_categories: string[]
-  geographic_scope: string
-  valid_from: string
-  valid_years: number
+  // 適用範圍（必填）
+  isic_categories: string[]  // ISIC 產業分類（必填）
+  geographic_scope: string   // 地理範圍（自動對應，可修改）
 
-  // 組成說明
-  composition_notes: string
+  // 產品生命週期階段（選填）
+  lifecycle_stages?: string[]
 
-  // 數據品質
-  primary_data_percentage: number
-  secondary_data_percentage: number
-  data_quality: DataQuality
+  // 數據品質（必填）
+  data_quality: 'Secondary' | 'Primary'
 
-  // 使用建議
-  usage_notes?: string
+  // 自動生成欄位
+  valid_from?: string          // 啟用日期（自動使用 enabledDate）
+  composition_notes?: string   // 組成說明（自動生成）
 }
 
 // Utility types

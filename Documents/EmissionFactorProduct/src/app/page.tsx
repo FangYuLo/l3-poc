@@ -514,8 +514,8 @@ export default function HomePage() {
     const updatedFactorWithTimestamp = {
       ...updatedFactor,
       updated_at: new Date().toISOString(),
-      // 版本號 +1
-      version: existingFactor ? (existingFactor.version || 1) + 1 : 1,
+      // 版本號 +1（使用 incrementVersion 函數）
+      version: existingFactor ? incrementVersion(existingFactor.version || 'v1.0') : 'v1.0',
       // 保留匯入信息，但不更新 last_synced_version（因為還沒同步）
       imported_to_central: existingFactor?.imported_to_central || false,
       central_library_id: existingFactor?.central_library_id,
@@ -534,7 +534,7 @@ export default function HomePage() {
     // 觸發重新渲染
     setRefreshKey(prev => prev + 1)
 
-    console.log('[handleEditFactor] 編輯自建係數:', updatedFactorWithTimestamp.name, 'v' + updatedFactorWithTimestamp.version)
+    console.log('[handleEditFactor] 編輯自建係數:', updatedFactorWithTimestamp.name, updatedFactorWithTimestamp.version)
   }
 
   // 處理刪除自建係數請求
