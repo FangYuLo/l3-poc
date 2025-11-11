@@ -296,6 +296,8 @@ export function useComposites() {
             data_quality: formData.data_quality,
             composition_notes: formData.composition_notes,
             imported_at: currentTime,
+            // 重要：在 data 中也保存 source_composite_id，以便在詳情面板中能正確識別
+            source_composite_id: compositeData.id,
           },
           projectUsage: [],
           usageText: '從自建組合係數匯入',

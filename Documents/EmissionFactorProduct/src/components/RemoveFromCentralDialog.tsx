@@ -18,9 +18,9 @@ import {
   Alert,
   AlertIcon,
   AlertDescription,
+  Badge,
   UnorderedList,
   ListItem,
-  Badge,
 } from '@chakra-ui/react'
 import { InfoIcon, WarningIcon } from '@chakra-ui/icons'
 import { useState } from 'react'
@@ -65,7 +65,7 @@ export default function RemoveFromCentralDialog({
         <ModalHeader>
           <HStack spacing={3}>
             <Icon as={InfoIcon} color="blue.500" boxSize={6} />
-            <Text>確認從中央係數庫移除？</Text>
+            <Text>從中央係數庫移除？</Text>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -78,12 +78,6 @@ export default function RemoveFromCentralDialog({
                 <HStack justify="space-between">
                   <Text fontSize="sm" color="gray.600">係數名稱：</Text>
                   <Text fontSize="sm" fontWeight="bold">{factor.name}</Text>
-                </HStack>
-                <HStack justify="space-between">
-                  <Text fontSize="sm" color="gray.600">來源：</Text>
-                  <Text fontSize="sm">
-                    從自建係數匯入（ID: {factor.source_composite_id}）
-                  </Text>
                 </HStack>
                 <HStack justify="space-between">
                   <Text fontSize="sm" color="gray.600">當前版本：</Text>
@@ -99,14 +93,9 @@ export default function RemoveFromCentralDialog({
               <Text fontSize="sm" fontWeight="bold" color="orange.700" mb={2}>
                 ⚠️ 移除後影響
               </Text>
-              <UnorderedList spacing={2} pl={4} fontSize="sm" color="gray.700">
-                <ListItem>此係數將從中央係數庫中移除</ListItem>
-                <ListItem>自建係數將恢復為「未匯入」狀態</ListItem>
-                <ListItem>您可以稍後再次匯入此係數</ListItem>
-                <ListItem fontWeight="bold" color="green.700">
-                  移除後，您將可以刪除自建係數
-                </ListItem>
-              </UnorderedList>
+              <Text fontSize="sm" color="gray.700" lineHeight="tall">
+                係數將從中央庫移除，原自建係數恢復為「未匯入」狀態，之後可重新匯入或刪除。
+              </Text>
             </Box>
 
             {/* 使用情況警告 */}

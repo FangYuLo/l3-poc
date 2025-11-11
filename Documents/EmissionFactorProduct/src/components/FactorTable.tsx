@@ -537,6 +537,12 @@ export default function FactorTable({
           source_ref: factor.source_ref,
           version: factor.version,
           data: factor,
+          // 重要：複製同步相關欄位到頂層，以便刪除檢查和狀態顯示
+          imported_to_central: factor.imported_to_central,
+          central_library_id: factor.central_library_id,
+          imported_at: factor.imported_at,
+          last_synced_at: factor.last_synced_at,
+          last_synced_version: factor.last_synced_version,
         }))
       } else if (selectedNodeType === 'dataset') {
         // 資料集節點：直接使用資料集係數
@@ -610,6 +616,12 @@ export default function FactorTable({
             source_ref: factor.source_ref,
             version: factor.version,
             data: factor,
+            // 重要：複製同步相關欄位到頂層，以便刪除檢查和狀態顯示
+            imported_to_central: factor.imported_to_central,
+            central_library_id: factor.central_library_id,
+            imported_at: factor.imported_at,
+            last_synced_at: factor.last_synced_at,
+            last_synced_version: factor.last_synced_version,
           }))
           
           baseData = [...baseData, ...userDefinedItems]

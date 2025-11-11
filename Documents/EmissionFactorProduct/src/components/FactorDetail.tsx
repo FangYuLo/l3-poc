@@ -409,7 +409,15 @@ export default function FactorDetail({
 
     // 如果是一般排放係數資料（從 FactorTable mockData）
     if (selected.type === 'emission_factor' || selected.type === 'composite_factor') {
-      return selected.data || selected
+      // 保留頂層的關鍵欄位（id, source_composite_id），用於從中央庫移除操作
+      const baseData = selected.data || selected
+      return {
+        ...baseData,
+        // 保留頂層的 id（中央庫係數的 ID），如果不同於 data.id 的話
+        id: selected.id || baseData.id,
+        // 保留頂層的 source_composite_id（自建係數的原始 ID）
+        source_composite_id: selected.source_composite_id || baseData.source_composite_id,
+      }
     }
     
     // 如果是產品碳足跡資料（ProductCarbonFootprintItem）

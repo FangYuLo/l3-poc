@@ -394,6 +394,15 @@ export default function HomePage() {
           setSelectedFactor(updatedFactor)
         }
       }
+      // 如果是從中央庫移除的係數，需要刷新對應的自建係數
+      else if (selectedFactor.source_composite_id) {
+        const sourceId = selectedFactor.source_composite_id
+        const updatedFactor = getUserDefinedCompositeFactorById(sourceId)
+        if (updatedFactor) {
+          console.log('[refreshSelectedFactor] 從中央庫移除後更新自建係數:', updatedFactor.name, 'imported_to_central =', updatedFactor.imported_to_central)
+          // 不需要 setSelectedFactor，因為我們要刷新的是自建係數列表
+        }
+      }
     }
     // 觸發全局刷新
     setRefreshKey(prev => prev + 1)

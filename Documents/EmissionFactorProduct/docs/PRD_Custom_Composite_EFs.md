@@ -2161,6 +2161,63 @@ Final Calculation:
 | GWP conversion failed | Toast: "GWP conversion failed for factor X. Please check data." | Revert to original value, allow retry |
 | Unit conversion invalid | Toast: "Invalid conversion factor. Must be > 0." | Keep panel open, highlight input |
 
+### B-2. Validation Error Messages Reference
+
+This section documents all validation error messages shown to users in the Composite Factor Editor and Factor Selector Modal.
+
+#### English Version
+
+##### CompositeEditorDrawer (Custom Composite Factor - Traditional Mode)
+
+| Item | Error Condition | Error Message | Display Location | Trigger | Clear Condition |
+|------|-----------------|---------------|------------------|---------|-----------------|
+| **Composite Factor Name** | Name field is empty or whitespace only | `Please enter composite factor name` | • Input field: Red border<br>• Below input: Red error text | Click "Save Composite Factor" button | • User types any text<br>• After successful save<br>• Click "Reset" button |
+| **Component Factors** | Component factor list is empty | `At least one component factor is required` | • Empty list area: Red dashed border<br>• Below list: Red error text | Click "Save Composite Factor" button | • User adds any factor<br>• After successful save<br>• Click "Reset" button |
+| **Weight Total** | Calculation method is "Weighted Average" and total ≠ 1.0<br>(error > 0.001) | `Weight total should equal 1.0` | • Weight total area: Red border<br>• Below total area: Red error text | Click "Save Composite Factor" button | • User adjusts any weight value<br>• After successful save<br>• Click "Reset" button |
+| **Weight Values** | Any component factor weight ≤ 0 | `All weights must be greater than 0` | • Weight total area: Red border<br>• Below total area: Red error text | Click "Save Composite Factor" button | • User adjusts any weight value<br>• After successful save<br>• Click "Reset" button |
+
+##### FactorSelectorModal (Factor Selection)
+
+| Item | Error Condition | Error Message | Display Location | Trigger | Clear Condition |
+|------|-----------------|---------------|------------------|---------|-----------------|
+| **No Selection** | Number of selected factors = 0 | `Please select at least one factor` | • "No factors selected" area: Red dashed border<br>• Below selected area: Red error text | Click "Confirm Add" button | • User selects any factor<br>• After successful confirmation |
+
+---
+
+#### 中文版本
+
+##### CompositeEditorDrawer（自建組合係數 - 傳統模式）
+
+| 項目 | 錯誤條件 | 錯誤訊息 | 顯示位置 | 觸發時機 | 清除條件 |
+|------|----------|----------|----------|----------|----------|
+| **組合係數名稱** | 名稱欄位為空白或只有空格 | `請輸入組合係數名稱` | • 輸入框：紅色邊框<br>• 輸入框下方：紅色錯誤文字 | 點擊「儲存組合係數」按鈕 | • 輸入任何文字時<br>• 成功儲存後<br>• 點擊「重置」按鈕 |
+| **組成係數** | 組成係數列表為空 | `至少需要一個組成係數` | • 空列表區域：紅色虛線邊框<br>• 列表下方：紅色錯誤文字 | 點擊「儲存組合係數」按鈕 | • 新增任何係數時<br>• 成功儲存後<br>• 點擊「重置」按鈕 |
+| **權重總和** | 計算方式為「權重平均」且總和 ≠ 1.0<br>(誤差 > 0.001) | `權重總和應該等於 1.0` | • 權重總計區域：紅色邊框<br>• 總計區域下方：紅色錯誤文字 | 點擊「儲存組合係數」按鈕 | • 調整任何權重值時<br>• 成功儲存後<br>• 點擊「重置」按鈕 |
+| **權重值** | 任何組成係數的權重 ≤ 0 | `所有權重必須大於 0` | • 權重總計區域：紅色邊框<br>• 總計區域下方：紅色錯誤文字 | 點擊「儲存組合係數」按鈕 | • 調整任何權重值時<br>• 成功儲存後<br>• 點擊「重置」按鈕 |
+
+##### FactorSelectorModal（選擇排放係數）
+
+| 項目 | 錯誤條件 | 錯誤訊息 | 顯示位置 | 觸發時機 | 清除條件 |
+|------|----------|----------|----------|----------|----------|
+| **未選擇係數** | 已選係數數量為 0 | `請至少選擇一個係數` | • 「尚未選擇係數」區域：紅色虛線邊框<br>• 已選係數區域下方：紅色錯誤文字 | 點擊「確認加入」按鈕 | • 選擇任何係數時<br>• 成功確認加入後 |
+
+---
+
+#### Design Specifications / 設計規範
+
+| Design Element / 設計元素 | Specification / 規格 | Description / 說明 |
+|---------------------------|----------------------|-------------------|
+| **Error Border Color / 錯誤邊框顏色** | `red.300` | Chakra UI red color scale |
+| **Error Text Color / 錯誤文字顏色** | `red.500` | Chakra UI red color scale |
+| **Error Text Size / 錯誤文字大小** | `fontSize="sm"` | Small size text |
+| **Solid Border / 實線邊框** | `border="1px solid"` | Used for weight total area |
+| **Dashed Border / 虛線邊框** | `border="2px dashed"` | Used for empty list area |
+| **Real-time Clear / 即時清除** | ✅ Supported / 支援 | Errors clear immediately when user corrects issue |
+| **Multiple Errors / 多重錯誤** | ✅ Supported / 支援 | Multiple validation errors can be shown simultaneously |
+| **Button State / 按鈕狀態** | No disable / 不禁用 | Buttons remain enabled to allow user-triggered validation |
+
+---
+
 ### C. Performance Benchmarks
 
 | Operation | Target | Maximum | Notes |

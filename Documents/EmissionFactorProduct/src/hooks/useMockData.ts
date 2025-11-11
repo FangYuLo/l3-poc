@@ -101,37 +101,40 @@ export function removeFromCentralLibrary(
 
     // 情況 1: 從自建係數匯入的組合係數（在 importedCompositeFactors 中）
     if (factor.source_composite_id) {
+      const sourceCompositeId = factor.source_composite_id
       const index = importedCompositeFactors.findIndex(f => f.id === factor.id)
 
+      // 從中央庫陣列中移除（如果找到）
       if (index !== -1) {
         const centralFactor = importedCompositeFactors[index]
-        const sourceCompositeId = centralFactor.source_composite_id
-
-        // 從中央庫陣列中移除
         importedCompositeFactors.splice(index, 1)
         console.log('[useMockData] 從中央庫移除組合係數:', centralFactor.name, '剩餘:', importedCompositeFactors.length)
+      } else {
+        console.log('[useMockData] 在 importedCompositeFactors 中找不到係數 ID:', factor.id, '但仍會更新自建係數狀態')
+      }
 
-        // 同時標記為已移除（雙重保障）
-        removedFromCentralIds.add(factor.id)
-        console.log('[useMockData] 將係數ID加入已移除列表:', factor.id)
+      // 標記為已移除（雙重保障）
+      removedFromCentralIds.add(factor.id)
+      console.log('[useMockData] 將係數ID加入已移除列表:', factor.id)
 
-        // 更新對應的自建係數狀態
-        if (sourceCompositeId) {
-          const sourceFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
-          if (sourceFactor) {
-            updateUserDefinedCompositeFactor(sourceCompositeId, {
-              ...sourceFactor,
-              imported_to_central: false,
-              central_library_id: undefined,
-            })
-            console.log('[useMockData] 更新自建係數狀態:', sourceFactor.name, 'imported_to_central = false')
-          }
-        }
+      // 更新對應的自建係數狀態（無論是否在 importedCompositeFactors 中找到）
+      console.log('[useMockData] 嘗試更新自建係數狀態，sourceCompositeId:', sourceCompositeId)
+      const sourceFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
+      if (sourceFactor) {
+        console.log('[useMockData] 找到自建係數:', sourceFactor.name, '當前 imported_to_central:', sourceFactor.imported_to_central)
+        updateUserDefinedCompositeFactor(sourceCompositeId, {
+          ...sourceFactor,
+          imported_to_central: false,
+          central_library_id: undefined,
+        })
+        console.log('[useMockData] 更新自建係數狀態完成:', sourceFactor.name, 'imported_to_central = false')
+      } else {
+        console.log('[useMockData] 找不到自建係數，sourceCompositeId:', sourceCompositeId)
+      }
 
-        return {
-          success: true,
-          sourceCompositeId
-        }
+      return {
+        success: true,
+        sourceCompositeId
       }
     }
 
@@ -238,8 +241,17 @@ export function addUserDefinedCompositeFactor(factor: any) {
 export function updateUserDefinedCompositeFactor(id: number, factor: any) {
   const index = userDefinedCompositeFactors.findIndex(f => f.id === id)
   if (index !== -1) {
+    const oldFactor = userDefinedCompositeFactors[index]
     userDefinedCompositeFactors[index] = factor
-    console.log('[useMockData] 更新自建組合係數:', factor.name)
+    console.log('[updateUserDefinedCompositeFactor] 更新自建組合係數:', factor.name, {
+      '更新前 imported_to_central': oldFactor.imported_to_central,
+      '更新後 imported_to_central': factor.imported_to_central,
+      '更新前 central_library_id': oldFactor.central_library_id,
+      '更新後 central_library_id': factor.central_library_id
+    })
+    console.log('[updateUserDefinedCompositeFactor] 當前陣列中的係數:', userDefinedCompositeFactors[index].imported_to_central)
+  } else {
+    console.log('[updateUserDefinedCompositeFactor] 找不到 ID 為', id, '的係數')
   }
 }
 
@@ -319,6 +331,15 @@ export function deleteUserDefinedCompositeFactorSafe(id: number): {
  * 取得所有自建組合係數
  */
 export function getUserDefinedCompositeFactors(): any[] {
+  console.log('[getUserDefinedCompositeFactors] 返回自建係數數量:', userDefinedCompositeFactors.length)
+  if (userDefinedCompositeFactors.length > 0) {
+    console.log('[getUserDefinedCompositeFactors] 第一個係數狀態:', {
+      id: userDefinedCompositeFactors[0].id,
+      name: userDefinedCompositeFactors[0].name,
+      imported_to_central: userDefinedCompositeFactors[0].imported_to_central,
+      central_library_id: userDefinedCompositeFactors[0].central_library_id
+    })
+  }
   return userDefinedCompositeFactors
 }
 
