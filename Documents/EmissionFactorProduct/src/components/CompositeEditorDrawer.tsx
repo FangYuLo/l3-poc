@@ -258,7 +258,7 @@ export default function CompositeEditorDrawer({
   // Form state
   const [compositeName, setCompositeName] = useState('')
   const [description, setDescription] = useState('')
-  const [region, setRegion] = useState('')  // 國家/區域
+  const [region, setRegion] = useState('全球')  // 國家/區域，預設為「全球」
   const [enabledDate, setEnabledDate] = useState(new Date().toISOString().split('T')[0])  // 啟用日期，預設今天
   const [formulaType, setFormulaType] = useState<'sum' | 'weighted'>('weighted')
   const [targetUnit, setTargetUnit] = useState('kg CO2e/kg')
@@ -291,6 +291,7 @@ export default function CompositeEditorDrawer({
   // 驗證錯誤狀態
   const [validationErrors, setValidationErrors] = useState<{
     compositeName?: string
+    region?: string
     components?: string
     weightTotal?: string
     weightValues?: string
@@ -302,8 +303,8 @@ export default function CompositeEditorDrawer({
       // 預填基本資訊
       setCompositeName(editingFactor.name || '')
       setDescription(editingFactor.description || '')
-      setRegion(editingFactor.region || '')
-      setEnabledDate(editingFactor.enabled_date || new Date().toISOString().split('T')[0])
+      setRegion(editingFactor.region || '全球')  // 如果沒有值則預設為「全球」
+      setEnabledDate(editingFactor.enabledDate || editingFactor.enabled_date || new Date().toISOString().split('T')[0])  // 優先使用駝峰格式，向後兼容下劃線格式
       setFormulaType(editingFactor.formula_type || 'weighted')
       setTargetUnit(editingFactor.unit || 'kg CO2e/kg')
 
@@ -325,7 +326,7 @@ export default function CompositeEditorDrawer({
       // 新建模式：使用預設值
       setCompositeName('')
       setDescription('')
-      setRegion('')
+      setRegion('全球')  // 新建時預設為「全球」
       setEnabledDate(new Date().toISOString().split('T')[0])
       setFormulaType('weighted')
       setTargetUnit('kg CO2e/kg')
@@ -665,6 +666,7 @@ export default function CompositeEditorDrawer({
   const validateForm = () => {
     const errors: {
       compositeName?: string
+      region?: string
       components?: string
       weightTotal?: string
       weightValues?: string
@@ -672,6 +674,10 @@ export default function CompositeEditorDrawer({
 
     if (!compositeName.trim()) {
       errors.compositeName = '請輸入組合係數名稱'
+    }
+
+    if (!region || !region.trim()) {
+      errors.region = '請選擇國家/區域'
     }
 
     if (components.length === 0) {
@@ -707,7 +713,7 @@ export default function CompositeEditorDrawer({
       name: compositeName,
       description,
       region,
-      enabled_date: enabledDate,
+      enabledDate: enabledDate,  // 使用駝峰格式，與前端其他地方一致
       formula_type: formulaType,
       unit: targetUnit,
       computed_value: computedValue,
@@ -825,22 +831,28 @@ export default function CompositeEditorDrawer({
                 </FormControl>
 
                 <HStack spacing={4}>
-                  <FormControl>
+                  <FormControl isRequired isInvalid={!!validationErrors.region}>
                     <FormLabel fontSize="sm">國家/區域</FormLabel>
                     <Select
-                      placeholder="請選擇國家/區域"
                       value={region}
-                      onChange={(e) => setRegion(e.target.value)}
+                      onChange={(e) => {
+                        setRegion(e.target.value)
+                        // 清除錯誤訊息
+                        if (validationErrors.region) {
+                          setValidationErrors(prev => ({ ...prev, region: undefined }))
+                        }
+                      }}
                     >
+                      <option value="全球">全球</option>
                       <option value="台灣">台灣</option>
                       <option value="美國">美國</option>
                       <option value="英國">英國</option>
                       <option value="中國">中國</option>
                       <option value="日本">日本</option>
                       <option value="歐盟">歐盟</option>
-                      <option value="全球">全球</option>
                       <option value="國際">國際</option>
                     </Select>
+                    <FormErrorMessage>{validationErrors.region}</FormErrorMessage>
                   </FormControl>
 
                   <FormControl>

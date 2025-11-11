@@ -284,6 +284,24 @@ export default function HomePage() {
     onCompositeOpen()
   }
 
+  // 處理從匯入對話框返回編輯
+  const handleEditCompositeFromImport = (factor: any) => {
+    console.log('[handleEditCompositeFromImport] 從匯入對話框返回編輯係數:', factor.name)
+    // 設置編輯中的組合係數
+    setEditingComposite(factor)
+    // 打開編輯面板
+    onCompositeOpen()
+
+    // 顯示友善提示
+    toast({
+      title: '請完善必要資訊',
+      description: '填寫完成後保存，即可重新匯入中央庫',
+      status: 'info',
+      duration: 5000,
+      isClosable: true,
+    })
+  }
+
   // 處理從中央庫移除請求
   const handleRemoveFromCentralRequest = (factor: any) => {
     setFactorToRemove(factor)
@@ -955,6 +973,7 @@ export default function HomePage() {
                 return factors
               })()}
               onOpenComposite={onCompositeOpen}
+              onEditComposite={handleEditCompositeFromImport}
               datasetFactors={getDatasetFactors()}
               onRefreshSelectedFactor={refreshSelectedFactor}
               onOpenGlobalSearch={handleOpenFactorSelector}

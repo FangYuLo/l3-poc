@@ -105,6 +105,7 @@ interface FactorTableProps {
   selectedNode?: TreeNodeProps | null // 新增：選中的節點資訊
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
+  onEditComposite?: (factor: any) => void // 編輯組合係數的回調
   datasetFactors?: FactorTableItem[] // 資料集包含的係數數據
   onOpenGlobalSearch?: () => void // 新增開啟全庫搜尋的回調
   onNavigateToProduct?: (productId: string) => void // 新增導航到產品的回調
@@ -125,6 +126,7 @@ export default function FactorTable({
   selectedNode = null,
   userDefinedFactors = [],
   onOpenComposite,
+  onEditComposite,
   datasetFactors = [],
   onOpenGlobalSearch,
   onRefreshSelectedFactor,
@@ -1213,6 +1215,12 @@ export default function FactorTable({
             enabledDate: selectedComposite.enabledDate,
           }}
           onConfirm={handleImportConfirm}
+          onEditComposite={(factor) => {
+            // 關閉匯入對話框
+            setImportModalOpen(false)
+            // 觸發編輯回調
+            onEditComposite?.(factor)
+          }}
         />
       )}
 
