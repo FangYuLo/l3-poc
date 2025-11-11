@@ -957,6 +957,7 @@ export default function HomePage() {
               productSummaries={productSummaries}
               onImportProduct={handleImportProduct}
               onDeleteFactor={handleDeleteFactorRequest}
+              onNavigateToCentral={handleNavigateToCentral}
             />
           </Box>
         </Flex>

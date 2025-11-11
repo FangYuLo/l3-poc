@@ -61,6 +61,8 @@ import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import ProjectOverviewView from '@/components/ProjectOverviewView'
 import OrganizationalInventoryOverview from '@/components/OrganizationalInventoryOverview'
 import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
+import ImportedFactorInfoDialog from '@/components/ImportedFactorInfoDialog'
+import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
@@ -114,6 +116,7 @@ interface FactorTableProps {
   onRefreshSelectedFactor?: () => void // 刷新當前選中係數的資料
   dataRefreshKey?: number // 用於強制刷新數據的 key
   onDeleteFactor?: (factor: any) => void // 刪除自建係數的回調
+  onNavigateToCentral?: (factor: any) => void // 導航到中央庫並選中係數的回調
 }
 
 export default function FactorTable({
@@ -132,7 +135,8 @@ export default function FactorTable({
   productSummaries: _productSummaries,
   onImportProduct,
   dataRefreshKey = 0,
-  onDeleteFactor
+  onDeleteFactor,
+  onNavigateToCentral
 }: FactorTableProps) {
   const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -152,6 +156,10 @@ export default function FactorTable({
   // 自建組合係數操作相關狀態
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedComposite, setSelectedComposite] = useState<any | null>(null)
+  const [importedInfoDialogOpen, setImportedInfoDialogOpen] = useState(false)
+  const [selectedImportedFactor, setSelectedImportedFactor] = useState<any | null>(null)
+  const [blockDeleteDialogOpen, setBlockDeleteDialogOpen] = useState(false)
+  const [blockedFactor, setBlockedFactor] = useState<any | null>(null)
   const { importCompositeToCentral, isLoading: compositeLoading } = useComposites()
 
   // 獲取表格配置
@@ -625,7 +633,7 @@ export default function FactorTable({
         return basicMatch || usageMatch
       })
     }
-  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType, selectedRegions, selectedYears, selectedUnits, selectedMethods, selectedSourceTypes, refreshKey])
+  }, [searchTerm, selectedNodeType, selectedNode, projectFactors, userDefinedFactors, datasetFactors, getFactorDataByType, selectedRegions, selectedYears, selectedUnits, selectedMethods, selectedSourceTypes, refreshKey, dataRefreshKey])
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -673,8 +681,25 @@ export default function FactorTable({
 
   // 組合係數操作處理函數
   const handleDeleteClick = (composite: any) => {
-    // 呼叫父組件的刪除回調
-    onDeleteFactor?.(composite)
+    // 檢查是否已匯入中央庫
+    if (composite.imported_to_central) {
+      // 已匯入：顯示阻止刪除對話框
+      setBlockedFactor(composite)
+      setBlockDeleteDialogOpen(true)
+    } else {
+      // 未匯入：呼叫父組件的刪除回調
+      onDeleteFactor?.(composite)
+    }
+  }
+
+  const handleImportedInfoClick = (factor: any) => {
+    setSelectedImportedFactor(factor)
+    setImportedInfoDialogOpen(true)
+  }
+
+  const handleNavigateToCentral = (factor: any) => {
+    // 呼叫父組件的導航回調
+    onNavigateToCentral?.(factor)
   }
 
   const handleSyncClick = (composite: any) => {
@@ -1100,40 +1125,21 @@ export default function FactorTable({
                                 </MenuItem>
                               )
                             } else {
-                              // 已同步：顯示已匯入（禁用）
+                              // 已同步：顯示已匯入（可點擊）
                               return (
-                                <Tooltip label={`已於 ${new Date(factor.imported_at).toLocaleString('zh-TW')} 匯入`}>
-                                  <MenuItem
-                                    icon={<CheckIcon />}
-                                    isDisabled
-                                    _disabled={{ color: 'gray.400', cursor: 'not-allowed' }}
-                                  >
-                                    已匯入中央庫
-                                  </MenuItem>
-                                </Tooltip>
+                                <MenuItem
+                                  icon={<CheckIcon />}
+                                  color="green.600"
+                                  onClick={() => handleImportedInfoClick(factor)}
+                                >
+                                  已匯入中央庫
+                                </MenuItem>
                               )
                             }
                           })()}
-                          {/* 刪除按鈕 - 已匯入的係數禁用 */}
+                          {/* 刪除按鈕 - 已匯入的係數打開說明對話框 */}
                           {(() => {
                             const rowData = (row as any).data || row
-                            const isImported = rowData.imported_to_central === true
-
-                            if (isImported) {
-                              return (
-                                <Tooltip label="此係數已匯入中央庫，無法直接刪除" placement="left">
-                                  <MenuItem
-                                    icon={<DeleteIcon />}
-                                    color="gray.400"
-                                    isDisabled={true}
-                                    cursor="not-allowed"
-                                    _hover={{ bg: 'transparent' }}
-                                  >
-                                    刪除
-                                  </MenuItem>
-                                </Tooltip>
-                              )
-                            }
 
                             return (
                               <MenuItem
@@ -1190,6 +1196,32 @@ export default function FactorTable({
             enabledDate: selectedComposite.enabledDate,
           }}
           onConfirm={handleImportConfirm}
+        />
+      )}
+
+      {/* 已匯入係數資訊對話框 */}
+      {selectedImportedFactor && (
+        <ImportedFactorInfoDialog
+          isOpen={importedInfoDialogOpen}
+          onClose={() => {
+            setImportedInfoDialogOpen(false)
+            setSelectedImportedFactor(null)
+          }}
+          factor={selectedImportedFactor}
+          onNavigateToCentral={handleNavigateToCentral}
+        />
+      )}
+
+      {/* 阻止刪除已匯入係數的對話框 */}
+      {blockedFactor && (
+        <BlockDeleteImportedDialog
+          isOpen={blockDeleteDialogOpen}
+          onClose={() => {
+            setBlockDeleteDialogOpen(false)
+            setBlockedFactor(null)
+          }}
+          factor={blockedFactor}
+          onNavigateToCentral={handleNavigateToCentral}
         />
       )}
 

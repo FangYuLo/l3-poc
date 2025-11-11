@@ -111,6 +111,10 @@ export function removeFromCentralLibrary(
         importedCompositeFactors.splice(index, 1)
         console.log('[useMockData] 從中央庫移除組合係數:', centralFactor.name, '剩餘:', importedCompositeFactors.length)
 
+        // 同時標記為已移除（雙重保障）
+        removedFromCentralIds.add(factor.id)
+        console.log('[useMockData] 將係數ID加入已移除列表:', factor.id)
+
         // 更新對應的自建係數狀態
         if (sourceCompositeId) {
           const sourceFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
