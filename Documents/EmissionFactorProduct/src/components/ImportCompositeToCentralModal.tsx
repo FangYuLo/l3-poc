@@ -154,7 +154,7 @@ export default function ImportCompositeToCentralModal({
     <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent maxH="90vh">
-        <ModalHeader>組合係數匯入設定</ModalHeader>
+        <ModalHeader>匯入中央係數庫設定</ModalHeader>
         <ModalCloseButton />
 
         <ModalBody>
