@@ -663,7 +663,12 @@ export default function FactorTable({
   // 渲染同步狀態 Badge
   const renderSyncStatus = (factor: any) => {
     if (!factor.imported_to_central) {
-      return null // 未匯入，不顯示 Badge
+      // 未匯入，顯示灰色 Badge
+      return (
+        <Badge colorScheme="gray" size="sm">
+          未匯入
+        </Badge>
+      )
     }
 
     const needsSync = checkIfNeedsSync(factor)

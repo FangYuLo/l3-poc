@@ -189,45 +189,61 @@ export default function ImportCompositeToCentralModal({
               </Text>
             </FormControl>
 
-            {/* 啟用日期（唯讀顯示） */}
-            <Box p={3} bg="blue.50" borderRadius="md">
-              <HStack justify="space-between">
-                <Text fontSize="sm" color="gray.700" fontWeight="medium">啟用日期：</Text>
-                <Text fontSize="sm" fontWeight="bold" color="blue.700">
-                  {formData.valid_from || new Date().toISOString().split('T')[0]}
-                </Text>
-              </HStack>
-              <Text fontSize="xs" color="gray.600" mt={1}>
-                自動使用自建係數的啟用日期
-              </Text>
-            </Box>
-
-            {/* 組成說明 */}
+            {/* 啟用日期（可編輯） */}
             <FormControl>
-              <FormLabel>組成係數列表（唯讀）</FormLabel>
-              <Box borderWidth="1px" borderRadius="md" p={3} bg="gray.50" maxH="200px" overflowY="auto">
-                <VStack align="stretch" spacing={2}>
-                  {compositeFactor.components.map((comp, idx) => (
-                    <HStack key={idx} justify="space-between">
-                      <Text fontSize="sm" fontWeight="medium">{comp.name}</Text>
-                      <HStack spacing={2}>
-                        <Text fontSize="xs" color="gray.600">權重: {comp.weight?.toFixed(3) ?? '-'}</Text>
-                        <Text fontSize="xs" color="gray.600">
-                          {comp.value?.toFixed(4) ?? '-'} {comp.unit}
+              <FormLabel>啟用日期（自動帶入，可編輯）</FormLabel>
+              <Input
+                type="date"
+                value={formData.valid_from || new Date().toISOString().split('T')[0]}
+                onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
+              />
+              <Text fontSize="xs" color="gray.600" mt={1}>
+                預設為當前日期或自建係數的啟用日期
+              </Text>
+            </FormControl>
+
+            {/* 計算過程 */}
+            <FormControl>
+              <FormLabel>📐 計算過程（唯讀）</FormLabel>
+              <Box
+                borderWidth="1px"
+                borderRadius="md"
+                p={4}
+                bg="white"
+                borderColor="blue.200"
+                maxH="200px"
+                overflowY="auto"
+              >
+                <VStack align="stretch" spacing={3}>
+                  <Text fontSize="sm" fontWeight="bold" color="blue.800">
+                    各項計算結果：
+                  </Text>
+
+                  {/* 各項計算 */}
+                  <VStack align="stretch" spacing={1} pl={2}>
+                    {compositeFactor.components.map((comp, idx) => (
+                      <HStack key={idx} justify="space-between" fontSize="xs">
+                        <Text color="gray.600">{comp.name}:</Text>
+                        <Text fontFamily="mono" color="gray.700">
+                          {comp.value?.toFixed(4) ?? '-'} × {comp.weight?.toFixed(3) ?? '-'}
                         </Text>
-                        {comp.dataQuality && (
-                          <Badge size="xs" colorScheme={comp.dataQuality === 'Primary' ? 'green' : 'blue'}>
-                            {comp.dataQuality}
-                          </Badge>
-                        )}
                       </HStack>
-                    </HStack>
-                  ))}
+                    ))}
+                  </VStack>
+
+                  <Divider />
+
+                  {/* 總和或平均 */}
+                  <HStack justify="space-between" fontSize="sm">
+                    <Text fontWeight="bold" color="blue.800">
+                      {compositeFactor.formulaType === 'weighted' ? '加權平均：' : '加權總和：'}
+                    </Text>
+                    <Text fontFamily="mono" fontWeight="bold" color="blue.700">
+                      {compositeFactor.value.toFixed(4)}
+                    </Text>
+                  </HStack>
                 </VStack>
               </Box>
-              <Text fontSize="xs" color="gray.600" mt={1}>
-                計算方式: {compositeFactor.formulaType === 'weighted' ? '權重平均' : '權重加總'}
-              </Text>
             </FormControl>
 
             <Divider />
@@ -295,9 +311,6 @@ export default function ImportCompositeToCentralModal({
 
             <FormControl>
               <FormLabel>適用的生命週期階段</FormLabel>
-              <Text fontSize="xs" color="gray.500" mb={2}>
-                請選擇此係數適用的產品生命週期階段（可複選）
-              </Text>
               <CheckboxGroup
                 value={formData.lifecycle_stages}
                 onChange={(values) => setFormData({ ...formData, lifecycle_stages: values as string[] })}
