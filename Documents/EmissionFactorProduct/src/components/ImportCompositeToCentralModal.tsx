@@ -116,6 +116,74 @@ export default function ImportCompositeToCentralModal({
     return mapping[scopeKey] || scopeKey
   }
 
+  // ISIC 產業分類中文對應表
+  const isicCategoryNames: { [key: string]: string } = {
+    'A': 'A - 農業、林業和漁業',
+    'B': 'B - 採礦及採石業',
+    'C': 'C - 製造業',
+    'D': 'D - 電力、燃氣、蒸汽及空調供應業',
+    'E': 'E - 供水；污水處理、廢棄物管理及污染整治業',
+    'F': 'F - 營造業',
+    'G': 'G - 批發及零售業；汽車及機車之維修',
+    'H': 'H - 運輸及倉儲業',
+    'I': 'I - 住宿及餐飲業',
+    'J': 'J - 資訊及通訊傳播業',
+    'K': 'K - 金融及保險業',
+    'L': 'L - 不動產業',
+    'M': 'M - 專業、科學及技術服務業',
+    'N': 'N - 支援服務業',
+    'O': 'O - 公共行政及國防；強制性社會安全',
+    'P': 'P - 教育業',
+    'Q': 'Q - 醫療保健及社會工作服務業',
+    'R': 'R - 藝術、娛樂及休閒服務業',
+    'S': 'S - 其他服務業',
+  }
+
+  // 生命週期階段中文對應表
+  const lifecycleStageNames: { [key: string]: string } = {
+    'raw_material_acquisition': '原料取得階段 (Raw Material Acquisition Stage)',
+    'production': '製造階段 (Production Stage)',
+    'distribution': '配送銷售階段 (Distribution Stage)',
+    'product_use': '使用階段 (Product Use Stage)',
+    'end_of_life': '廢棄處理階段 (End-of-life Stage)',
+  }
+
+  // 數據品質等級中文對應表
+  const dataQualityNames: { [key: string]: string } = {
+    'Secondary': 'Secondary（第二級 - 含部分實測數據或次級資料庫）',
+    'Primary': 'Primary（第一級 - 主要基於實際量測數據）',
+  }
+
+  // 生成完整的組成備註（包含組成資訊和中央庫設定）
+  const generateCompositionNotes = (
+    compositeFactor: CompositeFactor,
+    formData: ImportCompositeToCentralFormData
+  ): string => {
+    // 第一部分：組成資訊
+    const compositionInfo = `【組成資訊】
+本組合係數由 ${compositeFactor.components.length} 個基礎係數組成，採用${compositeFactor.formulaType === 'weighted' ? '權重平均' : '權重加總'}計算方式。
+組成：${compositeFactor.components.map(c => c.name).join('、')}。`
+
+    // 第二部分：中央庫設定
+    const isicNames = formData.isic_categories
+      .map(code => isicCategoryNames[code] || code)
+      .join('、')
+
+    const lifecycleNames = formData.lifecycle_stages
+      .map(code => lifecycleStageNames[code] || code)
+      .join('、')
+
+    const dataQualityName = dataQualityNames[formData.data_quality] || formData.data_quality
+
+    const centralLibrarySettings = `【中央庫設定】
+• 適用產業分類：${isicNames}
+• 適用生命週期階段：${lifecycleNames}
+• 數據品質等級：${dataQualityName}`
+
+    // 組合兩部分
+    return `${compositionInfo}\n\n${centralLibrarySettings}`
+  }
+
   // 表單狀態
   const [formData, setFormData] = useState<ImportCompositeToCentralFormData>({
     factor_name: compositeFactor.name,
@@ -128,7 +196,7 @@ export default function ImportCompositeToCentralModal({
     data_quality: 'Secondary',  // 預設為 Secondary
     // 以下欄位自動生成，不在表單中顯示
     valid_from: compositeFactor.enabledDate || new Date().toISOString().split('T')[0],
-    composition_notes: `本組合係數由 ${compositeFactor.components.length} 個基礎係數組成，採用${compositeFactor.formulaType === 'weighted' ? '權重平均' : '權重加總'}計算方式。組成：${compositeFactor.components.map(c => c.name).join('、')}。`,
+    // composition_notes 將在提交時根據表單資料動態生成
   })
 
   const handleSubmit = async () => {
@@ -155,11 +223,14 @@ export default function ImportCompositeToCentralModal({
 
     setIsSubmitting(true)
     try {
+      // 生成包含組成資訊和中央庫設定的完整備註
+      const compositionNotes = generateCompositionNotes(compositeFactor, formData)
+
       // 提交前確保所有自動生成的欄位都已填入
       const enrichedData = {
         ...formData,
         valid_from: formData.valid_from || compositeFactor.enabledDate || new Date().toISOString().split('T')[0],
-        composition_notes: formData.composition_notes || `本組合係數由 ${compositeFactor.components.length} 個基礎係數組成，採用${compositeFactor.formulaType === 'weighted' ? '權重平均' : '權重加總'}計算方式。`,
+        composition_notes: compositionNotes,
       }
       await onConfirm(enrichedData)
       toast({
