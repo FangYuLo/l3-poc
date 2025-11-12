@@ -62,6 +62,11 @@ export interface EmissionFactor {
   validation_status?: ValidationStatus // 驗證狀態
   quality_score?: number      // 品質評分 (0-100)
   usage_info?: FactorUsageInfo // 使用資訊
+
+  // 新增欄位 - 中央庫設定資訊
+  isic_categories?: string[]        // 適用產業分類 (ISIC)
+  lifecycle_stages?: string[]       // 適用生命週期階段
+  system_boundary_detail?: string   // 系統邊界詳細說明（用於顯示）
 }
 
 // Composite Factor
@@ -81,6 +86,11 @@ export interface CompositeFactor {
   data_quality: DataQuality   // 自建係數預設為 Tertiary
   validation_status?: ValidationStatus
   usage_info?: FactorUsageInfo
+
+  // 新增欄位 - 中央庫設定資訊
+  isic_categories?: string[]        // 適用產業分類 (ISIC)
+  lifecycle_stages?: string[]       // 適用生命週期階段
+  system_boundary_detail?: string   // 系統邊界詳細說明
 }
 
 export interface CompositeFactorComponent {
@@ -447,15 +457,16 @@ export interface ImportCompositeToCentralFormData {
   isic_categories: string[]  // ISIC 產業分類（必填）
   geographic_scope: string   // 地理範圍（自動對應，可修改）
 
-  // 產品生命週期階段（選填）
-  lifecycle_stages?: string[]
+  // 產品生命週期階段（必填）
+  lifecycle_stages: string[]
 
   // 數據品質（必填）
   data_quality: 'Secondary' | 'Primary'
 
   // 自動生成欄位
-  valid_from?: string          // 啟用日期（自動使用 enabledDate）
-  composition_notes?: string   // 組成說明（自動生成）
+  valid_from?: string                // 啟用日期（自動使用 enabledDate）
+  composition_notes?: string         // 組成說明（自動生成）
+  system_boundary_detail?: string    // 系統邊界詳細說明（自動生成）
 }
 
 // Utility types

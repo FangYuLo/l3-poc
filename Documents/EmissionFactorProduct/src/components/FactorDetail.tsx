@@ -32,6 +32,51 @@ import {
 import { formatNumber, formatDate } from '@/lib/utils'
 import { getSyncStatus } from '@/hooks/useMockData'
 
+// ISIC 分類格式化
+const formatISICCode = (code: string): string => {
+  const names: { [key: string]: string } = {
+    'A': 'A - 農業、林業和漁業',
+    'B': 'B - 採礦及採石業',
+    'C': 'C - 製造業',
+    'D': 'D - 電力、燃氣、蒸汽及空調供應業',
+    'E': 'E - 供水；污水處理、廢棄物管理及污染整治業',
+    'F': 'F - 營造業',
+    'G': 'G - 批發及零售業；汽車及機車之維修',
+    'H': 'H - 運輸及倉儲業',
+    'I': 'I - 住宿及餐飲業',
+    'J': 'J - 資訊及通訊傳播業',
+    'K': 'K - 金融及保險業',
+    'L': 'L - 不動產業',
+    'M': 'M - 專業、科學及技術服務業',
+    'N': 'N - 支援服務業',
+    'O': 'O - 公共行政及國防；強制性社會安全',
+    'P': 'P - 教育業',
+    'Q': 'Q - 醫療保健及社會工作服務業',
+    'R': 'R - 藝術、娛樂及休閒服務業',
+    'S': 'S - 其他服務業',
+  }
+  return names[code] || code
+}
+
+// 生命週期階段格式化
+const formatLifecycleStages = (stages: string[]): string => {
+  const names: { [key: string]: string } = {
+    'raw_material_acquisition': '原料取得階段',
+    'production': '製造階段',
+    'distribution': '配送銷售階段',
+    'product_use': '使用階段',
+    'end_of_life': '廢棄處理階段',
+  }
+  return stages.map(s => names[s] || s).join(' + ')
+}
+
+// 數據品質格式化
+const formatDataQuality = (quality: string): string => {
+  return quality === 'Primary'
+    ? 'Primary（第一級 - 實際量測數據）'
+    : 'Secondary（第二級 - 次級資料庫）'
+}
+
 interface FactorDetailProps {
   selectedFactor?: any // 從父組件傳入的選中係數
   onEditFactor?: (updatedFactor: any) => void // 編輯係數回調
@@ -825,10 +870,49 @@ export default function FactorDetail({
 
           <Table variant="simple" size="sm">
             <Tbody>
+              {/* System Boundary - 顯示生命週期階段 */}
               <Tr>
                 <Td width="40%" bg="gray.50" fontWeight="medium">System Boundary</Td>
-                <Td>Cradle-to-Grave</Td>
+                <Td>
+                  {mockFactor.system_boundary_detail ||
+                   (mockFactor.lifecycle_stages && mockFactor.lifecycle_stages.length > 0
+                     ? formatLifecycleStages(mockFactor.lifecycle_stages)
+                     : 'Cradle-to-Grave')}
+                </Td>
               </Tr>
+
+              {/* 新增：適用產業分類 */}
+              {mockFactor.isic_categories && mockFactor.isic_categories.length > 0 && (
+                <Tr>
+                  <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Applicable ISIC Classification</Td>
+                  <Td>
+                    <HStack spacing={2} flexWrap="wrap">
+                      {mockFactor.isic_categories.map((code: string) => (
+                        <Badge key={code} colorScheme="purple" fontSize="xs">
+                          {formatISICCode(code)}
+                        </Badge>
+                      ))}
+                    </HStack>
+                  </Td>
+                </Tr>
+              )}
+
+              {/* 新增：數據品質等級 */}
+              {mockFactor.data_quality && (
+                <Tr>
+                  <Td bg="gray.50" fontWeight="medium">Data Quality</Td>
+                  <Td>
+                    <Badge
+                      colorScheme={mockFactor.data_quality === 'Primary' ? 'green' : 'blue'}
+                      fontSize="sm"
+                    >
+                      {formatDataQuality(mockFactor.data_quality)}
+                    </Badge>
+                  </Td>
+                </Tr>
+              )}
+
+              {/* Comment 欄位 */}
               {(mockFactor.notes || mockFactor.composition_notes) && (
                 <Tr>
                   <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Comment</Td>

@@ -294,6 +294,7 @@ export function useComposites() {
             geographic_scope: formData.geographic_scope,
             lifecycle_stages: formData.lifecycle_stages,
             data_quality: formData.data_quality,
+            system_boundary_detail: formData.system_boundary_detail,
             composition_notes: formData.composition_notes,
             imported_at: currentTime,
             // 重要：在 data 中也保存 source_composite_id，以便在詳情面板中能正確識別
