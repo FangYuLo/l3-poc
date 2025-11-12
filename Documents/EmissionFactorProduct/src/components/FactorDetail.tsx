@@ -1057,7 +1057,7 @@ export default function FactorDetail({
         )}
 
         {/* 備註區塊 */}
-        {(mockFactor.notes || isEditing) && (
+        {(mockFactor.notes || mockFactor.composition_notes || isEditing) && (
           <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
             <CardHeader pb={3}>
               <Heading size="md" color="gray.800">備註</Heading>
@@ -1075,8 +1075,14 @@ export default function FactorDetail({
                   />
                 </FormControl>
               ) : (
-                <Text fontSize="sm" color="gray.700" lineHeight="1.6" letterSpacing="0.3px">
-                  {mockFactor.notes}
+                <Text
+                  fontSize="sm"
+                  color="gray.700"
+                  lineHeight="1.8"
+                  letterSpacing="0.3px"
+                  whiteSpace="pre-line"
+                >
+                  {mockFactor.composition_notes || mockFactor.notes}
                 </Text>
               )}
             </CardBody>
