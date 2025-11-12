@@ -430,8 +430,11 @@ export default function ImportCompositeToCentralModal({
                     onChange={(values) => setFormData({ ...formData, lifecycle_stages: values as string[] })}
                   >
                     <Stack spacing={2}>
-                      <Checkbox value="cradle_to_gate">搖籃到大門 (Cradle to Gate)</Checkbox>
-                      <Checkbox value="cradle_to_grave">搖籃到墳墓 (Cradle to Grave)</Checkbox>
+                      <Checkbox value="raw_material_acquisition">原料取得階段 (Raw Material Acquisition Stage)</Checkbox>
+                      <Checkbox value="production">製造階段 (Production Stage)</Checkbox>
+                      <Checkbox value="distribution">配送銷售階段 (Distribution Stage)</Checkbox>
+                      <Checkbox value="product_use">使用階段 (Product Use Stage)</Checkbox>
+                      <Checkbox value="end_of_life">廢棄處理階段 (End-of-life Stage)</Checkbox>
                     </Stack>
                   </CheckboxGroup>
                 </FormControl>
