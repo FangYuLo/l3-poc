@@ -1156,6 +1156,18 @@ export default function FactorTable({
                               )
                             }
                           })()}
+
+                          {/* 編輯按鈕 */}
+                          <MenuItem
+                            icon={<EditIcon />}
+                            onClick={() => {
+                              const factor = (row as any).data || row
+                              onEditComposite?.(factor)
+                            }}
+                          >
+                            Edit
+                          </MenuItem>
+
                           {/* 刪除按鈕 - 已匯入的係數打開說明對話框 */}
                           {(() => {
                             const rowData = (row as any).data || row
@@ -1166,7 +1178,7 @@ export default function FactorTable({
                                 onClick={() => handleDeleteClick(rowData)}
                                 color="red.500"
                               >
-                                刪除
+                                Delete
                               </MenuItem>
                             )
                           })()}

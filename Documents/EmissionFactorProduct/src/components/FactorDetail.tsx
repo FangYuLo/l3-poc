@@ -17,40 +17,19 @@ import {
   CardBody,
   Heading,
   Table,
-  Thead,
   Tbody,
   Tr,
-  Th,
   Td,
-  Link,
   Icon,
-  Flex,
-  Spacer,
   Tag,
   TagLabel,
-  Input,
-  Textarea,
-  FormControl,
-  FormLabel,
-  useToast,
-  Accordion,
-  AccordionItem,
-  AccordionButton,
-  AccordionPanel,
-  AccordionIcon,
 } from '@chakra-ui/react'
 import {
-  ExternalLinkIcon,
-  StarIcon,
-  EditIcon,
   TimeIcon,
   InfoIcon,
-  UpDownIcon,
   CheckIcon,
 } from '@chakra-ui/icons'
-import { useState } from 'react'
 import { formatNumber, formatDate } from '@/lib/utils'
-import EmissionFactorCards from './EmissionFactorCards'
 import { getSyncStatus } from '@/hooks/useMockData'
 
 interface FactorDetailProps {
@@ -72,14 +51,6 @@ export default function FactorDetail({
   onRemoveFromCentral,
   onImportToCentral
 }: FactorDetailProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
-    notes: ''
-  })
-  const [isSaving, setIsSaving] = useState(false)
-  const toast = useToast()
   // 根據係數選擇欄位獲取對應的完整係數資料
   const getFactorDetailsBySelection = (factorSelection: string) => {
     // 這裡模擬根據係數選擇名稱獲取完整的係數詳細資料
@@ -569,66 +540,7 @@ export default function FactorDetail({
   }
 
   const processedFactor = transformSelectedData(selectedFactor)
-  
-  // 處理開始編輯
-  const handleStartEdit = () => {
-    if (processedFactor) {
-      setEditForm({
-        name: processedFactor.name || '',
-        description: processedFactor.description || '',
-        notes: processedFactor.notes || ''
-      })
-      setIsEditing(true)
-    }
-  }
 
-  // 處理取消編輯
-  const handleCancelEdit = () => {
-    setIsEditing(false)
-    setEditForm({ name: '', description: '', notes: '' })
-  }
-
-  // 處理保存編輯
-  const handleSaveEdit = async () => {
-    if (!processedFactor || !onEditFactor) return
-    
-    try {
-      setIsSaving(true)
-      
-      // 模擬保存 API 調用
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const updatedFactor = {
-        ...processedFactor,
-        name: editForm.name,
-        description: editForm.description,
-        notes: editForm.notes,
-        updated_at: new Date().toISOString()
-      }
-      
-      onEditFactor(updatedFactor)
-      setIsEditing(false)
-      
-      toast({
-        title: '編輯成功',
-        description: '係數資訊已更新',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      })
-    } catch (error) {
-      toast({
-        title: '編輯失敗',
-        description: '請稍後重試',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-  
   // Mock data based on the provided images (作為後備資料)
   const mockFactor = processedFactor || {
     id: 1,
@@ -755,603 +667,238 @@ export default function FactorDetail({
   return (
     <Box h="100%" overflow="auto">
       <VStack spacing={6} p={8} align="stretch">
-        {/* Header */}
+        {/* Header - 簡化版 */}
         <Box>
-          <HStack justify="space-between" align="start" mb={4}>
-            <VStack align="start" spacing={3} flex="1">
-              {isEditing ? (
-                <FormControl>
-                  <FormLabel fontSize="sm" fontWeight="medium" color="gray.600">
-                    係數名稱
-                  </FormLabel>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                    size="sm"
-                    borderRadius="md"
-                  />
-                </FormControl>
-              ) : (
-                <>
-                  <HStack spacing={2}>
-                    <Heading size="lg" color="gray.800" lineHeight="1.3">
-                      {mockFactor.name}
-                    </Heading>
-                    {isEditing && (
-                      <Badge colorScheme="blue" variant="subtle" size="sm">
-                        編輯模式
-                      </Badge>
-                    )}
-                  </HStack>
-                  <HStack spacing={3}>
-                    {getSourceTypeBadge(mockFactor.source_type)}
-                    {mockFactor.type === 'composite_factor' && (
-                      <Badge colorScheme="orange" variant="outline" size="md">
-                        組合係數
-                      </Badge>
-                    )}
-                  </HStack>
-                </>
-              )}
-            </VStack>
-            
-            <VStack spacing={2}>
-              {isUserDefinedFactor && !isEditing && mockFactor.type === 'composite_factor' && (
-                <Button
-                  leftIcon={<EditIcon />}
-                  size="sm"
-                  variant="solid"
-                  colorScheme="blue"
-                  borderRadius="lg"
-                  onClick={() => onEditComposite?.(mockFactor)}
-                >
-                  編輯組合係數
-                </Button>
-              )}
-
-              {isUserDefinedFactor && !isEditing && mockFactor.type !== 'composite_factor' && (
-                <Button
-                  leftIcon={<EditIcon />}
-                  size="sm"
-                  variant="outline"
-                  colorScheme="blue"
-                  borderRadius="lg"
-                  onClick={handleStartEdit}
-                >
-                  編輯
-                </Button>
-              )}
-              
-              {isEditing && (
-                <>
-                  <Button 
-                    leftIcon={<CheckIcon />} 
-                    size="sm" 
-                    colorScheme="green"
-                    borderRadius="lg"
-                    onClick={handleSaveEdit}
-                    isLoading={isSaving}
-                    loadingText="儲存中..."
-                  >
-                    儲存
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    borderRadius="lg"
-                    onClick={handleCancelEdit}
-                  >
-                    取消
-                  </Button>
-                </>
-              )}
-              
-              {!isUserDefinedFactor && (
-                <Button 
-                  leftIcon={<StarIcon />} 
-                  size="sm" 
-                  variant="outline" 
-                  colorScheme="yellow"
-                  borderRadius="lg"
-                >
-                  收藏
-                </Button>
-              )}
-            </VStack>
+          <HStack spacing={3} mb={4}>
+            <Heading size="lg" color="gray.800">
+              {mockFactor.name}
+            </Heading>
+            <Badge
+              colorScheme={mockFactor.source_type === 'user_defined' ? 'purple' : 'yellow'}
+              fontSize="sm"
+              px={3}
+              py={1}
+            >
+              {mockFactor.source_type === 'user_defined' ? 'Custom' : 'Secondary'}
+            </Badge>
           </HStack>
-          
-          {/* New version alert */}
-          <Alert status="info" borderRadius="lg" mb={6} bg="blue.50" border="1px solid" borderColor="blue.200">
-            <AlertIcon />
-            <Box flex="1">
-              <AlertTitle fontSize="sm" color="blue.800">新版本可用！</AlertTitle>
-              <AlertDescription fontSize="sm" color="blue.700" mt={1}>
-                有較新的 v2.2 版本可供升級
-              </AlertDescription>
-            </Box>
-            <Button size="xs" colorScheme="blue" variant="solid" borderRadius="md">
-              升級並替換
-            </Button>
-          </Alert>
+
+          {/* 新版本通知區塊 */}
+          <Box bg="gray.100" p={4} borderRadius="md" textAlign="center" mb={6}>
+            <Text fontSize="sm" color="gray.700">
+              新版本通知(not this time)
+            </Text>
+          </Box>
         </Box>
 
-        {/* 係數資訊區塊 */}
-        <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
-          <CardHeader pb={3}>
-            <Heading size="md" color="gray.800">係數資訊</Heading>
-          </CardHeader>
-          <CardBody pt={0}>
-            <VStack spacing={5} align="stretch">
-              <Box>
-                <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                  係數來源
-                </Text>
-                <Text fontSize="sm" color="gray.800" fontWeight="medium" lineHeight="1.5">
-                  {mockFactor.source}
-                </Text>
-              </Box>
-              
-              {isEditing ? (
-                <FormControl>
-                  <FormLabel fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                    描述
-                  </FormLabel>
-                  <Textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                    size="sm"
-                    borderRadius="md"
-                    placeholder="輸入係數描述..."
-                    rows={3}
-                  />
-                </FormControl>
-              ) : (
-                <Box>
-                  <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                    係數名稱
-                  </Text>
-                  <Text fontSize="sm" color="gray.800" fontWeight="medium" lineHeight="1.5">
-                    {mockFactor.name}
-                  </Text>
-                </Box>
-              )}
-              
-              <HStack spacing={6}>
-                <Box flex="1">
-                  <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                    啟用日期
-                  </Text>
-                  <Text fontSize="sm" color="gray.800" fontWeight="medium">
-                    {mockFactor.effective_date}
-                  </Text>
-                </Box>
-                <Box flex="1">
-                  <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                    大洲
-                  </Text>
-                  <Text fontSize="sm" color="gray.800" fontWeight="medium">
-                    {mockFactor.continent}
-                  </Text>
-                </Box>
-              </HStack>
-              
-              <HStack spacing={6}>
-                <Box flex="1">
-                  <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                    國家
-                  </Text>
-                  <Text fontSize="sm" color="gray.800" fontWeight="medium">
-                    {mockFactor.country}
-                  </Text>
-                </Box>
-                {mockFactor.region && (
-                  <Box flex="1">
-                    <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" letterSpacing="wider" mb={2}>
-                      地區
-                    </Text>
-                    <Text fontSize="sm" color="gray.800" fontWeight="medium">
-                      {mockFactor.region}
-                    </Text>
-                  </Box>
-                )}
-              </HStack>
-            </VStack>
-          </CardBody>
-        </Card>
+        {/* Factor Information */}
+        <Box>
+          <Text fontSize="md" fontWeight="bold" color="blue.600" mb={3}>
+            Factor Information
+          </Text>
 
-        {/* 排放係數卡片區塊 */}
-        <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
-          <CardBody p={6}>
-            <EmissionFactorCards
-              co2_factor={mockFactor.co2_factor}
-              co2_unit={mockFactor.co2_unit}
-              ch4_factor={mockFactor.ch4_factor}
-              ch4_unit={mockFactor.ch4_unit}
-              n2o_factor={mockFactor.n2o_factor}
-              n2o_unit={mockFactor.n2o_unit}
-            />
-          </CardBody>
-        </Card>
-
-        {/* 組合係數 - 計算公式卡片 */}
-        {mockFactor.type === 'composite_factor' && mockFactor.formula_type && (
-          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="blue.100" bg="blue.50">
-            <CardHeader pb={3}>
-              <HStack>
-                <Icon as={InfoIcon} color="blue.600" boxSize={5} />
-                <Heading size="md" color="blue.800">計算公式</Heading>
-              </HStack>
-            </CardHeader>
-            <CardBody pt={0}>
-              <VStack spacing={4} align="stretch">
-                <HStack justify="space-between" p={3} bg="white" borderRadius="md">
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">計算方式：</Text>
-                  <Badge colorScheme={mockFactor.formula_type === 'weighted' ? 'blue' : 'green'} fontSize="md">
-                    {mockFactor.formula_type === 'weighted' ? '權重平均' : '權重加總'}
-                  </Badge>
-                </HStack>
-
-                <HStack justify="space-between" p={3} bg="white" borderRadius="md">
-                  <Text fontSize="sm" color="gray.600" fontWeight="medium">目標單位：</Text>
-                  <Text fontSize="sm" fontWeight="bold" fontFamily="mono" color="blue.700">
-                    {mockFactor.unit}
-                  </Text>
-                </HStack>
-
-                {/* 計算過程展示 */}
-                {mockCompositeComponents && mockCompositeComponents.length > 0 && (
-                  <Box p={4} bg="white" borderRadius="md" border="1px solid" borderColor="blue.200">
-                    <VStack align="stretch" spacing={3}>
-                      <Text fontSize="sm" fontWeight="bold" color="blue.800">
-                        📐 計算過程：
+          <Table variant="simple" size="sm">
+            <Tbody>
+              <Tr>
+                <Td width="40%" bg="gray.50" fontWeight="medium">Source of Emission Factor</Td>
+                <Td>{mockFactor.source}</Td>
+              </Tr>
+              <Tr>
+                <Td bg="gray.50" fontWeight="medium">Enabled Date</Td>
+                <Td>{mockFactor.effective_date}</Td>
+              </Tr>
+              <Tr>
+                <Td bg="gray.50" fontWeight="medium">Continent</Td>
+                <Td>{mockFactor.continent}</Td>
+              </Tr>
+              <Tr>
+                <Td bg="gray.50" fontWeight="medium">Country</Td>
+                <Td>{mockFactor.country || '-'}</Td>
+              </Tr>
+              <Tr>
+                <Td bg="gray.50" fontWeight="medium">Area</Td>
+                <Td>{mockFactor.region || '台灣'}</Td>
+              </Tr>
+              <Tr>
+                <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Emission Factor</Td>
+                <Td>
+                  <VStack align="start" spacing={1}>
+                    <HStack>
+                      <Badge colorScheme="blue">CO₂</Badge>
+                      <Text fontSize="sm">
+                        {formatNumber(mockFactor.co2_factor)} {mockFactor.co2_unit}
                       </Text>
+                    </HStack>
+                    <HStack>
+                      <Badge colorScheme="blue">CH₄</Badge>
+                      <Text fontSize="sm">
+                        {formatNumber(mockFactor.ch4_factor)} {mockFactor.ch4_unit}
+                      </Text>
+                    </HStack>
+                    <HStack>
+                      <Badge colorScheme="blue">N₂O</Badge>
+                      <Text fontSize="sm">
+                        {formatNumber(mockFactor.n2o_factor)} {mockFactor.n2o_unit}
+                      </Text>
+                    </HStack>
+                  </VStack>
+                </Td>
+              </Tr>
+            </Tbody>
+          </Table>
+        </Box>
 
-                      {/* 各項計算結果 */}
-                      <VStack align="stretch" spacing={1} pl={2}>
-                        {mockCompositeComponents.map((comp: any, idx: number) => {
-                          const actualValue =
-                            comp.unitConversion?.convertedValue ??
-                            comp.gwpConversion?.convertedValue ??
-                            comp.originalValue
-                          const contribution = actualValue * comp.weight
+        {/* Component Factors - 僅組合係數顯示 */}
+        {mockFactor.type === 'composite_factor' && mockFactor.formula_type && (
+          <Box>
+            <Text fontSize="md" fontWeight="bold" color="blue.600" mb={3}>
+              Component Factors
+            </Text>
 
-                          return (
-                            <HStack key={idx} justify="space-between" fontSize="xs">
-                              <Text color="gray.600">
-                                {comp.name}:
-                              </Text>
-                              <Text fontFamily="mono" color="gray.700">
-                                {formatNumber(actualValue)} × {comp.weight} = <Text as="span" fontWeight="bold" color="blue.600">{formatNumber(contribution)}</Text>
-                              </Text>
-                            </HStack>
-                          )
-                        })}
-                      </VStack>
+            <Table variant="simple" size="sm" mb={4}>
+              <Tbody>
+                <Tr>
+                  <Td width="40%" bg="gray.50" fontWeight="medium">Calculation Method</Td>
+                  <Td>{mockFactor.formula_type === 'weighted' ? 'Weighted Average' : 'Weighted Sum'}</Td>
+                </Tr>
+                <Tr>
+                  <Td bg="gray.50" fontWeight="medium">Target Unit</Td>
+                  <Td fontFamily="mono">{mockFactor.unit}</Td>
+                </Tr>
+              </Tbody>
+            </Table>
 
-                      <Divider />
+            {mockCompositeComponents && mockCompositeComponents.length > 0 && (
+              <Box border="1px solid" borderColor="blue.200" borderRadius="md" p={4}>
+                <Text fontSize="sm" mb={2}>
+                  <Text as="span" fontWeight="bold">Calculation Formula</Text>
+                  {' '}Formula: Σ(Factor Value × Conversion Ratio × Weight)
+                </Text>
 
-                      {/* 總和或平均 */}
-                      <HStack justify="space-between" fontSize="sm">
-                        <Text fontWeight="bold" color="blue.800">
-                          {mockFactor.formula_type === 'weighted' ? '加權平均：' : '加權總和：'}
-                        </Text>
-                        <Text fontFamily="mono" fontWeight="bold" color="blue.700">
-                          {formatNumber(mockFactor.value)}
+                <VStack align="stretch" spacing={2} my={3}>
+                  {mockCompositeComponents.map((comp: any, idx: number) => {
+                    const actualValue =
+                      comp.unitConversion?.convertedValue ??
+                      comp.gwpConversion?.convertedValue ??
+                      comp.originalValue
+                    const contribution = actualValue * comp.weight
+
+                    return (
+                      <HStack key={idx} justify="space-between" fontSize="sm">
+                        <HStack spacing={2}>
+                          <Text>{comp.name}</Text>
+                          <Badge colorScheme="orange" fontSize="xs">
+                            Weight: {(comp.weight * 100).toFixed(0)}%
+                          </Badge>
+                          {comp.gwpConversion && (
+                            <Badge colorScheme="green" fontSize="xs">
+                              {comp.gwpConversion.gwpVersion}
+                            </Badge>
+                          )}
+                        </HStack>
+                        <Text fontFamily="mono">
+                          {formatNumber(actualValue)}×{comp.weight} = {formatNumber(contribution)}
                         </Text>
                       </HStack>
-                    </VStack>
-                  </Box>
-                )}
+                    )
+                  })}
+                </VStack>
 
-                <Box p={4} bg="blue.100" borderRadius="md" borderWidth="2px" borderColor="blue.300">
-                  <HStack justify="space-between" align="center">
-                    <Text fontSize="sm" fontWeight="bold" color="blue.800">計算結果：</Text>
-                    <Text fontSize="2xl" fontWeight="bold" fontFamily="mono" color="blue.700">
-                      {formatNumber(mockFactor.value)} {mockFactor.unit}
-                    </Text>
-                  </HStack>
-                </Box>
-              </VStack>
-            </CardBody>
-          </Card>
-        )}
+                <Divider my={3} />
 
-        {/* 備註區塊 */}
-        {(mockFactor.notes || mockFactor.composition_notes || isEditing) && (
-          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
-            <CardHeader pb={3}>
-              <Heading size="md" color="gray.800">備註</Heading>
-            </CardHeader>
-            <CardBody pt={0}>
-              {isEditing ? (
-                <FormControl>
-                  <Textarea
-                    value={editForm.notes}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                    size="sm"
-                    borderRadius="md"
-                    placeholder="輸入備註資訊..."
-                    rows={4}
-                  />
-                </FormControl>
-              ) : (
-                <Text
-                  fontSize="sm"
-                  color="gray.700"
-                  lineHeight="1.8"
-                  letterSpacing="0.3px"
-                  whiteSpace="pre-line"
-                >
-                  {mockFactor.composition_notes || mockFactor.notes}
-                </Text>
-              )}
-            </CardBody>
-          </Card>
-        )}
-
-        {/* 組合係數 - 組成係數詳細列表 */}
-        {mockCompositeComponents && (
-          <Card borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.100">
-            <CardHeader pb={3}>
-              <HStack justify="space-between">
-                <HStack>
-                  <Icon as={InfoIcon} color="green.600" boxSize={5} />
-                  <Heading size="md" color="gray.800">組成係數</Heading>
+                <HStack justify="space-between">
+                  <Text fontWeight="bold">Composite Value</Text>
+                  <Text fontSize="xl" fontWeight="bold" color="blue.600" fontFamily="mono">
+                    {formatNumber(mockFactor.value)} {mockFactor.unit}
+                  </Text>
                 </HStack>
-                <Badge colorScheme="green" fontSize="sm">
-                  {mockCompositeComponents.length} 個係數
-                </Badge>
-              </HStack>
-            </CardHeader>
-            <CardBody pt={0}>
-              <Accordion allowMultiple>
-                {mockCompositeComponents.map((component: any) => {
-                  // 計算最終使用值
-                  const finalValue =
-                    component.unitConversion?.convertedValue ??
-                    component.gwpConversion?.convertedValue ??
-                    component.originalValue
-
-                  const finalUnit =
-                    component.unitConversion?.toUnit ??
-                    component.originalUnit
-
-                  return (
-                    <AccordionItem key={component.id} border="none" mb={2}>
-                      <AccordionButton
-                        bg="gray.50"
-                        _hover={{ bg: 'gray.100' }}
-                        borderRadius="md"
-                        p={4}
-                      >
-                        <HStack flex="1" justify="space-between">
-                          <HStack spacing={3}>
-                            <Text fontSize="md" fontWeight="bold" color="gray.800">
-                              {component.name}
-                            </Text>
-                            <Badge colorScheme="purple" fontSize="xs">
-                              權重: {(component.weight * 100).toFixed(0)}%
-                            </Badge>
-                            {component.gwpConversion && (
-                              <Badge colorScheme="green" fontSize="xs">
-                                GWP {component.gwpConversion.gwpVersion}
-                              </Badge>
-                            )}
-                            {component.unitConversion && (
-                              <Badge colorScheme="blue" fontSize="xs">
-                                單位轉換
-                              </Badge>
-                            )}
-                          </HStack>
-                          <AccordionIcon />
-                        </HStack>
-                      </AccordionButton>
-
-                      <AccordionPanel pb={4} pt={4} bg="white">
-                        <VStack align="stretch" spacing={4}>
-                          {/* 原始值 */}
-                          <Box p={3} bg="gray.50" borderRadius="md">
-                            <HStack justify="space-between">
-                              <Text fontSize="sm" color="gray.600">原始值：</Text>
-                              <Text fontSize="sm" fontWeight="bold" fontFamily="mono">
-                                {formatNumber(component.originalValue)} {component.originalUnit}
-                              </Text>
-                            </HStack>
-                          </Box>
-
-                          {/* GWP 轉換 */}
-                          {component.gwpConversion && (
-                            <Box p={4} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
-                              <VStack align="stretch" spacing={2}>
-                                <HStack>
-                                  <Icon as={CheckIcon} color="green.600" boxSize={4} />
-                                  <Text fontSize="sm" fontWeight="bold" color="green.700">
-                                    GWP {component.gwpConversion.gwpVersion} 轉換
-                                  </Text>
-                                </HStack>
-
-                                <Divider />
-
-                                <VStack align="stretch" spacing={1} pl={6}>
-                                  <HStack justify="space-between">
-                                    <Text fontSize="xs" color="gray.600">CO₂:</Text>
-                                    <HStack spacing={2}>
-                                      <Text fontSize="xs" fontFamily="mono">
-                                        {formatNumber(component.gwpConversion.originalCO2)} × 1
-                                      </Text>
-                                      <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
-                                        = {formatNumber(component.gwpConversion.breakdown.co2_contribution)}
-                                      </Text>
-                                    </HStack>
-                                  </HStack>
-
-                                  {component.gwpConversion.originalCH4 && (
-                                    <HStack justify="space-between">
-                                      <Text fontSize="xs" color="gray.600">CH₄:</Text>
-                                      <HStack spacing={2}>
-                                        <Text fontSize="xs" fontFamily="mono">
-                                          {formatNumber(component.gwpConversion.originalCH4)} × {component.gwpConversion.gwpVersion === 'AR4' ? '25' : component.gwpConversion.gwpVersion === 'AR5' ? '28' : '27.9'}
-                                        </Text>
-                                        <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
-                                          = {formatNumber(component.gwpConversion.breakdown.ch4_contribution)}
-                                        </Text>
-                                      </HStack>
-                                    </HStack>
-                                  )}
-
-                                  {component.gwpConversion.originalN2O && component.gwpConversion.breakdown.n2o_contribution > 0 && (
-                                    <HStack justify="space-between">
-                                      <Text fontSize="xs" color="gray.600">N₂O:</Text>
-                                      <HStack spacing={2}>
-                                        <Text fontSize="xs" fontFamily="mono">
-                                          {formatNumber(component.gwpConversion.originalN2O)} × {component.gwpConversion.gwpVersion === 'AR4' ? '298' : component.gwpConversion.gwpVersion === 'AR5' ? '265' : '273'}
-                                        </Text>
-                                        <Text fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
-                                          = {formatNumber(component.gwpConversion.breakdown.n2o_contribution)}
-                                        </Text>
-                                      </HStack>
-                                    </HStack>
-                                  )}
-                                </VStack>
-
-                                <Divider />
-
-                                <HStack justify="space-between" bg="green.100" p={2} borderRadius="md">
-                                  <Text fontSize="sm" fontWeight="bold" color="green.800">轉換後：</Text>
-                                  <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="green.700">
-                                    {formatNumber(component.gwpConversion.convertedValue)} {component.originalUnit}
-                                  </Text>
-                                </HStack>
-                              </VStack>
-                            </Box>
-                          )}
-
-                          {/* 單位轉換 */}
-                          {component.unitConversion && (
-                            <Box p={4} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
-                              <VStack align="stretch" spacing={2}>
-                                <HStack>
-                                  <Icon as={CheckIcon} color="blue.600" boxSize={4} />
-                                  <Text fontSize="sm" fontWeight="bold" color="blue.700">
-                                    單位轉換 ({component.unitConversion.mode === 'auto' ? 'Auto' : 'Custom'})
-                                  </Text>
-                                </HStack>
-
-                                <Divider />
-
-                                <HStack justify="space-between" pl={6}>
-                                  <Text fontSize="xs" color="gray.600">轉換方式：</Text>
-                                  <Text fontSize="xs" fontFamily="mono">
-                                    {component.unitConversion.fromUnit} → {component.unitConversion.toUnit}
-                                  </Text>
-                                </HStack>
-
-                                <HStack justify="space-between" pl={6}>
-                                  <Text fontSize="xs" color="gray.600">轉換因子：</Text>
-                                  <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
-                                    × {component.unitConversion.conversionFactor}
-                                  </Text>
-                                </HStack>
-
-                                <Divider />
-
-                                <HStack justify="space-between" bg="blue.100" p={2} borderRadius="md">
-                                  <Text fontSize="sm" fontWeight="bold" color="blue.800">轉換後：</Text>
-                                  <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="blue.700">
-                                    {formatNumber(component.unitConversion.convertedValue)} {component.unitConversion.toUnit}
-                                  </Text>
-                                </HStack>
-                              </VStack>
-                            </Box>
-                          )}
-
-                          {/* 無轉換提示 */}
-                          {!component.gwpConversion && !component.unitConversion && (
-                            <Box p={3} bg="gray.50" borderRadius="md">
-                              <Text fontSize="sm" color="gray.600" textAlign="center">
-                                無需轉換，直接使用原始值
-                              </Text>
-                            </Box>
-                          )}
-
-                          {/* 實際使用值 */}
-                          <Box p={4} bg="purple.50" borderRadius="md" border="2px solid" borderColor="purple.300">
-                            <HStack justify="space-between">
-                              <Text fontSize="sm" fontWeight="bold" color="purple.800">實際使用值：</Text>
-                              <Text fontSize="lg" fontWeight="bold" fontFamily="mono" color="purple.700">
-                                {formatNumber(finalValue)} {finalUnit}
-                              </Text>
-                            </HStack>
-                          </Box>
-                        </VStack>
-                      </AccordionPanel>
-                    </AccordionItem>
-                  )
-                })}
-              </Accordion>
-            </CardBody>
-          </Card>
+              </Box>
+            )}
+          </Box>
         )}
 
-        {/* Version History */}
-        <Card>
-          <CardHeader pb={2}>
-            <HStack justify="space-between">
-              <Heading size="sm">版本歷史</Heading>
-              {mockFactor.type !== 'composite_factor' && (
-                <Button size="xs" variant="ghost" leftIcon={<UpDownIcon />}>
-                  檢查更新
-                </Button>
+        {/* Other Information */}
+        <Box>
+          <Text fontSize="md" fontWeight="bold" color="blue.600" mb={3}>
+            Other Information
+          </Text>
+
+          <Table variant="simple" size="sm">
+            <Tbody>
+              <Tr>
+                <Td width="40%" bg="gray.50" fontWeight="medium">System Boundary</Td>
+                <Td>Cradle-to-Grave</Td>
+              </Tr>
+              {(mockFactor.notes || mockFactor.composition_notes) && (
+                <Tr>
+                  <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Comment</Td>
+                  <Td>
+                    <Text fontSize="sm" whiteSpace="pre-line" lineHeight="1.8">
+                      {mockFactor.composition_notes || mockFactor.notes}
+                    </Text>
+                  </Td>
+                </Tr>
               )}
-            </HStack>
-          </CardHeader>
-          <CardBody pt={2}>
-            <VStack spacing={2} align="stretch">
-              {mockVersions.length === 0 ? (
-                <Text fontSize="sm" color="gray.500" textAlign="center" py={4}>
+            </Tbody>
+          </Table>
+        </Box>
+
+
+        {/* 版本管理 */}
+        <Box>
+          <Text fontSize="md" fontWeight="bold" color="blue.600" mb={3}>
+            版本管理
+          </Text>
+
+          <VStack spacing={2} align="stretch">
+            {mockVersions.length === 0 ? (
+              <Box bg="gray.100" p={4} borderRadius="md" textAlign="center">
+                <Text fontSize="sm" color="gray.500">
                   尚無版本歷史記錄
                 </Text>
-              ) : (
-                mockVersions.map((version: any) => (
-                  <HStack key={version.version} justify="space-between" p={2}
-                         bg={version.isCurrent ? 'blue.50' : 'transparent'}
-                         borderRadius="md">
-                    <HStack>
-                      <Icon as={version.isCurrent ? CheckIcon : TimeIcon}
-                            color={version.isCurrent ? 'green.500' : 'gray.400'} />
-                      <VStack align="start" spacing={0}>
-                        <HStack>
-                          <Text fontSize="sm" fontWeight={version.isCurrent ? 'medium' : 'normal'}>
-                            {version.version}
-                          </Text>
-                          {version.isCurrent && (
-                            <Tag size="sm" colorScheme="blue">
-                              <TagLabel>目前使用</TagLabel>
-                            </Tag>
-                          )}
-                        </HStack>
-                        <Text fontSize="xs" color="gray.500">
-                          {formatDate(version.date)}
+              </Box>
+            ) : (
+              mockVersions.map((version: any) => (
+                <HStack key={version.version} justify="space-between" p={3}
+                       bg={version.isCurrent ? 'blue.50' : 'gray.50'}
+                       borderRadius="md"
+                       border="1px solid"
+                       borderColor={version.isCurrent ? 'blue.200' : 'gray.200'}>
+                  <HStack>
+                    <Icon as={version.isCurrent ? CheckIcon : TimeIcon}
+                          color={version.isCurrent ? 'green.500' : 'gray.400'} />
+                    <VStack align="start" spacing={0}>
+                      <HStack>
+                        <Text fontSize="sm" fontWeight={version.isCurrent ? 'medium' : 'normal'}>
+                          {version.version}
                         </Text>
-                        {version.changes && (
-                          <Text fontSize="xs" color="gray.600" mt={1}>
-                            {version.changes}
-                          </Text>
+                        {version.isCurrent && (
+                          <Tag size="sm" colorScheme="blue">
+                            <TagLabel>目前使用</TagLabel>
+                          </Tag>
                         )}
-                      </VStack>
-                    </HStack>
-
-                    {!version.isCurrent && mockFactor.type !== 'composite_factor' && (
-                      <Button size="xs" variant="outline">
-                        切換
-                      </Button>
-                    )}
+                      </HStack>
+                      <Text fontSize="xs" color="gray.500">
+                        {formatDate(version.date)}
+                      </Text>
+                      {version.changes && (
+                        <Text fontSize="xs" color="gray.600" mt={1}>
+                          {version.changes}
+                        </Text>
+                      )}
+                    </VStack>
                   </HStack>
-                ))
-              )}
-            </VStack>
-          </CardBody>
-        </Card>
+
+                  {!version.isCurrent && mockFactor.type !== 'composite_factor' && (
+                    <Button size="xs" variant="outline">
+                      切換
+                    </Button>
+                  )}
+                </HStack>
+              ))
+            )}
+          </VStack>
+        </Box>
 
         {/* Sync Status - For user-defined composite factors and imported central library factors */}
         {mockFactor.type === 'composite_factor' &&

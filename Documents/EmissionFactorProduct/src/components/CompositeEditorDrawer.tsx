@@ -19,12 +19,6 @@ import {
   Button,
   Text,
   Box,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
   IconButton,
   NumberInput,
   NumberInputField,
@@ -35,8 +29,6 @@ import {
   AlertIcon,
   Divider,
   Badge,
-  Card,
-  CardBody,
   useToast,
   Tabs,
   TabList,
@@ -44,16 +36,16 @@ import {
   TabPanels,
   TabPanel,
   Icon,
-  Tooltip,
+  Radio,
+  RadioGroup,
+  Stack,
 } from '@chakra-ui/react'
 import {
   DeleteIcon,
   AddIcon,
-  CheckIcon,
   WarningIcon,
   RepeatIcon,
   InfoIcon,
-  CheckCircleIcon,
 } from '@chakra-ui/icons'
 import { useState, Fragment, useMemo, useEffect } from 'react'
 import { formatNumber } from '@/lib/utils'
@@ -780,12 +772,12 @@ export default function CompositeEditorDrawer({
   const weightError = isWeightedFormula && Math.abs(totalWeight - 1) > 0.001
 
   return (
-    <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="lg">
+    <Drawer isOpen={isOpen} placement="right" onClose={onClose} size="xl">
       <DrawerOverlay />
       <DrawerContent>
         <DrawerCloseButton />
         <DrawerHeader>
-          {editingFactor ? '編輯組合係數' : '自建組合係數編輯器'}
+          Create Composite Factor
         </DrawerHeader>
 
         <DrawerBody>
@@ -801,11 +793,11 @@ export default function CompositeEditorDrawer({
                 <VStack spacing={6} align="stretch">
             {/* Basic Information */}
             <Box>
-              <Text fontSize="md" fontWeight="medium" mb={4}>基本資訊</Text>
-              
+              <Text fontSize="md" fontWeight="medium" mb={4} color="blue.600">Basic Information</Text>
+
               <VStack spacing={4} align="stretch">
                 <FormControl isRequired isInvalid={!!validationErrors.compositeName}>
-                  <FormLabel fontSize="sm">組合係數名稱</FormLabel>
+                  <FormLabel fontSize="sm">Composite Factor Name</FormLabel>
                   <Input
                     value={compositeName}
                     onChange={(e) => {
@@ -815,24 +807,24 @@ export default function CompositeEditorDrawer({
                         setValidationErrors(prev => ({ ...prev, compositeName: undefined }))
                       }
                     }}
-                    placeholder="請輸入組合係數名稱"
+                    placeholder="Please enter"
                   />
                   <FormErrorMessage>{validationErrors.compositeName}</FormErrorMessage>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel fontSize="sm">描述</FormLabel>
+                  <FormLabel fontSize="sm">Comment</FormLabel>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="請輸入組合係數的詳細描述..."
+                    placeholder="Please enter"
                     rows={3}
                   />
                 </FormControl>
 
                 <HStack spacing={4}>
                   <FormControl isRequired isInvalid={!!validationErrors.region}>
-                    <FormLabel fontSize="sm">國家/區域</FormLabel>
+                    <FormLabel fontSize="sm">Country/Area</FormLabel>
                     <Select
                       value={region}
                       onChange={(e) => {
@@ -842,6 +834,7 @@ export default function CompositeEditorDrawer({
                           setValidationErrors(prev => ({ ...prev, region: undefined }))
                         }
                       }}
+                      placeholder="Search for keywords"
                     >
                       <option value="全球">全球</option>
                       <option value="台灣">台灣</option>
@@ -856,78 +849,70 @@ export default function CompositeEditorDrawer({
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel fontSize="sm">啟用日期</FormLabel>
+                    <FormLabel fontSize="sm">Enabled Date</FormLabel>
                     <Input
                       type="date"
                       value={enabledDate}
                       onChange={(e) => setEnabledDate(e.target.value)}
+                      placeholder="(yyyy/mm/dd)"
                     />
                   </FormControl>
                 </HStack>
 
-                <HStack>
-                  <FormControl>
-                    <FormLabel fontSize="sm">計算方式</FormLabel>
-                    <Select
+                <HStack align="start" spacing={6}>
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="sm">Calculation Method</FormLabel>
+                    <RadioGroup
                       value={formulaType}
-                      onChange={(e) => setFormulaType(e.target.value as 'sum' | 'weighted')}
+                      onChange={(value) => setFormulaType(value as 'sum' | 'weighted')}
                     >
-                      <option value="weighted">權重平均</option>
-                      <option value="sum">權重加總</option>
-                    </Select>
+                      <Stack direction="row" spacing={4}>
+                        <Radio value="weighted">Weighted Average</Radio>
+                        <Radio value="sum">Weighted Sum</Radio>
+                      </Stack>
+                    </RadioGroup>
+                    <Text fontSize="xs" color="gray.600" mt={2}>
+                      If weighted average is selected, the total weight must equal 1.
+                    </Text>
                   </FormControl>
 
-                  <FormControl>
-                    <FormLabel fontSize="sm">目標單位</FormLabel>
-                    <VStack align="stretch" spacing={2}>
-                      <HStack spacing={2}>
-                        {/* 固定分子 */}
-                        <Text fontSize="sm" fontWeight="medium" minW="80px">
-                          kg CO₂e /
-                        </Text>
+                  <FormControl flex={1}>
+                    <FormLabel fontSize="sm">
+                      Target Unit <Text as="span" color="gray.500" fontWeight="normal">(Preview: kg CO₂e/{unitValue || '(unit)'})</Text>
+                    </FormLabel>
+                    <HStack spacing={2}>
+                      {/* 第一層：單位類別 */}
+                      <Select
+                        placeholder="Weight"
+                        value={unitCategory}
+                        onChange={(e) => {
+                          setUnitCategory(e.target.value)
+                          setUnitValue('')  // 清空具體單位
+                        }}
+                        flex={1}
+                      >
+                        {Object.entries(UNIT_CATEGORIES).map(([key, category]) => (
+                          <option key={key} value={key}>
+                            {category.label}
+                          </option>
+                        ))}
+                      </Select>
 
-                        {/* 第一層：單位類別 */}
-                        <Select
-                          placeholder="請選擇類別"
-                          value={unitCategory}
-                          onChange={(e) => {
-                            setUnitCategory(e.target.value)
-                            setUnitValue('')  // 清空具體單位
-                          }}
-                          flex={1}
-                          size="sm"
-                        >
-                          {Object.entries(UNIT_CATEGORIES).map(([key, category]) => (
-                            <option key={key} value={key}>
-                              {category.label}
-                            </option>
-                          ))}
-                        </Select>
-
-                        {/* 第二層：具體單位 */}
-                        <Select
-                          placeholder="請選擇單位"
-                          value={unitValue}
-                          onChange={(e) => setUnitValue(e.target.value)}
-                          flex={1}
-                          size="sm"
-                          isDisabled={!unitCategory}
-                        >
-                          {unitCategory && UNIT_CATEGORIES[unitCategory as keyof typeof UNIT_CATEGORIES].units.map((unit) => (
-                            <option key={unit.value} value={unit.value}>
-                              {unit.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </HStack>
-
-                      {/* 顯示完整單位 */}
-                      {unitValue && (
-                        <Text fontSize="xs" color="gray.600">
-                          完整單位：kg CO₂e/{unitValue}
-                        </Text>
-                      )}
-                    </VStack>
+                      {/* 第二層：具體單位 */}
+                      <Select
+                        placeholder="kg"
+                        value={unitValue}
+                        onChange={(e) => setUnitValue(e.target.value)}
+                        flex={1}
+                        isDisabled={!unitCategory}
+                      >
+                        {unitCategory && UNIT_CATEGORIES[unitCategory as keyof typeof UNIT_CATEGORIES].units.map((unit) => (
+                          <option key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </HStack>
                   </FormControl>
                 </HStack>
               </VStack>
@@ -938,274 +923,150 @@ export default function CompositeEditorDrawer({
             {/* Components */}
             <Box>
               <HStack justify="space-between" mb={4}>
-                <Text fontSize="md" fontWeight="medium">組成係數</Text>
-                <Button
-                  leftIcon={<AddIcon />}
-                  size="sm"
-                  colorScheme="blue"
-                  variant="outline"
-                  onClick={handleAddComponent}
-                >
-                  新增係數
-                </Button>
+                <Text fontSize="md" fontWeight="medium" color="blue.600">組合係數組成</Text>
+                <HStack spacing={2}>
+                  <IconButton
+                    aria-label="Reset all"
+                    icon={<RepeatIcon />}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setComponents([])}
+                    isDisabled={components.length === 0}
+                  />
+                  <Button
+                    leftIcon={<AddIcon />}
+                    size="sm"
+                    colorScheme="blue"
+                    variant="outline"
+                    onClick={handleAddComponent}
+                  >
+                    + Add Factor
+                  </Button>
+                </HStack>
               </HStack>
 
               {components.length > 0 ? (
-                <Box borderRadius="md" border="1px solid" borderColor="gray.200" overflow="hidden">
-                  <Table size="sm">
-                    <Thead bg="gray.50">
-                      <Tr>
-                        <Th>係數名稱</Th>
-                        <Th isNumeric>值</Th>
-                        <Th>單位</Th>
-                        <Th isNumeric>權重</Th>
-                        <Th width="60px"></Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {components.map((component) => {
-                        const check = checkUnitCompatibility(component.unit, targetUnit)
-                        const hasWarning = !check.isCompatible && !component.unitConversion?.convertedValue
+                <VStack spacing={0} align="stretch">
+                  {components.map((component, index) => {
+                    const check = checkUnitCompatibility(component.unit, targetUnit)
+                    const hasWarning = !check.isCompatible && !component.unitConversion?.convertedValue
 
-                        return (
-                          <Fragment key={component.id}>
-                            {/* 主要行 */}
-                            <Tr bg={hasWarning ? 'orange.50' : undefined}>
-                              <Td>
-                                <VStack align="start" spacing={1}>
-                                  <HStack spacing={2}>
-                                    <Text fontSize="sm" fontWeight="medium">
-                                      {component.name}
-                                    </Text>
-                                    {!check.isCompatible && (
-                                      <Tooltip
-                                        label={
-                                          check.canAutoConvert
-                                            ? `單位不一致，但可自動轉換（${check.fromCategory}）`
-                                            : `單位類別不同（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），需手動輸入`
-                                        }
-                                        placement="top"
-                                      >
-                                        <Icon
-                                          as={WarningIcon}
-                                          color={check.canAutoConvert ? 'orange.400' : 'red.500'}
-                                          boxSize={3}
-                                          cursor="pointer"
-                                          onClick={() => handleUnitConversionToggle(component.id)}
-                                        />
-                                      </Tooltip>
-                                    )}
-                                  </HStack>
-                                  {component.gwpConversion && (
-                                    <Badge size="xs" colorScheme="green">
-                                      GWP {component.gwpConversion.gwpVersion} 轉換
-                                    </Badge>
-                                  )}
-                                </VStack>
-                              </Td>
-                              <Td isNumeric>
-                                <Text fontSize="sm" fontFamily="mono">
-                                  {formatNumber(component.value)}
+                    return (
+                      <Fragment key={component.id}>
+                        {/* Factor Card */}
+                        <Box
+                          bg="white"
+                          border="1px solid"
+                          borderColor="gray.200"
+                          borderRadius="md"
+                          p={4}
+                        >
+                          <HStack justify="space-between" mb={2}>
+                            <VStack align="start" spacing={1} flex={1}>
+                              <HStack spacing={2}>
+                                <Text fontSize="sm" fontWeight="bold">
+                                  {component.name}
                                 </Text>
-                              </Td>
-                              <Td>
+                                {!check.isCompatible && (
+                                  <Icon
+                                    as={WarningIcon}
+                                    color="orange.500"
+                                    boxSize={3}
+                                    cursor="pointer"
+                                    onClick={() => handleUnitConversionToggle(component.id)}
+                                  />
+                                )}
+                              </HStack>
+
+                              <Text fontSize="sm" fontFamily="mono" color="gray.600">
+                                {formatNumber(component.value)} {component.unit}
+                              </Text>
+
+                              {/* GWP Conversion Badge */}
+                              {component.gwpConversion && (
+                                <Badge size="sm" colorScheme="green">
+                                  已轉換至 GWP {component.gwpConversion.gwpVersion}
+                                </Badge>
+                              )}
+
+                              {/* Unit Warning */}
+                              {!check.isCompatible && !component.unitConversion?.convertedValue && (
                                 <HStack spacing={1}>
-                                  <Text fontSize="sm">{component.unit}</Text>
-                                  {!check.isCompatible && (
-                                    <Badge colorScheme="orange" fontSize="xs">不匹配</Badge>
-                                  )}
+                                  <Icon as={WarningIcon} color="orange.500" boxSize={3} />
+                                  <Text fontSize="xs" color="orange.600">
+                                    單位不一致，請輸入轉換因子
+                                  </Text>
                                 </HStack>
-                              </Td>
-                              <Td isNumeric>
+                              )}
+                            </VStack>
+
+                            <IconButton
+                              icon={<DeleteIcon />}
+                              size="sm"
+                              variant="ghost"
+                              colorScheme="red"
+                              onClick={() => handleRemoveComponent(component.id)}
+                              aria-label="Remove component"
+                            />
+                          </HStack>
+
+                          <HStack justify="flex-end" spacing={4} mt={3}>
+                            {/* Conversion Ratio (if needed) */}
+                            {!check.isCompatible && (
+                              <FormControl width="200px">
+                                <FormLabel fontSize="xs" mb={1}>
+                                  Conversion ratio <Icon as={InfoIcon} boxSize={2.5} color="gray.500" />
+                                </FormLabel>
                                 <NumberInput
                                   size="sm"
-                                  min={0}
-                                  max={isWeightedFormula ? 1 : undefined}
+                                  value={component.unitConversion?.conversionFactor ?? ''}
+                                  onChange={(_, val) => handleConversionFactorChange(component.id, val)}
                                   step={0.1}
-                                  value={component.weight}
-                                  onChange={(_, value) => handleWeightChange(component.id, value)}
-                                  w="80px"
+                                  precision={4}
                                 >
-                                  <NumberInputField />
-                                  <NumberInputStepper>
-                                    <NumberIncrementStepper />
-                                    <NumberDecrementStepper />
-                                  </NumberInputStepper>
+                                  <NumberInputField placeholder="輸入因子" />
                                 </NumberInput>
-                              </Td>
-                              <Td>
-                                <IconButton
-                                  icon={<DeleteIcon />}
-                                  size="xs"
-                                  variant="ghost"
-                                  colorScheme="red"
-                                  onClick={() => handleRemoveComponent(component.id)}
-                                  aria-label="Remove component"
-                                />
-                              </Td>
-                            </Tr>
-
-                            {/* 單位轉換展開行 */}
-                            {component.unitConversion?.isExpanded && (
-                              <Tr>
-                                <Td colSpan={5} bg="blue.50" p={3}>
-                                  <VStack align="stretch" spacing={2}>
-                                    {/* 轉換模式選擇 */}
-                                    <HStack>
-                                      <Icon as={RepeatIcon} color="blue.600" />
-                                      <Text fontSize="sm" fontWeight="medium">單位轉換:</Text>
-
-                                      {/* 根據 canAutoConvert 決定顯示的選項 */}
-                                      {component.unitConversion.canAutoConvert ? (
-                                        <Select
-                                          size="sm"
-                                          width="120px"
-                                          value={component.unitConversion.mode}
-                                          onChange={(e) => handleConversionModeChange(component.id, e.target.value as 'auto' | 'custom')}
-                                        >
-                                          <option value="auto">Auto</option>
-                                          <option value="custom">Custom</option>
-                                        </Select>
-                                      ) : (
-                                        <HStack>
-                                          <Badge colorScheme="orange" fontSize="xs">Custom Only</Badge>
-                                          <Tooltip
-                                            label={`單位類別不一致（${check.fromCategory || '未知'} → ${check.toCategory || '未知'}），僅能手動輸入轉換因子`}
-                                            placement="top"
-                                          >
-                                            <Icon as={InfoIcon} color="orange.500" boxSize={3} />
-                                          </Tooltip>
-                                        </HStack>
-                                      )}
-
-                                      <Text fontSize="sm">→ {targetUnit}</Text>
-                                    </HStack>
-
-                                    {/* Auto 模式：顯示預設因子 */}
-                                    {component.unitConversion.mode === 'auto' && component.unitConversion.canAutoConvert && (
-                                      <HStack pl={6} spacing={2}>
-                                        <Icon as={CheckCircleIcon} color="green.500" boxSize={4} />
-                                        <Text fontSize="sm" color="green.700">
-                                          使用預設轉換因子: 1 {check.fromDenom} = {component.unitConversion.conversionFactor} {check.toDenom}
-                                        </Text>
-                                      </HStack>
-                                    )}
-
-                                    {/* Custom 模式：轉換因子輸入 */}
-                                    {(component.unitConversion.mode === 'custom' || !component.unitConversion.canAutoConvert) && (
-                                      <HStack pl={6} spacing={2}>
-                                        <Text fontSize="sm">Convert: {check.fromDenom} → {check.toDenom} using ratio</Text>
-                                        <NumberInput
-                                          size="sm"
-                                          width="100px"
-                                          value={component.unitConversion.conversionFactor ?? ''}
-                                          onChange={(_, val) => handleConversionFactorChange(component.id, val)}
-                                          step={0.1}
-                                          precision={4}
-                                        >
-                                          <NumberInputField placeholder="輸入因子" />
-                                        </NumberInput>
-                                        <Text fontSize="sm">{check.fromDenom}/{check.toDenom}</Text>
-                                      </HStack>
-                                    )}
-
-                                    {/* 轉換後的值 */}
-                                    {component.unitConversion.convertedValue !== undefined && (
-                                      <HStack pl={6}>
-                                        <Text fontSize="sm">Converted Value:</Text>
-                                        <Text fontSize="sm" fontWeight="bold" fontFamily="mono" color="green.600">
-                                          {formatNumber(component.unitConversion.convertedValue)} {targetUnit}
-                                        </Text>
-                                      </HStack>
-                                    )}
-
-                                    {/* 類別不一致警告 */}
-                                    {!component.unitConversion.canAutoConvert && (
-                                      <Alert status="warning" size="sm" borderRadius="md">
-                                        <AlertIcon />
-                                        <Text fontSize="xs">
-                                          單位類別不一致（{check.fromCategory || '未知'} ≠ {check.toCategory || '未知'}），請手動輸入轉換因子
-                                        </Text>
-                                      </Alert>
-                                    )}
-                                  </VStack>
-                                </Td>
-                              </Tr>
+                              </FormControl>
                             )}
 
-                            {/* GWP 轉換顯示行 */}
-                            {component.gwpConversion && (
-                              <Tr>
-                                <Td colSpan={5} bg="green.50" p={3}>
-                                  <VStack align="stretch" spacing={2}>
-                                    <HStack>
-                                      <Icon as={CheckCircleIcon} color="green.600" />
-                                      <Text fontSize="sm" fontWeight="medium" color="green.700">
-                                        GWP {component.gwpConversion.gwpVersion} 轉換詳情
-                                      </Text>
-                                    </HStack>
+                            {/* Weight */}
+                            <FormControl width="120px">
+                              <FormLabel fontSize="xs" mb={1}>Weight</FormLabel>
+                              <NumberInput
+                                size="sm"
+                                min={0}
+                                max={isWeightedFormula ? 1 : undefined}
+                                step={0.1}
+                                value={component.weight}
+                                onChange={(_, value) => handleWeightChange(component.id, value)}
+                              >
+                                <NumberInputField />
+                                <NumberInputStepper>
+                                  <NumberIncrementStepper />
+                                  <NumberDecrementStepper />
+                                </NumberInputStepper>
+                              </NumberInput>
+                            </FormControl>
+                          </HStack>
+                        </Box>
 
-                                    {/* 氣體分解 */}
-                                    <VStack align="stretch" spacing={1} pl={6}>
-                                      <HStack justify="space-between">
-                                        <Text fontSize="xs">CO₂:</Text>
-                                        <HStack>
-                                          <Text fontSize="xs" fontFamily="mono">
-                                            {formatNumber(component.gwpConversion.originalCO2)} × 1
-                                          </Text>
-                                          <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
-                                            = {formatNumber(component.gwpConversion.breakdown.co2_contribution)}
-                                          </Text>
-                                        </HStack>
-                                      </HStack>
-
-                                      {component.gwpConversion.originalCH4 && (
-                                        <HStack justify="space-between">
-                                          <Text fontSize="xs">CH₄:</Text>
-                                          <HStack>
-                                            <Text fontSize="xs" fontFamily="mono">
-                                              {formatNumber(component.gwpConversion.originalCH4)} × {component.gwpConversion.gwpVersion === 'AR4' ? '25' : component.gwpConversion.gwpVersion === 'AR5' ? '28' : '27.9'}
-                                            </Text>
-                                            <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
-                                              = {formatNumber(component.gwpConversion.breakdown.ch4_contribution)}
-                                            </Text>
-                                          </HStack>
-                                        </HStack>
-                                      )}
-
-                                      {component.gwpConversion.originalN2O && (
-                                        <HStack justify="space-between">
-                                          <Text fontSize="xs">N₂O:</Text>
-                                          <HStack>
-                                            <Text fontSize="xs" fontFamily="mono">
-                                              {formatNumber(component.gwpConversion.originalN2O)} × {component.gwpConversion.gwpVersion === 'AR4' ? '298' : component.gwpConversion.gwpVersion === 'AR5' ? '265' : '273'}
-                                            </Text>
-                                            <Text fontSize="xs" fontFamily="mono" fontWeight="bold">
-                                              = {formatNumber(component.gwpConversion.breakdown.n2o_contribution)}
-                                            </Text>
-                                          </HStack>
-                                        </HStack>
-                                      )}
-
-                                      <Divider my={1} />
-
-                                      <HStack justify="space-between">
-                                        <Text fontSize="sm" fontWeight="bold">轉換後 CO₂e:</Text>
-                                        <Text fontSize="sm" fontFamily="mono" fontWeight="bold" color="green.600">
-                                          {formatNumber(component.gwpConversion.convertedValue)} {component.unit}
-                                        </Text>
-                                      </HStack>
-                                    </VStack>
-                                  </VStack>
-                                </Td>
-                              </Tr>
-                            )}
-                          </Fragment>
-                        )
-                      })}
-                    </Tbody>
-                  </Table>
-                </Box>
+                        {/* Separator Button */}
+                        {index < components.length - 1 && (
+                          <HStack justify="center" my={2}>
+                            <IconButton
+                              aria-label="Add factor"
+                              icon={<AddIcon />}
+                              size="sm"
+                              colorScheme="blue"
+                              variant="ghost"
+                              onClick={handleAddComponent}
+                            />
+                          </HStack>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </VStack>
               ) : (
                 <Box
                   p={8}
@@ -1283,68 +1144,67 @@ export default function CompositeEditorDrawer({
 
             <Divider />
 
-            {/* Calculation Result */}
-            <Box>
-              <Text fontSize="md" fontWeight="medium" mb={4}>計算結果</Text>
-              
-              <Card>
-                <CardBody>
-                  <VStack align="stretch" spacing={3}>
-                    <HStack justify="space-between">
-                      <Text fontSize="sm" color="gray.600">計算方式:</Text>
-                      <Badge colorScheme={formulaType === 'weighted' ? 'blue' : 'green'}>
-                        {formulaType === 'weighted' ? '權重平均' : '權重加總'}
-                      </Badge>
-                    </HStack>
-
-                    <HStack justify="space-between">
-                      <Text fontSize="sm" color="gray.600">組成係數數量:</Text>
-                      <Text fontSize="sm">{components.length} 個</Text>
-                    </HStack>
-
-                    {/* 計算公式展示 */}
-                    {components.length > 0 && (
-                      <Box>
-                        <Text fontSize="xs" color="gray.600" mb={1}>計算公式:</Text>
-                        <Text fontSize="xs" fontFamily="mono" color="gray.700">
-                          {components.map((comp, idx) => {
-                            const value = comp.unitConversion?.convertedValue ?? comp.value
-                            return `(${formatNumber(value)}×${comp.weight})${idx < components.length - 1 ? ' + ' : ''}`
-                          }).join('')}
-                        </Text>
-                      </Box>
-                    )}
-
-                    {/* 單位轉換摘要 */}
-                    {components.some(c => c.unitConversion?.convertedValue) && (
-                      <Box>
-                        <Text fontSize="xs" color="blue.600">
-                          ✓ {components.filter(c => c.unitConversion?.convertedValue).length} 個係數已進行單位轉換
-                        </Text>
-                      </Box>
-                    )}
-
-                    <Divider />
-
-                    <HStack justify="space-between" align="center">
-                      <Text fontSize="md" fontWeight="medium">組合係數值:</Text>
-                      <Text fontSize="xl" fontWeight="bold" fontFamily="mono" color="brand.600">
-                        {formatNumber(computedValue)} {targetUnit}
-                      </Text>
-                    </HStack>
-                  </VStack>
-                </CardBody>
-              </Card>
-
-              {weightError && (
-                <Alert status="warning" size="sm" borderRadius="md" mt={4}>
-                  <AlertIcon />
-                  <Text fontSize="sm">
-                    權重總和應該等於 1.0，目前為 {totalWeight.toFixed(3)}
+            {/* Weight Statistics */}
+            {components.length > 0 && (
+              <Box
+                border="2px solid"
+                borderColor="blue.200"
+                borderRadius="md"
+                p={4}
+              >
+                <HStack justify="space-between" mb={3}>
+                  <Text fontSize="md" fontWeight="bold" color="gray.700">權重統計</Text>
+                  <Text fontSize="2xl" fontWeight="bold" color="blue.600">
+                    {totalWeight.toFixed(2)}
                   </Text>
-                </Alert>
-              )}
-            </Box>
+                </HStack>
+
+                <Text fontSize="xs" color="gray.600" mb={2}>
+                  公式：Σ(係數值 × 轉換因子 × 權重)/{formulaType === 'weighted' ? 'Σ權重' : '1'}
+                </Text>
+
+                <VStack align="stretch" spacing={1} fontSize="xs" color="gray.700">
+                  {components.map((comp, idx) => {
+                    const value = comp.unitConversion?.convertedValue ?? comp.gwpConversion?.convertedValue ?? comp.value
+                    const contribution = value * comp.weight
+                    return (
+                      <HStack key={idx} justify="space-between">
+                        <Text>{comp.name}</Text>
+                        <Text fontFamily="mono">
+                          {formatNumber(value)}×{comp.weight} = {formatNumber(contribution)}
+                        </Text>
+                      </HStack>
+                    )
+                  })}
+                </VStack>
+
+                {weightError && (
+                  <Alert status="warning" size="sm" borderRadius="md" mt={3}>
+                    <AlertIcon />
+                    <Text fontSize="xs">
+                      權重總和應該等於 1.0，目前為 {totalWeight.toFixed(3)}
+                    </Text>
+                  </Alert>
+                )}
+              </Box>
+            )}
+
+            {/* Composite Factor Value */}
+            {components.length > 0 && (
+              <Box
+                border="2px solid"
+                borderColor="blue.200"
+                borderRadius="md"
+                p={4}
+              >
+                <HStack justify="space-between" align="center">
+                  <Text fontSize="md" fontWeight="bold" color="gray.700">組合係數值</Text>
+                  <Text fontSize="2xl" fontWeight="bold" color="blue.600" fontFamily="mono">
+                    {formatNumber(computedValue)} {targetUnit}
+                  </Text>
+                </HStack>
+              </Box>
+            )}
                 </VStack>
               </TabPanel>
 
@@ -1357,22 +1217,16 @@ export default function CompositeEditorDrawer({
         </DrawerBody>
 
         <DrawerFooter borderTop="1px solid" borderColor="gray.200">
-          <HStack w="100%" justify="space-between">
-            <Button variant="outline" onClick={handleReset}>
-              重置
+          <HStack spacing={3}>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
             </Button>
-            <HStack>
-              <Button variant="ghost" onClick={onClose}>
-                取消
-              </Button>
-              <Button
-                colorScheme="brand"
-                onClick={handleSave}
-                leftIcon={<CheckIcon />}
-              >
-                儲存組合係數
-              </Button>
-            </HStack>
+            <Button
+              colorScheme="blue"
+              onClick={handleSave}
+            >
+              Submit
+            </Button>
           </HStack>
         </DrawerFooter>
       </DrawerContent>
