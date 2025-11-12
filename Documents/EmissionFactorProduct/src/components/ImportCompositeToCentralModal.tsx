@@ -55,9 +55,9 @@ interface ImportCompositeToCentralFormData {
   description: string
   factor_value: number
   unit: string
-  isic_categories: string[]  // 新增：ISIC 產業分類（必填）
+  isic_categories: string[]  // ISIC 產業分類（必填）
   geographic_scope: string
-  lifecycle_stages?: string[]  // 新增：產品生命週期階段（選填）
+  lifecycle_stages: string[]  // 產品生命週期階段（必填）
   data_quality: 'Secondary' | 'Primary'  // 數據品質等級（必填）
   // 以下欄位自動生成，不需用戶填寫
   valid_from?: string  // 自動使用 enabledDate
@@ -136,6 +136,16 @@ export default function ImportCompositeToCentralModal({
     if (formData.isic_categories.length === 0) {
       toast({
         title: '請至少選擇一個適用產業分類（ISIC）',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      })
+      return
+    }
+
+    if (!formData.lifecycle_stages || formData.lifecycle_stages.length === 0) {
+      toast({
+        title: '請至少選擇一個適用的生命週期階段',
         status: 'warning',
         duration: 3000,
         isClosable: true,
@@ -421,10 +431,13 @@ export default function ImportCompositeToCentralModal({
                 <Divider />
 
                 {/* 產品生命週期階段 */}
-                <FormControl>
+                <FormControl isRequired>
                   <FormLabel fontWeight="semibold">
-                    適用的生命週期階段（選填）
+                    適用的生命週期階段 *
                   </FormLabel>
+                  <Text fontSize="xs" color="gray.500" mb={2}>
+                    請至少選擇一個適用的生命週期階段
+                  </Text>
                   <CheckboxGroup
                     value={formData.lifecycle_stages}
                     onChange={(values) => setFormData({ ...formData, lifecycle_stages: values as string[] })}
