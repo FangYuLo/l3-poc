@@ -175,7 +175,7 @@ export default function ImportCompositeToCentralModal({
 
     const dataQualityName = dataQualityNames[formData.data_quality] || formData.data_quality
 
-    const centralLibrarySettings = `【中央庫設定】
+    const centralLibrarySettings = `【係數適用範疇】
 • 適用產業分類：${isicNames}
 • 適用生命週期階段：${lifecycleNames}
 • 數據品質等級：${dataQualityName}`
