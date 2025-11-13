@@ -469,27 +469,48 @@ export default function CompositeEditorDrawer({
   // 處理轉換模式切換
   const handleConversionModeChange = (componentId: number, mode: 'auto' | 'custom') => {
     setComponents(components.map(comp => {
-      if (comp.id === componentId && comp.unitConversion) {
+      if (comp.id === componentId) {
         const check = checkUnitCompatibility(comp.unit, targetUnit)
 
-        if (mode === 'auto' && comp.unitConversion.canAutoConvert) {
+        if (mode === 'auto' && check.canAutoConvert) {
           const factor = getAutoConversionFactor(check.fromDenom, check.toDenom)
           const autoFactor = factor !== null ? factor : undefined
+
           return {
             ...comp,
             unitConversion: {
-              ...comp.unitConversion,
               mode: 'auto',
+              fromUnit: comp.unit,
+              toUnit: targetUnit,
+              canAutoConvert: true,
               conversionFactor: autoFactor,
               convertedValue: autoFactor ? comp.value * autoFactor : undefined,
+              isExpanded: true,
             }
           }
         } else {
-          return {
-            ...comp,
-            unitConversion: {
-              ...comp.unitConversion,
-              mode: 'custom',
+          // 切換到 custom 模式
+          if (comp.unitConversion) {
+            return {
+              ...comp,
+              unitConversion: {
+                ...comp.unitConversion,
+                mode: 'custom',
+              }
+            }
+          } else {
+            // 如果還沒有 unitConversion，創建一個新的
+            return {
+              ...comp,
+              unitConversion: {
+                mode: 'custom',
+                fromUnit: comp.unit,
+                toUnit: targetUnit,
+                canAutoConvert: check.canAutoConvert,
+                conversionFactor: undefined,
+                convertedValue: undefined,
+                isExpanded: true,
+              }
             }
           }
         }
@@ -499,9 +520,36 @@ export default function CompositeEditorDrawer({
   }
 
   // 處理自訂轉換因子輸入
-  const handleConversionFactorChange = (componentId: number, factor: number) => {
+  const handleConversionFactorChange = (componentId: number, factor: number | undefined) => {
     setComponents(components.map(comp => {
-      if (comp.id === componentId && comp.unitConversion) {
+      if (comp.id === componentId) {
+        const check = checkUnitCompatibility(comp.unit, targetUnit)
+
+        // 如果 factor 是 undefined，清除 unitConversion
+        if (factor === undefined) {
+          return {
+            ...comp,
+            unitConversion: undefined,
+          }
+        }
+
+        // 如果 unitConversion 不存在，創建一個新的
+        if (!comp.unitConversion) {
+          return {
+            ...comp,
+            unitConversion: {
+              mode: 'custom',
+              fromUnit: comp.unit,
+              toUnit: targetUnit,
+              canAutoConvert: check.canAutoConvert,
+              conversionFactor: factor,
+              convertedValue: comp.value * factor,
+              isExpanded: true,
+            }
+          }
+        }
+
+        // 如果已存在，更新它
         return {
           ...comp,
           unitConversion: {
@@ -515,12 +563,6 @@ export default function CompositeEditorDrawer({
       return comp
     }))
   }
-
-  // 檢查是否有單位不相容的情況
-  const hasUnitIncompatibility = components.some(comp => {
-    const check = checkUnitCompatibility(comp.unit, targetUnit)
-    return !check.isCompatible
-  })
 
   // === 結束單位類別與轉換邏輯 ===
 
@@ -629,15 +671,49 @@ export default function CompositeEditorDrawer({
 
   // 將係數加入到組合中
   const addFactorsToComponents = (factors: any[]) => {
-    const newComponents: ComponentItem[] = factors.map(factor => ({
-      id: Date.now() + Math.random(), // 生成唯一 ID
-      factorId: factor.id, // 保存原始係數 ID
-      name: factor.name,
-      value: factor.gwpConversion?.convertedValue || factor.value,
-      unit: factor.gwpConversion ? `kg CO2e/${factor.unit.split('/')[1] || 'unit'}` : factor.unit,
-      weight: factors.length > 0 ? 1.0 / factors.length : 1.0, // 平均分配權重
-      gwpConversion: factor.gwpConversion,
-    }))
+    const newComponents: ComponentItem[] = factors.map(factor => {
+      const factorUnit = factor.gwpConversion ? `kg CO2e/${factor.unit.split('/')[1] || 'unit'}` : factor.unit
+      const factorValue = factor.gwpConversion?.convertedValue || factor.value
+
+      // 檢查單位相容性
+      const extractDenominator = (unit: string) => {
+        const parts = unit.split('/')
+        return parts.length > 1 ? parts[1].trim() : parts[0].trim()
+      }
+
+      const fromDenom = extractDenominator(factorUnit)
+      const toDenom = extractDenominator(targetUnit)
+      const isExactMatch = fromDenom === toDenom
+      const sameCategory = isSameCategory(fromDenom, toDenom)
+
+      // 如果單位不完全相同但屬於同類別，自動初始化 auto 模式的 unitConversion
+      let unitConversion = undefined
+      if (!isExactMatch && sameCategory) {
+        const autoFactor = getAutoConversionFactor(fromDenom, toDenom)
+        if (autoFactor !== null) {
+          unitConversion = {
+            mode: 'auto' as const,
+            fromUnit: factorUnit,
+            toUnit: targetUnit,
+            canAutoConvert: true,
+            conversionFactor: autoFactor,
+            convertedValue: factorValue * autoFactor,
+            isExpanded: true,
+          }
+        }
+      }
+
+      return {
+        id: Date.now() + Math.random(), // 生成唯一 ID
+        factorId: factor.id, // 保存原始係數 ID
+        name: factor.name,
+        value: factorValue,
+        unit: factorUnit,
+        weight: factors.length > 0 ? 1.0 / factors.length : 1.0, // 平均分配權重
+        gwpConversion: factor.gwpConversion,
+        unitConversion,
+      }
+    })
 
     setComponents(prev => [...prev, ...newComponents])
 
@@ -992,9 +1068,15 @@ export default function CompositeEditorDrawer({
                               {/* Unit Warning */}
                               {!check.isCompatible && !component.unitConversion?.convertedValue && (
                                 <HStack spacing={1}>
-                                  <Icon as={WarningIcon} color="orange.500" boxSize={3} />
-                                  <Text fontSize="xs" color="orange.600">
-                                    單位不一致，請輸入轉換因子
+                                  <Icon
+                                    as={check.canAutoConvert ? InfoIcon : WarningIcon}
+                                    color={check.canAutoConvert ? "blue.500" : "orange.500"}
+                                    boxSize={3}
+                                  />
+                                  <Text fontSize="xs" color={check.canAutoConvert ? "blue.600" : "orange.600"}>
+                                    {check.canAutoConvert
+                                      ? `單位可自動轉換 (${check.fromDenom} → ${check.toDenom})`
+                                      : '單位不一致，請輸入轉換因子'}
                                   </Text>
                                 </HStack>
                               )}
@@ -1010,27 +1092,81 @@ export default function CompositeEditorDrawer({
                             />
                           </HStack>
 
-                          <HStack justify="flex-end" spacing={4} mt={3}>
+                          <HStack spacing={4} mt={3} align="start">
                             {/* Conversion Ratio (if needed) */}
                             {!check.isCompatible && (
-                              <FormControl width="200px">
+                              <FormControl flex={1}>
                                 <FormLabel fontSize="xs" mb={1}>
                                   Conversion ratio <Icon as={InfoIcon} boxSize={2.5} color="gray.500" />
                                 </FormLabel>
-                                <NumberInput
-                                  size="sm"
-                                  value={component.unitConversion?.conversionFactor ?? ''}
-                                  onChange={(_, val) => handleConversionFactorChange(component.id, val)}
-                                  step={0.1}
-                                  precision={4}
-                                >
-                                  <NumberInputField placeholder="輸入因子" />
-                                </NumberInput>
+
+                                <HStack spacing={2} align="start">
+                                  {/* 模式選擇下拉選單 */}
+                                  {check.canAutoConvert && (
+                                    <Select
+                                      size="sm"
+                                      value={component.unitConversion?.mode || 'auto'}
+                                      onChange={(e) => {
+                                        const newMode = e.target.value as 'auto' | 'custom'
+                                        handleConversionModeChange(component.id, newMode)
+                                      }}
+                                      width="90px"
+                                    >
+                                      <option value="auto">Auto</option>
+                                      <option value="custom">Custom</option>
+                                    </Select>
+                                  )}
+
+                                  {/* 轉換因子輸入框 */}
+                                  <Box flex={1}>
+                                    <NumberInput
+                                      size="sm"
+                                      value={component.unitConversion?.conversionFactor ?? ''}
+                                      onChange={(valueString, valueNumber) => {
+                                        // 只有在 custom 模式下才允許修改
+                                        if (component.unitConversion?.mode === 'custom' || !check.canAutoConvert) {
+                                          // 情況 1：空字串 - 清除轉換因子
+                                          if (valueString === '' || valueString === undefined || valueString === null) {
+                                            handleConversionFactorChange(component.id, undefined)
+                                            return
+                                          }
+
+                                          // 情況 2：有效數字且大於 0
+                                          if (!isNaN(valueNumber) && valueNumber > 0) {
+                                            handleConversionFactorChange(component.id, valueNumber)
+                                            return
+                                          }
+                                        }
+                                      }}
+                                      step={0.1}
+                                      precision={4}
+                                      min={0.0001}
+                                      max={1000000}
+                                      isDisabled={check.canAutoConvert && component.unitConversion?.mode === 'auto'}
+                                    >
+                                      <NumberInputField placeholder="輸入因子" />
+                                      <NumberInputStepper>
+                                        <NumberIncrementStepper />
+                                        <NumberDecrementStepper />
+                                      </NumberInputStepper>
+                                    </NumberInput>
+
+                                    {/* 轉換提示文字 */}
+                                    {component.unitConversion?.conversionFactor && (
+                                      <HStack spacing={1} mt={1}>
+                                        <Icon as={InfoIcon} color="green.500" boxSize={3} />
+                                        <Text fontSize="2xs" color="green.600">
+                                          Automatically applied conversion ratio: {component.unitConversion.conversionFactor} {check.toDenom} = 1 {check.fromDenom}
+                                        </Text>
+                                      </HStack>
+                                    )}
+                                  </Box>
+                                </HStack>
                               </FormControl>
                             )}
 
                             {/* Weight */}
-                            <FormControl width="120px">
+                            <FormControl width="140px">
                               <FormLabel fontSize="xs" mb={1}>Weight</FormLabel>
                               <NumberInput
                                 size="sm"
@@ -1088,58 +1224,6 @@ export default function CompositeEditorDrawer({
                 </Text>
               )}
 
-              {/* Weight Summary */}
-              {components.length > 0 && (
-                <Box>
-                  <HStack
-                    justify="space-between"
-                    mt={4}
-                    p={3}
-                    bg="gray.50"
-                    borderRadius="md"
-                    borderWidth={validationErrors.weightTotal || validationErrors.weightValues ? "1px" : "0px"}
-                    borderColor="red.300"
-                  >
-                    <Text fontSize="sm" fontWeight="medium">
-                      權重總計:
-                    </Text>
-                    <HStack>
-                      <Text fontSize="sm" fontFamily="mono">
-                        {totalWeight.toFixed(3)}
-                      </Text>
-                      {weightError && (
-                        <Badge colorScheme="red" size="sm">
-                          應為 1.0
-                        </Badge>
-                      )}
-                    </HStack>
-                  </HStack>
-                  {/* 權重錯誤訊息 */}
-                  {validationErrors.weightTotal && (
-                    <Text color="red.500" fontSize="sm" mt={2}>
-                      {validationErrors.weightTotal}
-                    </Text>
-                  )}
-                  {validationErrors.weightValues && (
-                    <Text color="red.500" fontSize="sm" mt={2}>
-                      {validationErrors.weightValues}
-                    </Text>
-                  )}
-                </Box>
-              )}
-
-              {/* 單位相容性警告 */}
-              {hasUnitIncompatibility && (
-                <Alert status="warning" size="sm" borderRadius="md" mt={4}>
-                  <AlertIcon />
-                  <VStack align="start" spacing={1} flex={1}>
-                    <Text fontSize="sm" fontWeight="medium">單位相容性警告</Text>
-                    <Text fontSize="xs">
-                      部分係數的單位類型不一致。建議使用「權重加總」方法或驗證計算邏輯。
-                    </Text>
-                  </VStack>
-                </Alert>
-              )}
             </Box>
 
             <Divider />
