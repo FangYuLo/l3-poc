@@ -316,7 +316,7 @@ export default function ImportCompositeToCentralModal({
 
     setIsSubmitting(true)
     try {
-      // 生成包含組成資訊和中央庫設定的完整備註
+      // 生成包含組成資訊和適用範圍的完整備註
       const compositionNotes = generateCompositionNotes(compositeFactor, formData)
 
       // 提交前確保所有自動生成的欄位都已填入
@@ -324,7 +324,7 @@ export default function ImportCompositeToCentralModal({
         ...formData,
         valid_from: formData.valid_from || compositeFactor.enabledDate || new Date().toISOString().split('T')[0],
         composition_notes: compositionNotes,
-        // 新增：將中央庫設定資訊對應到係數欄位
+        // 新增：將適用範圍資訊對應到係數欄位
         isic_categories: formData.isic_categories,
         lifecycle_stages: formData.lifecycle_stages,
         data_quality: formData.data_quality,
@@ -542,10 +542,10 @@ export default function ImportCompositeToCentralModal({
 
             <Divider borderColor="gray.400" />
 
-            {/* 中央庫設定區塊 */}
+            {/* 適用範圍區塊 */}
             <Box>
               <Text fontWeight="bold" fontSize="lg" color="brand.600" mb={1}>
-                【中央庫設定】
+                【適用範圍】
               </Text>
               <Text fontSize="sm" color="gray.600" mb={4}>
                 請填寫係數在中央庫中的分類資訊

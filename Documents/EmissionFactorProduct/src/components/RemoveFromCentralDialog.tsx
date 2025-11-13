@@ -94,7 +94,7 @@ export default function RemoveFromCentralDialog({
                 ⚠️ 移除後影響
               </Text>
               <Text fontSize="sm" color="gray.700" lineHeight="tall">
-                係數將從中央庫移除，原自建係數恢復為「未匯入」狀態，之後可重新匯入或刪除。
+                係數將自中央係數庫移除，之後可重新匯入或於原建立位置刪除。
               </Text>
             </Box>
 
