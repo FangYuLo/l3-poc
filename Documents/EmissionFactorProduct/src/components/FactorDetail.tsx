@@ -77,6 +77,59 @@ const formatDataQuality = (quality: string): string => {
     : 'Secondary（第二級 - 次級資料庫）'
 }
 
+// 彙整組合係數的所有組成係數來源
+const getComponentSources = (components: any[]): string => {
+  if (!components || components.length === 0) {
+    return '無組成係數來源資訊'
+  }
+
+  const sources = components
+    .map(comp => {
+      // 優先使用 emission_factor.source，其次使用 source_ref
+      const source = comp.emission_factor?.source ||
+                    comp.emission_factor?.source_ref ||
+                    '未知來源'
+      return source
+    })
+    .filter((value, index, self) => self.indexOf(value) === index)  // 去重複
+
+  if (sources.length === 0) {
+    return '無組成係數來源資訊'
+  }
+
+  if (sources.length === 1) {
+    return sources[0]
+  }
+
+  // 多個來源時，用頓號分隔
+  return sources.join('、')
+}
+
+// 格式化引用專案資訊
+const getReferencedProjects = (usageInfo?: any): string => {
+  // 檢查是否有 usage_info
+  if (!usageInfo) {
+    return '未被引用'
+  }
+
+  const { project_references } = usageInfo
+
+  // 沒有引用專案
+  if (!project_references || project_references.length === 0) {
+    return '未被引用'
+  }
+
+  // 有引用專案：顯示專案名稱
+  const projectNames = project_references.map((ref: any) => ref.project_name)
+
+  if (projectNames.length === 1) {
+    return projectNames[0]
+  }
+
+  // 多個專案時，用頓號分隔
+  return projectNames.join('、')
+}
+
 interface FactorDetailProps {
   selectedFactor?: any // 從父組件傳入的選中係數
   onEditFactor?: (updatedFactor: any) => void // 編輯係數回調
@@ -746,7 +799,12 @@ export default function FactorDetail({
             <Tbody>
               <Tr>
                 <Td width="40%" bg="gray.50" fontWeight="medium">Source of Emission Factor</Td>
-                <Td>{mockFactor.source}</Td>
+                <Td>
+                  {mockFactor.type === 'composite_factor' && mockCompositeComponents
+                    ? getComponentSources(mockCompositeComponents)
+                    : mockFactor.source
+                  }
+                </Td>
               </Tr>
               <Tr>
                 <Td bg="gray.50" fontWeight="medium">Enabled Date</Td>
@@ -764,6 +822,16 @@ export default function FactorDetail({
                 <Td bg="gray.50" fontWeight="medium">Area</Td>
                 <Td>{mockFactor.region || '台灣'}</Td>
               </Tr>
+              {mockFactor.type === 'composite_factor' && (
+                <Tr>
+                  <Td bg="gray.50" fontWeight="medium">引用專案</Td>
+                  <Td>
+                    <Text fontSize="sm" color={mockFactor.usage_info ? "gray.700" : "gray.500"}>
+                      {getReferencedProjects(mockFactor.usage_info)}
+                    </Text>
+                  </Td>
+                </Tr>
+              )}
               <Tr>
                 <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Emission Factor</Td>
                 <Td>

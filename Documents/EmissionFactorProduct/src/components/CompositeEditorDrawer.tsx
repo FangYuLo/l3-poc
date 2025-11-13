@@ -69,6 +69,13 @@ interface ComponentItem {
   unit: string
   weight: number
 
+  // 係數來源資訊
+  emission_factor?: {
+    source?: string
+    source_ref?: string
+    source_type?: 'standard' | 'pact' | 'supplier' | 'user_defined'
+  }
+
   // GWP 轉換相關欄位
   gwpConversion?: {
     gwpVersion: 'AR4' | 'AR5' | 'AR6'
@@ -309,6 +316,7 @@ export default function CompositeEditorDrawer({
           value: comp.originalValue,
           unit: comp.originalUnit,
           weight: comp.weight,
+          emission_factor: comp.emission_factor,
           gwpConversion: comp.gwpConversion,
           unitConversion: comp.unitConversion,
         }))
@@ -710,6 +718,11 @@ export default function CompositeEditorDrawer({
         value: factorValue,
         unit: factorUnit,
         weight: factors.length > 0 ? 1.0 / factors.length : 1.0, // 平均分配權重
+        emission_factor: {
+          source: factor.source_ref || factor.source,
+          source_ref: factor.source_ref,
+          source_type: factor.source_type,
+        },
         gwpConversion: factor.gwpConversion,
         unitConversion,
       }
@@ -792,6 +805,13 @@ export default function CompositeEditorDrawer({
         originalValue: comp.value, // 保存原始值
         originalUnit: comp.unit, // 保存原始單位
         weight: comp.weight,
+
+        // 係數來源資訊
+        emission_factor: comp.emission_factor ? {
+          source: comp.emission_factor.source,
+          source_ref: comp.emission_factor.source_ref,
+          source_type: comp.emission_factor.source_type,
+        } : null,
 
         // GWP 轉換資訊
         gwpConversion: comp.gwpConversion ? {

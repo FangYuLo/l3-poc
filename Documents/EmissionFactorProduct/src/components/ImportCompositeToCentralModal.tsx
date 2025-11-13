@@ -42,12 +42,33 @@ import {
 import { ChevronDownIcon, CloseIcon, WarningIcon, CheckIcon } from '@chakra-ui/icons'
 import { useState } from 'react'
 
+interface EmissionFactor {
+  source?: string
+  source_ref?: string
+  source_type?: 'standard' | 'pact' | 'supplier' | 'user_defined'
+}
+
 interface CompositeComponent {
   name: string
   value: number
   unit: string
   weight: number
   dataQuality?: string
+  emission_factor?: EmissionFactor
+}
+
+interface ProjectReference {
+  project_id: string
+  project_name: string
+  project_type: 'L1' | 'L2' | 'L4'
+  usage_count: number
+  last_used_date: string
+}
+
+interface FactorUsageInfo {
+  total_usage_count: number
+  project_references: ProjectReference[]
+  usage_summary: string
 }
 
 interface CompositeFactor {
@@ -60,6 +81,7 @@ interface CompositeFactor {
   components: CompositeComponent[]
   region?: string
   enabledDate?: string
+  usage_info?: FactorUsageInfo
 }
 
 interface ImportCompositeToCentralFormData {
@@ -177,6 +199,69 @@ export default function ImportCompositeToCentralModal({
       return match ? match[1] : fullName
     })
     return stageNames.join(' + ')
+  }
+
+  // 彙整組合係數的所有組成係數來源
+  const getComponentSources = (compositeFactor: CompositeFactor): string => {
+    const sources = compositeFactor.components
+      .map(comp => {
+        // 優先使用 source，其次使用 source_ref
+        const source = comp.emission_factor?.source ||
+                      comp.emission_factor?.source_ref ||
+                      '未知來源'
+        return source
+      })
+      .filter((value, index, self) => self.indexOf(value) === index)  // 去重複
+
+    if (sources.length === 0) {
+      return '無組成係數來源資訊'
+    }
+
+    if (sources.length === 1) {
+      return sources[0]
+    }
+
+    // 多個來源時，用頓號分隔
+    return sources.join('、')
+  }
+
+  // 格式化引用專案資訊（進階版：包含專案類型）
+  const getReferencedProjectsWithTypes = (compositeFactor: CompositeFactor): JSX.Element => {
+    // 檢查是否有 usage_info
+    if (!compositeFactor.usage_info) {
+      return <Text fontSize="sm" color="gray.500">未被引用</Text>
+    }
+
+    const { project_references } = compositeFactor.usage_info
+
+    // 沒有引用專案
+    if (!project_references || project_references.length === 0) {
+      return <Text fontSize="sm" color="gray.500">未被引用</Text>
+    }
+
+    // 專案類型對應顯示文字和顏色
+    const projectTypeMap = {
+      'L1': { label: '組織盤查', color: 'blue' },
+      'L2': { label: '產品碳足跡', color: 'green' },
+      'L4': { label: '供應商係數', color: 'purple' },
+    }
+
+    // 有引用專案：顯示專案名稱和類型標記
+    return (
+      <VStack align="start" spacing={1}>
+        {project_references.map((ref, index) => (
+          <HStack key={index} spacing={2}>
+            <Text fontSize="sm">{ref.project_name}</Text>
+            <Badge
+              colorScheme={projectTypeMap[ref.project_type].color}
+              fontSize="xs"
+            >
+              {projectTypeMap[ref.project_type].label}
+            </Badge>
+          </HStack>
+        ))}
+      </VStack>
+    )
   }
 
   // 生成組成備註（只包含組成資訊）
@@ -382,6 +467,20 @@ export default function ImportCompositeToCentralModal({
                     <Tr>
                       <Td bg="gray.50" fontWeight="medium">Geographic Scope</Td>
                       <Td>{getRegionDisplayName(formData.geographic_scope)}</Td>
+                    </Tr>
+                    <Tr>
+                      <Td bg="gray.50" fontWeight="medium">係數來源</Td>
+                      <Td>
+                        <Text fontSize="sm">
+                          {getComponentSources(compositeFactor)}
+                        </Text>
+                      </Td>
+                    </Tr>
+                    <Tr>
+                      <Td bg="gray.50" fontWeight="medium">引用專案</Td>
+                      <Td>
+                        {getReferencedProjectsWithTypes(compositeFactor)}
+                      </Td>
                     </Tr>
                   </Tbody>
                 </Table>

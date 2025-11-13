@@ -32,6 +32,59 @@ export const qualityBadgeConfig = {
   Supplier: { colorScheme: 'purple', label: 'Supplier' }
 } as const
 
+// 彙整組合係數的所有組成係數來源
+export const getComponentSources = (components: any[]): string => {
+  if (!components || components.length === 0) {
+    return '無組成係數來源資訊'
+  }
+
+  const sources = components
+    .map(comp => {
+      // 優先使用 emission_factor.source，其次使用 source_ref
+      const source = comp.emission_factor?.source ||
+                    comp.emission_factor?.source_ref ||
+                    '未知來源'
+      return source
+    })
+    .filter((value, index, self) => self.indexOf(value) === index)  // 去重複
+
+  if (sources.length === 0) {
+    return '無組成係數來源資訊'
+  }
+
+  if (sources.length === 1) {
+    return sources[0]
+  }
+
+  // 多個來源時，用頓號分隔
+  return sources.join('、')
+}
+
+// 格式化引用專案資訊（用於表格）
+export const getReferencedProjectsText = (usageInfo?: any): string => {
+  // 檢查是否有 usage_info
+  if (!usageInfo) {
+    return '未被引用'
+  }
+
+  const { project_references } = usageInfo
+
+  // 沒有引用專案
+  if (!project_references || project_references.length === 0) {
+    return '未被引用'
+  }
+
+  // 有引用專案：顯示專案名稱
+  const projectNames = project_references.map((ref: any) => ref.project_name)
+
+  if (projectNames.length === 1) {
+    return projectNames[0]
+  }
+
+  // 多個專案時，用頓號分隔
+  return projectNames.join('、')
+}
+
 // 渲染品質標籤
 export const renderQualityBadge = (row: any, folderType?: string) => {
   let badgeType: keyof typeof qualityBadgeConfig = 'Standard'
@@ -121,11 +174,22 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         label: '係數來源',
         width: '15%',
         type: 'text',
-        formatter: (value: any, row: any) => (
-          <Text fontSize="sm" color="gray.700">
-            {value || row.data?.source || row.source || 'ecoinvent'}
-          </Text>
-        )
+        formatter: (value: any, row: any) => {
+          // 如果是組合係數，顯示組成係數的來源
+          if (row.type === 'composite_factor' && row.components) {
+            return (
+              <Text fontSize="sm" color="gray.700">
+                {getComponentSources(row.components)}
+              </Text>
+            )
+          }
+          // 一般係數顯示原本的來源
+          return (
+            <Text fontSize="sm" color="gray.700">
+              {value || row.data?.source || row.source || 'ecoinvent'}
+            </Text>
+          )
+        }
       },
       {
         key: 'quality_label',
@@ -139,11 +203,20 @@ export const folderTableConfigs: Record<string, FolderTableConfig> = {
         label: '引用專案',
         width: '20%',
         type: 'custom',
-        formatter: (value: any, row: any) => (
-          <Text fontSize="xs" color="gray.500" noOfLines={2}>
-            {row.usageText || '未被使用'}
-          </Text>
-        )
+        formatter: (value: any, row: any) => {
+          // 對組合係數，使用 usage_info 來顯示引用專案
+          const displayText = row.type === 'composite_factor'
+            ? getReferencedProjectsText(row.usage_info)
+            : (row.usageText || '未被引用')
+
+          const isUnused = displayText === '未被引用' || displayText === '未被使用'
+
+          return (
+            <Text fontSize="xs" color={isUnused ? "gray.500" : "gray.700"} noOfLines={2}>
+              {displayText}
+            </Text>
+          )
+        }
       }
     ]
   },
