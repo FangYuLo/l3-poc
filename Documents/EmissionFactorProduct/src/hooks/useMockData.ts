@@ -62,6 +62,9 @@ let importedCompositeFactors: ExtendedFactorTableItem[] = []
 // 全局存儲從中央庫移除的係數 ID 列表
 let removedFromCentralIds: Set<number> = new Set()
 
+// 全局存儲手動加入中央庫的希達係數 ID 列表
+let addedToCentralIds: Set<number> = new Set()
+
 /**
  * 添加匯入的組合係數到中央庫
  */
@@ -78,6 +81,139 @@ export function addImportedCompositeToCentral(factor: ExtendedFactorTableItem) {
  */
 export function getImportedCompositeFactors(): ExtendedFactorTableItem[] {
   return importedCompositeFactors
+}
+
+/**
+ * 將希達係數（標準排放係數）加入中央庫
+ * 與自建係數不同，希達係數資料完整，無需彈出表單，直接加入即可
+ */
+export function addStandardFactorToCentral(factorId: number): {
+  success: boolean
+  message: string
+  error?: string
+} {
+  try {
+    console.log('[addStandardFactorToCentral] 將希達係數加入中央庫, factorId:', factorId)
+
+    // 檢查係數是否已在中央庫
+    if (addedToCentralIds.has(factorId) && !removedFromCentralIds.has(factorId)) {
+      return {
+        success: true,
+        message: '此係數已在中央係數庫中'
+      }
+    }
+
+    // 從移除列表中移除（如果存在）
+    if (removedFromCentralIds.has(factorId)) {
+      removedFromCentralIds.delete(factorId)
+      console.log('[addStandardFactorToCentral] 從移除列表中移除係數ID:', factorId)
+    }
+
+    // 加入到中央庫列表
+    addedToCentralIds.add(factorId)
+    console.log('[addStandardFactorToCentral] 將係數ID加入中央庫:', factorId)
+    console.log('[addStandardFactorToCentral] 當前中央庫係數IDs:', Array.from(addedToCentralIds))
+
+    return {
+      success: true,
+      message: '已成功加入中央係數庫'
+    }
+  } catch (error) {
+    console.error('[addStandardFactorToCentral] 加入失敗:', error)
+    return {
+      success: false,
+      message: '加入中央係數庫失敗',
+      error: error instanceof Error ? error.message : '未知錯誤'
+    }
+  }
+}
+
+/**
+ * 檢查希達係數是否已在中央庫
+ * @param factorId 係數 ID
+ * @returns true: 已在中央庫, false: 未在中央庫
+ */
+export function isStandardFactorInCentral(factorId: number): boolean {
+  // 在手動加入列表中，且未被移除
+  return addedToCentralIds.has(factorId) && !removedFromCentralIds.has(factorId)
+}
+
+/**
+ * 批次檢查係數是否在中央庫
+ * @param factorIds 係數 ID 列表
+ * @returns Map<factorId, isInCentral>
+ */
+export function batchCheckFactorsInCentral(
+  factorIds: number[]
+): Map<number, boolean> {
+  const result = new Map<number, boolean>()
+  factorIds.forEach(id => {
+    result.set(id, isStandardFactorInCentral(id))
+  })
+  return result
+}
+
+/**
+ * 批次加入希達係數到中央庫
+ * @param factorIds 係數 ID 列表
+ * @returns 批次加入結果
+ */
+export function batchAddStandardFactorsToCentral(
+  factorIds: number[]
+): {
+  success: boolean
+  successCount: number
+  failedCount: number
+  errors: Array<{ factorId: number; error: string }>
+} {
+  const errors: Array<{ factorId: number; error: string }> = []
+  let successCount = 0
+  let failedCount = 0
+
+  console.log('[batchAddStandardFactorsToCentral] 開始批次加入，數量:', factorIds.length)
+
+  factorIds.forEach(factorId => {
+    try {
+      // 檢查係數是否已在中央庫
+      if (addedToCentralIds.has(factorId) && !removedFromCentralIds.has(factorId)) {
+        console.log('[batchAddStandardFactorsToCentral] 係數已在中央庫，跳過:', factorId)
+        successCount++
+        return
+      }
+
+      // 從移除列表中移除（如果存在）
+      if (removedFromCentralIds.has(factorId)) {
+        removedFromCentralIds.delete(factorId)
+        console.log('[batchAddStandardFactorsToCentral] 從移除列表中移除係數ID:', factorId)
+      }
+
+      // 加入到中央庫列表
+      addedToCentralIds.add(factorId)
+      console.log('[batchAddStandardFactorsToCentral] 將係數ID加入中央庫:', factorId)
+      successCount++
+    } catch (error) {
+      console.error('[batchAddStandardFactorsToCentral] 加入失敗:', factorId, error)
+      errors.push({
+        factorId,
+        error: error instanceof Error ? error.message : '未知錯誤'
+      })
+      failedCount++
+    }
+  })
+
+  console.log('[batchAddStandardFactorsToCentral] 批次加入完成:', {
+    total: factorIds.length,
+    success: successCount,
+    failed: failedCount,
+    currentRemovedIds: Array.from(removedFromCentralIds)
+  })
+
+  return {
+    success: failedCount === 0,
+    successCount,
+    failedCount,
+    errors
+  }
 }
 
 /**
@@ -142,6 +278,12 @@ export function removeFromCentralLibrary(
     // 這些係數由專案使用或其他方式加入中央庫，移除它們只是從視圖中移除
     // 實際數據仍然存在，只是不再顯示在中央庫中
     console.log('[useMockData] 從中央庫移除其他類型係數:', factor.name, 'ID:', factor.id, 'Type:', factor.type)
+
+    // 從手動加入列表中移除（如果存在）
+    if (addedToCentralIds.has(factor.id)) {
+      addedToCentralIds.delete(factor.id)
+      console.log('[useMockData] 從手動加入列表中移除係數ID:', factor.id)
+    }
 
     // 標記為已從中央庫移除
     removedFromCentralIds.add(factor.id)
@@ -618,7 +760,18 @@ export function useMockData() {
     // 加入匯入的組合係數
     const importedComposites = getImportedCompositeFactors()
 
-    // 合併四種係數（去重）
+    // 加入手動從希達係數庫加入的標準係數
+    const manuallyAddedFactors = allEmissionFactorItems
+      .filter(item => addedToCentralIds.has(item.id))
+      .map(item => ({
+        ...item,
+        projectUsage: usageMap.get(item.id) || [],
+        usageText: usageMap.get(item.id)?.length
+          ? formatProjectUsage(usageMap.get(item.id) || [])
+          : '未被引用'
+      }))
+
+    // 合併五種係數（去重）
     const allCentralItemsMap = new Map<number, ExtendedFactorTableItem>()
 
     // 先加入使用過的係數
@@ -632,6 +785,9 @@ export function useMockData() {
 
     // 加入匯入的組合係數
     importedComposites.forEach(item => allCentralItemsMap.set(item.id, item))
+
+    // 加入手動添加的希達係數
+    manuallyAddedFactors.forEach(item => allCentralItemsMap.set(item.id, item))
 
     console.log('[getCentralLibraryFactors] 匯入的組合係數數量:', importedComposites.length)
     console.log('[getCentralLibraryFactors] 已移除的係數IDs:', Array.from(removedFromCentralIds))
@@ -960,6 +1116,23 @@ export function useMockData() {
      * 取得中央係數庫的係數（以引用為出發點整合）
      * 只顯示被專案使用過的係數
      */
-    getCentralLibraryFactors: (): ExtendedFactorTableItem[] => centralLibraryFactors()
+    getCentralLibraryFactors: (): ExtendedFactorTableItem[] => centralLibraryFactors(),
+
+    // === 批次匯入功能 ===
+
+    /**
+     * 檢查希達係數是否已在中央庫
+     */
+    isStandardFactorInCentral,
+
+    /**
+     * 批次檢查係數是否在中央庫
+     */
+    batchCheckFactorsInCentral,
+
+    /**
+     * 批次加入希達係數到中央庫
+     */
+    batchAddStandardFactorsToCentral,
   }
 }

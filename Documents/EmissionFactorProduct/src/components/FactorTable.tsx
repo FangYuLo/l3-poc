@@ -63,6 +63,7 @@ import OrganizationalInventoryOverview from '@/components/OrganizationalInventor
 import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
 import ImportedFactorInfoDialog from '@/components/ImportedFactorInfoDialog'
 import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
+import BatchImportConfirmDialog from '@/components/BatchImportConfirmDialog'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
@@ -164,8 +165,15 @@ export default function FactorTable({
   const [blockedFactor, setBlockedFactor] = useState<any | null>(null)
   const { importCompositeToCentral, isLoading: compositeLoading } = useComposites()
 
-  // 獲取表格配置
-  const tableConfig = getTableConfig(selectedNodeType)
+  // 批次匯入狀態（針對希達係數）
+  const [batchSelectedIds, setBatchSelectedIds] = useState<number[]>([])
+  const [isBatchImportDialogOpen, setIsBatchImportDialogOpen] = useState(false)
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
+
+  // 獲取表格配置（希達係數庫使用 global_search 配置）
+  const tableConfig = getTableConfig(
+    selectedNode?.id === 'global_search' ? 'global_search' : selectedNodeType
+  )
 
   // 獲取產品碳足跡摘要（僅在產品碳足跡節點時）
   const productSummary = useMemo(() => {
@@ -248,13 +256,17 @@ export default function FactorTable({
       case 'user_defined':
         return [] // 自建係數由 filteredData 直接處理，避免重複
       case 'dataset':
-        return [] // 資料集係數由 filteredData 直接處理，避免重複
+        // 希達係數庫需要獲取所有標準係數，普通資料集由 filteredData 處理
+        if (selectedNode?.id === 'global_search') {
+          return dataService.getAllFactorItems()
+        }
+        return [] // 普通資料集係數由 filteredData 直接處理，避免重複
       case 'global_search':
         return dataService.getAllFactorItems() // 全庫搜尋：取得所有係數
       default:
         return dataService.getAllFactorItems()
     }
-  }, [selectedNodeType, dataService, dataRefreshKey])  // 添加 dataRefreshKey 到依賴
+  }, [selectedNodeType, selectedNode, dataService, dataRefreshKey])  // 添加 selectedNode 到依賴
 
   // 使用統一資料管理 - 不再使用硬編碼假資料
 
@@ -547,8 +559,27 @@ export default function FactorTable({
           last_synced_version: factor.last_synced_version,
         }))
       } else if (selectedNodeType === 'dataset') {
-        // 資料集節點：直接使用資料集係數
-        baseData = datasetFactors
+        // 資料集節點：區分希達係數庫和普通資料集
+        if (selectedNode?.id === 'global_search') {
+          // 希達係數庫：顯示所有標準係數
+          baseData = factorData.map(factor => ({
+            id: factor.id,
+            type: factor.type as 'emission_factor' | 'composite_factor',
+            name: factor.name,
+            value: factor.value,
+            unit: factor.unit,
+            year: factor.year,
+            region: factor.region,
+            method_gwp: factor.method_gwp,
+            source_type: factor.source_type,
+            source_ref: factor.source_ref,
+            version: factor.version,
+            data: factor,
+          }))
+        } else {
+          // 普通資料集：直接使用資料集係數
+          baseData = datasetFactors
+        }
       } else if (selectedNodeType === 'favorites') {
         // 中央係數庫：直接使用擴展的係數資料，保留 projectUsage 和 usageText
         baseData = factorData as any[] // factorData 已經是 ExtendedFactorTableItem[]
@@ -568,6 +599,24 @@ export default function FactorTable({
           source_ref: factor.source_ref,
           version: factor.version,
           data: factor,
+          // 保留引用資訊和資料品質欄位
+          usageText: factor.usageText,
+          usage_info: factor.usage_info,
+          data_quality: factor.data_quality,
+          quality_score: factor.quality_score,
+          validation_status: factor.validation_status,
+          // 保留完整的排放係數分項資料（用於詳情頁面）
+          co2_factor: factor.data?.co2_factor || factor.co2_factor,
+          ch4_factor: factor.data?.ch4_factor || factor.ch4_factor,
+          n2o_factor: factor.data?.n2o_factor || factor.n2o_factor,
+          co2_unit: factor.data?.co2_unit || factor.co2_unit,
+          ch4_unit: factor.data?.ch4_unit || factor.ch4_unit,
+          n2o_unit: factor.data?.n2o_unit || factor.n2o_unit,
+          // 保留完整的來源資訊（用於詳情頁面）
+          source: factor.data?.source || factor.source,
+          effective_date: factor.data?.effective_date || factor.effective_date,
+          continent: factor.data?.continent || factor.continent,
+          country: factor.data?.country || factor.country,
         }))
 
         // 應用進階篩選
@@ -769,6 +818,117 @@ export default function FactorTable({
       usedInDatasets: 0,
     }
   }
+
+  // ===== 批次匯入處理函數 =====
+
+  /**
+   * 處理單個係數的批次選擇
+   */
+  const handleBatchSelect = useCallback((factorId: number) => {
+    setBatchSelectedIds(prev => {
+      if (prev.includes(factorId)) {
+        return prev.filter(id => id !== factorId)
+      } else {
+        return [...prev, factorId]
+      }
+    })
+  }, [])
+
+  /**
+   * 處理全選
+   */
+  const handleBatchSelectAll = useCallback(() => {
+    if (batchSelectedIds.length === 0) {
+      // 全選：只選擇未在中央庫的係數
+      const selectableIds = paginatedData
+        .filter(factor => !dataService.isStandardFactorInCentral(factor.id))
+        .map(factor => factor.id)
+      setBatchSelectedIds(selectableIds)
+    } else {
+      // 取消全選
+      setBatchSelectedIds([])
+    }
+  }, [batchSelectedIds, paginatedData, dataService])
+
+  /**
+   * 取消所有選擇
+   */
+  const handleCancelBatchSelection = useCallback(() => {
+    setBatchSelectedIds([])
+  }, [])
+
+  /**
+   * 開啟批次匯入確認對話框
+   */
+  const handleOpenBatchImportDialog = useCallback(() => {
+    setIsBatchImportDialogOpen(true)
+  }, [])
+
+  /**
+   * 執行批次匯入
+   */
+  const handleBatchImport = useCallback(async () => {
+    setIsBatchProcessing(true)
+
+    try {
+      const result = dataService.batchAddStandardFactorsToCentral(batchSelectedIds)
+
+      if (result.success) {
+        toast({
+          title: '批次加入成功',
+          description: `已成功將 ${result.successCount} 個係數加入中央庫`,
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        })
+      } else {
+        toast({
+          title: '批次加入完成',
+          description: `成功 ${result.successCount} 個，失敗 ${result.failedCount} 個`,
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+        })
+      }
+
+      // 清空選擇
+      setBatchSelectedIds([])
+      setIsBatchImportDialogOpen(false)
+
+      // 刷新列表
+      setRefreshKey(prev => prev + 1)
+
+    } catch (error) {
+      toast({
+        title: '批次加入失敗',
+        description: error instanceof Error ? error.message : '未知錯誤',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    } finally {
+      setIsBatchProcessing(false)
+    }
+  }, [batchSelectedIds, dataService, toast])
+
+  // 計算選中的係數列表（用於對話框顯示）
+  const selectedFactorsForBatch = useMemo(() => {
+    return paginatedData.filter(factor => batchSelectedIds.includes(factor.id)) as FactorTableItem[]
+  }, [batchSelectedIds, paginatedData])
+
+  // 判斷是否全選（排除已在中央庫的係數）
+  const isAllBatchSelected = useMemo(() => {
+    const selectableFactors = paginatedData.filter(
+      factor => !dataService.isStandardFactorInCentral(factor.id)
+    )
+    return selectableFactors.length > 0 &&
+      selectableFactors.every(factor => batchSelectedIds.includes(factor.id))
+  }, [batchSelectedIds, paginatedData, dataService])
+
+  // 判斷是否部分選中
+  const isIndeterminate = useMemo(() => {
+    return batchSelectedIds.length > 0 && !isAllBatchSelected
+  }, [batchSelectedIds, isAllBatchSelected])
 
 
   // 如果是 L2 專案概覽視圖，渲染專案概覽元件
@@ -1043,6 +1203,47 @@ export default function FactorTable({
         </Box>
       )}
 
+      {/* 批次操作欄（僅在希達係數且有選中時顯示） */}
+      {selectedNodeType === 'dataset' && batchSelectedIds.length > 0 && (
+        <Box
+          p={4}
+          bg="blue.50"
+          borderRadius="md"
+          borderWidth="1px"
+          borderColor="blue.200"
+          mb={2}
+        >
+          <HStack justify="space-between">
+            {/* 左側：選擇資訊 */}
+            <HStack spacing={3}>
+              <Icon as={CheckIcon} color="blue.600" />
+              <Text fontWeight="bold" color="blue.800">
+                已選擇 {batchSelectedIds.length} 個係數
+              </Text>
+            </HStack>
+
+            {/* 右側：操作按鈕 */}
+            <HStack spacing={3}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancelBatchSelection}
+              >
+                取消選擇
+              </Button>
+              <Button
+                size="sm"
+                colorScheme="brand"
+                leftIcon={<AddIcon />}
+                onClick={handleOpenBatchImportDialog}
+              >
+                批次加入中央庫
+              </Button>
+            </HStack>
+          </HStack>
+        </Box>
+      )}
+
       {/* Table */}
       <Box flex="1" overflow="auto">
         {/* 資料集為空時的提示 */}
@@ -1070,6 +1271,17 @@ export default function FactorTable({
             <Table size="sm" variant="simple">
             <Thead position="sticky" top={0} bg="white" zIndex={1}>
               <Tr>
+                {/* 希達係數：添加全選 Checkbox */}
+                {selectedNodeType === 'dataset' && (
+                  <Th width="50px" textAlign="center">
+                    <Checkbox
+                      isChecked={isAllBatchSelected}
+                      isIndeterminate={isIndeterminate}
+                      onChange={handleBatchSelectAll}
+                      colorScheme="brand"
+                    />
+                  </Th>
+                )}
                 {renderTableHeader(tableConfig.columns)}
                 {/* 自建係數添加狀態和操作列表頭 */}
                 {selectedNodeType === 'user_defined' && (
@@ -1187,6 +1399,52 @@ export default function FactorTable({
                     </Td>
                   </Tr>
                 ))
+              ) : selectedNodeType === 'dataset' ? (
+                // 希達係數（dataset）：添加 Checkbox 列
+                paginatedData.map(row => {
+                  const isInCentral = dataService.isStandardFactorInCentral(row.id)
+                  const isSelected = batchSelectedIds.includes(row.id)
+
+                  return (
+                    <Tr
+                      key={row.id}
+                      onClick={() => handleRowClick(row as FactorTableItem)}
+                      cursor="pointer"
+                      bg={selectedFactor?.id === row.id ? 'gray.50' : 'white'}
+                      _hover={{ bg: selectedFactor?.id === row.id ? 'gray.50' : 'gray.25' }}
+                    >
+                      {/* Checkbox 列 */}
+                      <Td textAlign="center" onClick={(e) => e.stopPropagation()}>
+                        {isInCentral ? (
+                          <Tooltip label="此係數已在中央庫" placement="top">
+                            <Box display="inline-block">
+                              <Checkbox isDisabled={true} />
+                            </Box>
+                          </Tooltip>
+                        ) : (
+                          <Checkbox
+                            isChecked={isSelected}
+                            onChange={() => handleBatchSelect(row.id)}
+                            colorScheme="brand"
+                          />
+                        )}
+                      </Td>
+                      {/* 其他欄位 */}
+                      {tableConfig.columns.map((column) => {
+                        const value = (row as any)[column.key]
+                        return (
+                          <Td key={`${row.id}-${column.key}`} py={4} isNumeric={column.isNumeric}>
+                            {column.formatter ? column.formatter(value, row) : (
+                              <Text fontSize="sm" fontWeight={column.key === 'name' ? 'medium' : 'normal'}>
+                                {value || '-'}
+                              </Text>
+                            )}
+                          </Td>
+                        )
+                      })}
+                    </Tr>
+                  )
+                })
               ) : (
                 // 其他類型：使用原有的 renderTableRow
                 paginatedData.map(row =>
@@ -1261,6 +1519,15 @@ export default function FactorTable({
           onNavigateToCentral={handleNavigateToCentral}
         />
       )}
+
+      {/* 批次匯入確認對話框 */}
+      <BatchImportConfirmDialog
+        isOpen={isBatchImportDialogOpen}
+        onClose={() => setIsBatchImportDialogOpen(false)}
+        selectedFactors={selectedFactorsForBatch}
+        onConfirm={handleBatchImport}
+        isProcessing={isBatchProcessing}
+      />
 
       {/* Pagination */}
       <Flex p={4} borderTop="1px solid" borderColor="gray.200" align="center" justify="space-between">

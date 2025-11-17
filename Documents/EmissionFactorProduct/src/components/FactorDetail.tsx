@@ -137,7 +137,8 @@ interface FactorDetailProps {
   isUserDefinedFactor?: boolean // 是否為自建係數
   isCentralLibrary?: boolean // 是否為中央係數庫
   onRemoveFromCentral?: (factor: any) => void // 從中央庫移除回調
-  onImportToCentral?: (factor: any) => void // 匯入中央庫回調
+  onImportToCentral?: (factor: any) => void // 匯入中央庫回調（自建組合係數用）
+  onAddStandardToCentral?: (factor: any) => void // 加入中央庫回調（希達係數用）
 }
 
 export default function FactorDetail({
@@ -147,7 +148,8 @@ export default function FactorDetail({
   isUserDefinedFactor = false,
   isCentralLibrary = false,
   onRemoveFromCentral,
-  onImportToCentral
+  onImportToCentral,
+  onAddStandardToCentral
 }: FactorDetailProps) {
   // 根據係數選擇欄位獲取對應的完整係數資料
   const getFactorDetailsBySelection = (factorSelection: string) => {
@@ -486,6 +488,18 @@ export default function FactorDetail({
         id: selected.id || baseData.id,
         // 保留頂層的 source_composite_id（自建係數的原始 ID）
         source_composite_id: selected.source_composite_id || baseData.source_composite_id,
+        // 保留頂層的完整排放係數資訊（優先使用頂層，因為是從 FactorTable 映射的最新資料）
+        co2_factor: selected.co2_factor !== undefined ? selected.co2_factor : baseData.co2_factor,
+        ch4_factor: selected.ch4_factor !== undefined ? selected.ch4_factor : baseData.ch4_factor,
+        n2o_factor: selected.n2o_factor !== undefined ? selected.n2o_factor : baseData.n2o_factor,
+        co2_unit: selected.co2_unit || baseData.co2_unit,
+        ch4_unit: selected.ch4_unit || baseData.ch4_unit,
+        n2o_unit: selected.n2o_unit || baseData.n2o_unit,
+        // 保留頂層的來源和地理資訊
+        source: selected.source || baseData.source,
+        effective_date: selected.effective_date || baseData.effective_date,
+        continent: selected.continent || baseData.continent,
+        country: selected.country || baseData.country,
       }
     }
     
@@ -836,24 +850,35 @@ export default function FactorDetail({
                 <Td bg="gray.50" fontWeight="medium" verticalAlign="top">Emission Factor</Td>
                 <Td>
                   <VStack align="start" spacing={1}>
-                    <HStack>
-                      <Badge colorScheme="blue">CO₂</Badge>
-                      <Text fontSize="sm">
-                        {formatNumber(mockFactor.co2_factor)} {mockFactor.co2_unit}
+                    {mockFactor.co2_factor !== undefined && mockFactor.co2_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">CO₂</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.co2_factor)} {mockFactor.co2_unit || 'kg CO₂'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {mockFactor.ch4_factor !== undefined && mockFactor.ch4_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">CH₄</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.ch4_factor)} {mockFactor.ch4_unit || 'kg CH₄'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {mockFactor.n2o_factor !== undefined && mockFactor.n2o_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">N₂O</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.n2o_factor)} {mockFactor.n2o_unit || 'kg N₂O'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {(!mockFactor.co2_factor && !mockFactor.ch4_factor && !mockFactor.n2o_factor) && (
+                      <Text fontSize="sm" color="gray.500">
+                        無詳細排放係數資料
                       </Text>
-                    </HStack>
-                    <HStack>
-                      <Badge colorScheme="blue">CH₄</Badge>
-                      <Text fontSize="sm">
-                        {formatNumber(mockFactor.ch4_factor)} {mockFactor.ch4_unit}
-                      </Text>
-                    </HStack>
-                    <HStack>
-                      <Badge colorScheme="blue">N₂O</Badge>
-                      <Text fontSize="sm">
-                        {formatNumber(mockFactor.n2o_factor)} {mockFactor.n2o_unit}
-                      </Text>
-                    </HStack>
+                    )}
                   </VStack>
                 </Td>
               </Tr>
@@ -1244,6 +1269,17 @@ export default function FactorDetail({
               isDisabled={mockFactor.imported_to_central}
             >
               {mockFactor.imported_to_central ? '已匯入中央庫' : '匯入到中央庫'}
+            </Button>
+          ) : !isCentralLibrary &&
+              ['standard', 'pact', 'supplier'].includes(mockFactor.source_type) ? (
+            /* 希達係數：直接加入中央庫，無需彈窗 */
+            <Button
+              colorScheme="brand"
+              size="sm"
+              w="100%"
+              onClick={() => onAddStandardToCentral?.(mockFactor)}
+            >
+              加入中央係數庫
             </Button>
           ) : null}
         </VStack>

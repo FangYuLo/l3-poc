@@ -42,6 +42,7 @@ import {
   getUserDefinedCompositeFactors,
   getUserDefinedCompositeFactorById,
   canDeleteCompositeFactor,
+  addStandardFactorToCentral,
 } from '@/hooks/useMockData'
 import { useComposites } from '@/hooks/useComposites'
 import { useToast } from '@chakra-ui/react'
@@ -401,6 +402,45 @@ export default function HomePage() {
     // 這裡可以開啟匯入表單 modal
   }
 
+  // 希達係數加入中央庫（無需彈窗，直接加入）
+  const handleAddStandardToCentral = (factor: any) => {
+    console.log('[handleAddStandardToCentral] 希達係數加入中央庫:', factor.name, 'ID:', factor.id)
+
+    try {
+      const result = addStandardFactorToCentral(factor.id)
+
+      if (result.success) {
+        toast({
+          title: '加入成功',
+          description: result.message,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+
+        // 刷新中央庫列表
+        setRefreshKey(prev => prev + 1)
+      } else {
+        toast({
+          title: '加入失敗',
+          description: result.error || '無法加入中央係數庫',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      console.error('[handleAddStandardToCentral] 發生錯誤:', error)
+      toast({
+        title: '加入失敗',
+        description: error instanceof Error ? error.message : '發生未知錯誤',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
   // 刷新當前選中係數的資料
   const refreshSelectedFactor = () => {
     if (selectedFactor && selectedFactor.id) {
@@ -649,9 +689,9 @@ export default function HomePage() {
   const getTableNodeType = (node: TreeNodeProps | null): 'general' | 'organizational_inventory' | 'product_carbon_footprint' | 'user_defined' | 'favorites' | 'pact' | 'supplier' | 'dataset' | 'project_overview' | 'inventory_overview' | 'global_search' => {
     if (!node) return 'general'
 
-    // 如果是全庫搜尋節點
+    // 如果是希達係數庫節點（原 global_search），改為 dataset 類型以支援批次勾選
     if (node.id === 'global_search') {
-      return 'global_search'
+      return 'dataset'
     }
 
     // 如果是 L2 專案根節點，顯示專案概覽
@@ -1043,6 +1083,7 @@ export default function HomePage() {
                 isCentralLibrary={selectedNode?.id === 'favorites'}
                 onRemoveFromCentral={handleRemoveFromCentralRequest}
                 onImportToCentral={handleImportToCentral}
+                onAddStandardToCentral={handleAddStandardToCentral}
               />
             )}
           </Box>

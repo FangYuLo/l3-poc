@@ -198,6 +198,18 @@ export interface FactorTableItem {
   imported_at?: string                // 首次匯入時間
   last_synced_at?: string             // 最後同步時間
   last_synced_version?: string        // 最後同步版本
+
+  // 完整排放係數資訊（用於詳情頁面顯示）
+  co2_factor?: number
+  ch4_factor?: number
+  n2o_factor?: number
+  co2_unit?: string
+  ch4_unit?: string
+  n2o_unit?: string
+  source?: string                     // 完整來源描述
+  effective_date?: string             // 生效日期
+  continent?: string                  // 大洲
+  country?: string                    // 國家
   formula_type?: 'weighted' | 'sum'   // 計算方法
   components?: any[]                  // 組成係數
 }
