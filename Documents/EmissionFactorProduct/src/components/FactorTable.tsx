@@ -107,6 +107,7 @@ interface FactorTableProps {
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
   onEditComposite?: (factor: any) => void // 編輯組合係數的回調
+  onOpenCustomFactor?: () => void // 新增：開啟自訂係數 Modal
   datasetFactors?: FactorTableItem[] // 資料集包含的係數數據
   onOpenGlobalSearch?: () => void // 新增開啟全庫搜尋的回調
   onNavigateToProduct?: (productId: string) => void // 新增導航到產品的回調
@@ -128,6 +129,7 @@ export default function FactorTable({
   userDefinedFactors = [],
   onOpenComposite,
   onEditComposite,
+  onOpenCustomFactor,
   datasetFactors = [],
   onOpenGlobalSearch,
   onRefreshSelectedFactor,
@@ -990,17 +992,28 @@ export default function FactorTable({
           </Button>
         )}
 
-        {/* 自建係數頁面顯示組合係數按鈕 */}
+        {/* 自建係數頁面顯示按鈕群組 */}
         {selectedNodeType === 'user_defined' && (
-          <Button
-            leftIcon={<AddIcon />}
-            colorScheme="blue"
-            variant="outline"
-            size="sm"
-            onClick={onOpenComposite}
-          >
-            自建組合係數
-          </Button>
+          <HStack spacing={2}>
+            <Button
+              leftIcon={<AddIcon />}
+              colorScheme="green"
+              variant="outline"
+              size="sm"
+              onClick={onOpenCustomFactor}
+            >
+              自訂係數
+            </Button>
+            <Button
+              leftIcon={<AddIcon />}
+              colorScheme="blue"
+              variant="outline"
+              size="sm"
+              onClick={onOpenComposite}
+            >
+              自建組合係數
+            </Button>
+          </HStack>
         )}
 
         {/* 資料集頁面顯示新增係數按鈕 */}

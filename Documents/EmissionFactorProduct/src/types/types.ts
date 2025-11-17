@@ -170,7 +170,7 @@ export interface TreeNode {
 
 export interface FactorTableItem {
   id: number
-  type: 'emission_factor' | 'composite_factor' | 'project_item'
+  type: 'emission_factor' | 'composite_factor' | 'project_item' | 'custom_factor'
   name: string
   value: number
   unit: string
@@ -198,6 +198,7 @@ export interface FactorTableItem {
   imported_at?: string                // 首次匯入時間
   last_synced_at?: string             // 最後同步時間
   last_synced_version?: string        // 最後同步版本
+  central_library_id?: number         // 中央庫 ID
 
   // 完整排放係數資訊（用於詳情頁面顯示）
   co2_factor?: number
@@ -481,6 +482,60 @@ export interface ImportCompositeToCentralFormData {
   system_boundary_detail?: string    // 系統邊界詳細說明（自動生成）
 }
 
+/**
+ * 自訂係數型別
+ * 使用者直接輸入的排放係數（非組合計算）
+ */
+export interface CustomFactor {
+  // 基本資訊
+  id: number
+  source: string                    // 係數來源（必填）
+  name: string                      // 係數名稱（必填）
+  region: string                    // 國家/區域（必填）
+  effective_date: string            // 啟用日期（必填）ISO 8601 格式
+
+  // 溫室氣體數值
+  selected_ghgs: string[]           // 選中的 GHG 種類，例如：['CO2', 'CH4']
+
+  // 各 GHG 的排放係數（可選，依 selected_ghgs 決定）
+  co2_factor?: number
+  co2_unit?: string
+  ch4_factor?: number
+  ch4_unit?: string
+  n2o_factor?: number
+  n2o_unit?: string
+  hfcs_factor?: number
+  hfcs_unit?: string
+  pfcs_factor?: number
+  pfcs_unit?: string
+  sf6_factor?: number
+  sf6_unit?: string
+  nf3_factor?: number
+  nf3_unit?: string
+
+  // 佐證資料（可選）
+  supporting_documents?: Array<{
+    filename: string
+    filepath: string
+    upload_date: string
+  }>
+
+  // 元資料
+  method_gwp: 'GWP100' | 'GWP20'
+  source_type: 'user_defined'       // 固定為 'user_defined'
+  type: 'custom_factor'             // 固定為 'custom_factor'
+  version: string                   // 版本號，格式：v1.0
+  description?: string              // 描述（可選）
+  notes?: string                    // 備註（可選）
+  created_at: string                // 建立時間 ISO 8601
+  updated_at: string                // 更新時間 ISO 8601
+
+  // 匯入中央庫相關（預設為 false）
+  imported_to_central?: boolean
+  central_library_id?: number
+  imported_at?: string
+}
+
 // Utility types
-export type Factor = EmissionFactor | CompositeFactor | ProductFootprintFactor
-export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number } | { type: 'product_footprint'; id: number }
+export type Factor = EmissionFactor | CompositeFactor | ProductFootprintFactor | CustomFactor
+export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number } | { type: 'product_footprint'; id: number } | { type: 'custom_factor'; id: number }

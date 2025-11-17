@@ -23,13 +23,14 @@ import SidebarTree from '@/components/SidebarTree'
 import FactorTable from '@/components/FactorTable'
 import FactorDetail from '@/components/FactorDetail'
 import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
+import CustomFactorModal from '@/components/CustomFactorModal'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import FactorSelectorModal from '@/components/FactorSelectorModal'
 import FormulaBuilderModal from '@/components/formula-builder/FormulaBuilderModal'
 import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
 import RemoveFromCentralDialog from '@/components/RemoveFromCentralDialog'
-import { Dataset, ImportToCentralFormData } from '@/types/types'
+import { Dataset, ImportToCentralFormData, CustomFactor } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
   handleImportProductToCentral
@@ -43,6 +44,10 @@ import {
   getUserDefinedCompositeFactorById,
   canDeleteCompositeFactor,
   addStandardFactorToCentral,
+  addCustomFactor,
+  updateCustomFactor,
+  getCustomFactorById,
+  getAllUserDefinedFactors,
 } from '@/hooks/useMockData'
 import { useComposites } from '@/hooks/useComposites'
 import { useToast } from '@chakra-ui/react'
@@ -59,6 +64,7 @@ interface TreeNodeProps {
 
 export default function HomePage() {
   const { isOpen: isCompositeOpen, onOpen: onCompositeOpen, onClose: onCompositeClose } = useDisclosure()
+  const { isOpen: isCustomFactorOpen, onOpen: onCustomFactorOpen, onClose: onCustomFactorClose } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   const { isOpen: isFactorSelectorOpen, onOpen: onFactorSelectorOpen, onClose: onFactorSelectorClose } = useDisclosure()
   const { isOpen: isFormulaBuilderOpen, onOpen: onFormulaBuilderOpen, onClose: onFormulaBuilderClose } = useDisclosure()
@@ -277,6 +283,31 @@ export default function HomePage() {
     setEditingComposite(null)
     // 觸發重新渲染
     setRefreshKey(prev => prev + 1)
+  }
+
+  // 處理自訂係數儲存
+  const handleCustomFactorSave = (factor: CustomFactor) => {
+    if (factor.id && getCustomFactorById(factor.id)) {
+      // 更新現有係數
+      updateCustomFactor(factor.id, factor)
+      console.log('[handleCustomFactorSave] 更新自訂係數:', factor.name)
+    } else {
+      // 新增係數
+      addCustomFactor(factor)
+      console.log('[handleCustomFactorSave] 新增自訂係數:', factor.name)
+    }
+
+    // 觸發重新渲染
+    setRefreshKey(prev => prev + 1)
+    onCustomFactorClose()
+
+    toast({
+      title: '自訂係數已儲存',
+      description: `係數「${factor.name}」已成功建立`,
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    })
   }
 
   // 處理編輯組合係數
@@ -985,7 +1016,7 @@ export default function HomePage() {
               onCreateDataset={handleCreateDataset}
               datasets={datasets}
               userDefinedFactors={(() => {
-                const factors = getUserDefinedCompositeFactors()
+                const factors = getAllUserDefinedFactors()
                 console.log('[SidebarTree] 傳遞自建係數數量:', factors.length)
                 return factors
               })()}
@@ -1008,12 +1039,13 @@ export default function HomePage() {
               selectedNode={selectedNode}
               onFactorSelect={handleFactorSelect}
               userDefinedFactors={(() => {
-                const factors = getUserDefinedCompositeFactors()
+                const factors = getAllUserDefinedFactors()
                 console.log('[FactorTable] 傳遞自建係數數量:', factors.length, '節點類型:', getTableNodeType(selectedNode))
                 return factors
               })()}
               onOpenComposite={onCompositeOpen}
               onEditComposite={handleEditCompositeFromImport}
+              onOpenCustomFactor={onCustomFactorOpen}
               datasetFactors={getDatasetFactors()}
               onRefreshSelectedFactor={refreshSelectedFactor}
               onOpenGlobalSearch={handleOpenFactorSelector}
@@ -1100,7 +1132,14 @@ export default function HomePage() {
         onSave={handleCompositeFactorSave}
         editingFactor={editingComposite}
       />
-      
+
+      {/* 自訂係數 Modal */}
+      <CustomFactorModal
+        isOpen={isCustomFactorOpen}
+        onClose={onCustomFactorClose}
+        onSave={handleCustomFactorSave}
+      />
+
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
         isOpen={isDeleteOpen}

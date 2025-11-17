@@ -6,7 +6,8 @@ import {
   SourceType,
   DataQuality,
   FactorUsageInfo,
-  ProjectReference
+  ProjectReference,
+  CustomFactor
 } from '@/types/types'
 import { getAllEmissionFactors, mockCompositeFactors, mockProductFootprintFactors } from '@/data/mockDatabase'
 import { 
@@ -64,6 +65,9 @@ let removedFromCentralIds: Set<number> = new Set()
 
 // 全局存儲手動加入中央庫的希達係數 ID 列表
 let addedToCentralIds: Set<number> = new Set()
+
+// 自訂係數儲存（全局變數）
+let customFactors: CustomFactor[] = []
 
 /**
  * 添加匯入的組合係數到中央庫
@@ -490,6 +494,100 @@ export function getUserDefinedCompositeFactors(): any[] {
  */
 export function getUserDefinedCompositeFactorById(id: number): UserDefinedCompositeFactor | undefined {
   return userDefinedCompositeFactors.find(f => f.id === id)
+}
+
+// ==================== 自訂係數管理函數 ====================
+
+/**
+ * 新增自訂係數
+ */
+export function addCustomFactor(factor: CustomFactor) {
+  customFactors.push(factor)
+  console.log('[addCustomFactor] 新增自訂係數:', factor.name)
+}
+
+/**
+ * 更新自訂係數
+ */
+export function updateCustomFactor(id: number, updates: Partial<CustomFactor>) {
+  const index = customFactors.findIndex(f => f.id === id)
+  if (index !== -1) {
+    customFactors[index] = {
+      ...customFactors[index],
+      ...updates,
+      updated_at: new Date().toISOString()
+    }
+    console.log('[updateCustomFactor] 更新自訂係數:', customFactors[index].name)
+  }
+}
+
+/**
+ * 刪除自訂係數
+ */
+export function deleteCustomFactor(id: number) {
+  const index = customFactors.findIndex(f => f.id === id)
+  if (index !== -1) {
+    const deleted = customFactors.splice(index, 1)[0]
+    console.log('[deleteCustomFactor] 刪除自訂係數:', deleted.name)
+    return true
+  }
+  return false
+}
+
+/**
+ * 取得所有自訂係數
+ */
+export function getCustomFactors(): CustomFactor[] {
+  return customFactors
+}
+
+/**
+ * 根據 ID 取得自訂係數
+ */
+export function getCustomFactorById(id: number): CustomFactor | undefined {
+  return customFactors.find(f => f.id === id)
+}
+
+/**
+ * 將自訂係數轉換為 FactorTableItem 格式
+ */
+function convertCustomFactorToTableItem(factor: CustomFactor): FactorTableItem {
+  // 取得第一個 GHG 作為主要顯示值
+  const firstGHG = factor.selected_ghgs[0]
+  const ghgKey = firstGHG.toLowerCase()
+  const mainValue = factor[`${ghgKey}_factor` as keyof CustomFactor] as number || 0
+  const mainUnit = factor[`${ghgKey}_unit` as keyof CustomFactor] as string || ''
+
+  return {
+    id: factor.id,
+    type: 'custom_factor',
+    name: factor.name,
+    value: mainValue,
+    unit: mainUnit,
+    year: new Date(factor.effective_date).getFullYear(),
+    region: factor.region,
+    method_gwp: factor.method_gwp,
+    source_type: 'user_defined',
+    source_ref: factor.source,
+    version: factor.version,
+    data: factor,
+    imported_to_central: factor.imported_to_central,
+    central_library_id: factor.central_library_id,
+    imported_at: factor.imported_at,
+  }
+}
+
+/**
+ * 取得所有自建係數（組合係數 + 自訂係數）
+ */
+export function getAllUserDefinedFactors() {
+  const compositeFactors = getUserDefinedCompositeFactors()
+  const custom = getCustomFactors()
+
+  return [
+    ...compositeFactors,
+    ...custom.map(convertCustomFactorToTableItem)
+  ]
 }
 
 /**
