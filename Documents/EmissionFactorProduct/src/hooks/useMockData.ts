@@ -560,14 +560,14 @@ function convertCustomFactorToTableItem(factor: CustomFactor): FactorTableItem {
 
   return {
     id: factor.id,
-    type: 'custom_factor',
+    type: 'custom_factor' as const,
     name: factor.name,
     value: mainValue,
     unit: mainUnit,
     year: new Date(factor.effective_date).getFullYear(),
     region: factor.region,
     method_gwp: factor.method_gwp,
-    source_type: 'user_defined',
+    source_type: 'user_defined' as const,
     source_ref: factor.source,
     version: factor.version,
     data: factor,

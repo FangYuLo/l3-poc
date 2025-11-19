@@ -30,6 +30,85 @@ import { GHG_OPTIONS } from '@/config/ghgOptions'
 import GhgSelector from './GhgSelector'
 import FileUploadZone from './FileUploadZone'
 
+// 單位分類結構（與 CompositeEditorDrawer 相同）
+const UNIT_CATEGORIES = {
+  mass: {
+    label: '質量',
+    units: [
+      { value: 'kg', label: 'kg (公斤)' },
+      { value: 'g', label: 'g (公克)' },
+      { value: 't', label: 't (公噸)' },
+      { value: 'ton', label: 'ton (噸)' },
+      { value: 'lb', label: 'lb (磅)' },
+    ]
+  },
+  energy: {
+    label: '能量',
+    units: [
+      { value: 'kWh', label: 'kWh (千瓦時)' },
+      { value: 'MJ', label: 'MJ (兆焦耳)' },
+      { value: 'GJ', label: 'GJ (吉焦耳)' },
+      { value: 'MWh', label: 'MWh (百萬瓦時)' },
+      { value: 'TJ', label: 'TJ (兆兆焦耳)' },
+    ]
+  },
+  volume: {
+    label: '體積',
+    units: [
+      { value: 'L', label: 'L (公升)' },
+      { value: 'mL', label: 'mL (毫升)' },
+      { value: 'm³', label: 'm³ (立方公尺)' },
+      { value: 'cm³', label: 'cm³ (立方公分)' },
+      { value: 'gal', label: 'gal (加侖)' },
+    ]
+  },
+  distance: {
+    label: '距離',
+    units: [
+      { value: 'km', label: 'km (公里)' },
+      { value: 'm', label: 'm (公尺)' },
+      { value: 'cm', label: 'cm (公分)' },
+      { value: 'mm', label: 'mm (公釐)' },
+      { value: 'mi', label: 'mi (英里)' },
+    ]
+  },
+  time: {
+    label: '時間',
+    units: [
+      { value: 'hr', label: 'hr (小時)' },
+      { value: 'min', label: 'min (分鐘)' },
+      { value: 's', label: 's (秒)' },
+      { value: 'day', label: 'day (天)' },
+      { value: 'year', label: 'year (年)' },
+    ]
+  },
+  area: {
+    label: '面積',
+    units: [
+      { value: 'm²', label: 'm² (平方公尺)' },
+      { value: 'km²', label: 'km² (平方公里)' },
+      { value: 'ha', label: 'ha (公頃)' },
+      { value: 'acre', label: 'acre (英畝)' },
+    ]
+  },
+  count: {
+    label: '數量',
+    units: [
+      { value: 'unit', label: 'unit (單位)' },
+      { value: 'piece', label: 'piece (件)' },
+      { value: 'item', label: 'item (項)' },
+    ]
+  },
+  transport: {
+    label: '運輸',
+    units: [
+      { value: 'passenger·km', label: 'passenger·km (人公里)' },
+      { value: 'tkm', label: 'tkm (噸公里)' },
+      { value: 'vehicle·km', label: 'vehicle·km (車公里)' },
+    ]
+  },
+} as const
+
 interface CustomFactorModalProps {
   isOpen: boolean
   onClose: () => void
@@ -59,6 +138,11 @@ export default function CustomFactorModal({
   // 檔案上傳
   const [supportingFiles, setSupportingFiles] = useState<File[]>([])
 
+  // 係數單位設定
+  const [numeratorUnit, setNumeratorUnit] = useState<string>('kg') // 分子單位
+  const [denominatorCategory, setDenominatorCategory] = useState<string>('') // 分母單位類別
+  const [denominatorUnit, setDenominatorUnit] = useState<string>('') // 分母具體單位
+
   // 表單驗證錯誤
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -78,9 +162,36 @@ export default function CustomFactorModal({
         description: '',
       })
       setSupportingFiles([])
+      setNumeratorUnit('kg')
+      setDenominatorCategory('')
+      setDenominatorUnit('')
       setErrors({})
     }
   }, [editingFactor, isOpen])
+
+  // 當係數單位設定變化時，自動更新所有 GHG 的單位
+  useEffect(() => {
+    if (numeratorUnit || denominatorUnit) {
+      const unitString = denominatorUnit
+        ? `${numeratorUnit} {GHG}/${denominatorUnit}`
+        : `${numeratorUnit} {GHG}`
+
+      const updates: any = {}
+      formData.selected_ghgs?.forEach(ghg => {
+        const ghgKey = ghg.toLowerCase()
+        const unitKey = `${ghgKey}_unit`
+        // 將 {GHG} 替換為實際的氣體名稱
+        updates[unitKey] = unitString.replace('{GHG}', ghg)
+      })
+
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          ...updates
+        }))
+      }
+    }
+  }, [numeratorUnit, denominatorUnit, formData.selected_ghgs])
 
   // 表單驗證
   const validateForm = (): boolean => {
@@ -271,6 +382,70 @@ export default function CustomFactorModal({
               <FormErrorMessage>{errors.selected_ghgs}</FormErrorMessage>
             </FormControl>
 
+            {/* 係數單位設定 */}
+            <Box>
+              <Text fontWeight="medium" fontSize="sm" mb={2}>
+                係數單位設定 <Text as="span" color="gray.500" fontWeight="normal">(Preview: {numeratorUnit} {'{GHG}'}/{denominatorUnit || '(unit)'})</Text>
+              </Text>
+              <HStack spacing={2} align="start">
+                {/* 分子單位 */}
+                <FormControl flex={1}>
+                  <FormLabel fontSize="xs">分子單位</FormLabel>
+                  <Input
+                    placeholder="kg"
+                    value={numeratorUnit}
+                    onChange={(e) => setNumeratorUnit(e.target.value)}
+                    size="md"
+                  />
+                </FormControl>
+
+                <Text fontSize="lg" fontWeight="bold" color="gray.500" mt={8}>/</Text>
+
+                {/* 分母單位 - 兩階段選擇 */}
+                <VStack flex={2} align="stretch" spacing={2}>
+                  <FormLabel fontSize="xs" mb={0}>分母單位</FormLabel>
+                  <HStack spacing={2}>
+                    {/* 第一階段：單位類別 */}
+                    <Select
+                      placeholder="選擇單位類別"
+                      value={denominatorCategory}
+                      onChange={(e) => {
+                        setDenominatorCategory(e.target.value)
+                        setDenominatorUnit('') // 清空具體單位
+                      }}
+                      size="md"
+                      flex={1}
+                    >
+                      {Object.entries(UNIT_CATEGORIES).map(([key, category]) => (
+                        <option key={key} value={key}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </Select>
+
+                    {/* 第二階段：具體單位 */}
+                    <Select
+                      placeholder="選擇單位"
+                      value={denominatorUnit}
+                      onChange={(e) => setDenominatorUnit(e.target.value)}
+                      size="md"
+                      flex={1}
+                      isDisabled={!denominatorCategory}
+                    >
+                      {denominatorCategory && UNIT_CATEGORIES[denominatorCategory as keyof typeof UNIT_CATEGORIES].units.map((unit) => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </HStack>
+                </VStack>
+              </HStack>
+              <Text fontSize="xs" color="gray.500" mt={2}>
+                設定好的單位將自動帶入所有選中的溫室氣體係數單位
+              </Text>
+            </Box>
+
             {/* 排放係數輸入 */}
             <Box>
               <Text fontWeight="medium" fontSize="sm" mb={3}>排放係數 *</Text>
@@ -310,17 +485,13 @@ export default function CustomFactorModal({
                           <FormErrorMessage>{errors[factorKey]}</FormErrorMessage>
                         </FormControl>
 
-                        {/* 單位 */}
+                        {/* 單位（自動帶入） */}
                         <FormControl isRequired isInvalid={!!errors[unitKey]}>
-                          <FormLabel fontSize="xs">單位</FormLabel>
+                          <FormLabel fontSize="xs">單位（自動帶入）</FormLabel>
                           <Input
                             value={(formData[unitKey] as string) || ''}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                [unitKey]: e.target.value
-                              })
-                            }
+                            isReadOnly
+                            bg="gray.50"
                             placeholder={`例：kg ${ghg}/kWh`}
                             size="sm"
                           />

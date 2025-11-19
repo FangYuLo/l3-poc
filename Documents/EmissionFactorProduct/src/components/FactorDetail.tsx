@@ -502,6 +502,45 @@ export default function FactorDetail({
         country: selected.country || baseData.country,
       }
     }
+
+    // 如果是自訂係數資料
+    if (selected.type === 'custom_factor') {
+      // selected.data 包含完整的 CustomFactor 資料
+      const customData = selected.data
+
+      if (!customData) {
+        console.error('[transformSelectedData] customData is undefined for custom_factor')
+        return selected
+      }
+
+      return {
+        ...customData,
+        // 確保所有必要欄位都存在
+        id: customData.id,
+        type: 'custom_factor', // 明確設定 type
+        name: customData.name,
+        source: customData.source,
+        effective_date: customData.effective_date,
+        continent: '-', // 自訂係數沒有 continent
+        country: '-',   // 自訂係數沒有 country
+        region: customData.region, // 保留 region（Area 欄位需要）
+        // 保留所有 GHG 資料
+        co2_factor: customData.co2_factor,
+        co2_unit: customData.co2_unit,
+        ch4_factor: customData.ch4_factor,
+        ch4_unit: customData.ch4_unit,
+        n2o_factor: customData.n2o_factor,
+        n2o_unit: customData.n2o_unit,
+        hfcs_factor: customData.hfcs_factor,
+        hfcs_unit: customData.hfcs_unit,
+        pfcs_factor: customData.pfcs_factor,
+        pfcs_unit: customData.pfcs_unit,
+        sf6_factor: customData.sf6_factor,
+        sf6_unit: customData.sf6_unit,
+        nf3_factor: customData.nf3_factor,
+        nf3_unit: customData.nf3_unit,
+      }
+    }
     
     // 如果是產品碳足跡資料（ProductCarbonFootprintItem）
     if (selected.data && selected.data.type === 'product_carbon_footprint') {
@@ -874,7 +913,40 @@ export default function FactorDetail({
                         </Text>
                       </HStack>
                     )}
-                    {(!mockFactor.co2_factor && !mockFactor.ch4_factor && !mockFactor.n2o_factor) && (
+                    {mockFactor.hfcs_factor !== undefined && mockFactor.hfcs_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">HFCs</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.hfcs_factor)} {mockFactor.hfcs_unit || 'kg HFCs'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {mockFactor.pfcs_factor !== undefined && mockFactor.pfcs_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">PFCs</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.pfcs_factor)} {mockFactor.pfcs_unit || 'kg PFCs'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {mockFactor.sf6_factor !== undefined && mockFactor.sf6_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">SF₆</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.sf6_factor)} {mockFactor.sf6_unit || 'kg SF₆'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {mockFactor.nf3_factor !== undefined && mockFactor.nf3_factor !== null && (
+                      <HStack>
+                        <Badge colorScheme="blue">NF₃</Badge>
+                        <Text fontSize="sm">
+                          {formatNumber(mockFactor.nf3_factor)} {mockFactor.nf3_unit || 'kg NF₃'}
+                        </Text>
+                      </HStack>
+                    )}
+                    {(!mockFactor.co2_factor && !mockFactor.ch4_factor && !mockFactor.n2o_factor &&
+                      !mockFactor.hfcs_factor && !mockFactor.pfcs_factor && !mockFactor.sf6_factor && !mockFactor.nf3_factor) && (
                       <Text fontSize="sm" color="gray.500">
                         無詳細排放係數資料
                       </Text>

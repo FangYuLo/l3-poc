@@ -1,0 +1,87 @@
+Key,Type,Chinese,English
+compositeEditor.title.create,STRING,自建組合係數編輯器,Custom Composite Factor Editor
+compositeEditor.title.edit,STRING,編輯組合係數,Edit Composite Factor
+compositeEditor.tab.traditional,STRING,傳統模式,Traditional Mode
+compositeEditor.tab.formulaBuilder,STRING,🚀 公式建構器,🚀 Formula Builder
+compositeEditor.section.basicInfo,STRING,基本資訊,Basic Information
+compositeEditor.label.name,STRING,組合係數名稱,Composite Factor Name
+compositeEditor.placeholder.name,STRING,請輸入組合係數名稱,Please enter composite factor name
+compositeEditor.label.description,STRING,描述,Description
+compositeEditor.placeholder.description,STRING,請輸入組合係數的詳細描述...,Please enter detailed description...
+compositeEditor.label.region,STRING,國家/區域,Country/Region
+compositeEditor.placeholder.region,STRING,請選擇國家/區域,Please select country/region
+compositeEditor.label.enabledDate,STRING,啟用日期,Enabled Date
+compositeEditor.label.calculationMethod,STRING,計算方式,Calculation Method
+compositeEditor.label.targetUnit,STRING,目標單位,Target Unit
+compositeEditor.text.unitPrefix,STRING,kg CO₂e /,kg CO₂e /
+compositeEditor.placeholder.categorySelect,STRING,請選擇類別,Please select category
+compositeEditor.placeholder.unitSelect,STRING,請選擇單位,Please select unit
+compositeEditor.text.fullUnit,STRING,完整單位：,Full unit:
+compositeEditor.method.weightedAverage,STRING,權重平均,Weighted Average
+compositeEditor.method.weightedSum,STRING,權重加總,Weighted Sum
+compositeEditor.region.taiwan,STRING,台灣,Taiwan
+compositeEditor.region.usa,STRING,美國,United States
+compositeEditor.region.uk,STRING,英國,United Kingdom
+compositeEditor.region.china,STRING,中國,China
+compositeEditor.region.japan,STRING,日本,Japan
+compositeEditor.region.eu,STRING,歐盟,European Union
+compositeEditor.region.global,STRING,全球,Global
+compositeEditor.region.international,STRING,國際,International
+compositeEditor.unitCategory.mass,STRING,質量,Mass
+compositeEditor.unitCategory.energy,STRING,能量,Energy
+compositeEditor.unitCategory.volume,STRING,體積,Volume
+compositeEditor.unitCategory.distance,STRING,距離,Distance
+compositeEditor.unitCategory.time,STRING,時間,Time
+compositeEditor.unitCategory.area,STRING,面積,Area
+compositeEditor.unitCategory.count,STRING,數量,Count
+compositeEditor.unitCategory.transport,STRING,運輸,Transport
+compositeEditor.section.components,STRING,組成係數,Component Factors
+compositeEditor.button.addFactor,STRING,新增係數,Add Factor
+compositeEditor.table.factorName,STRING,係數名稱,Factor Name
+compositeEditor.table.value,STRING,值,Value
+compositeEditor.table.unit,STRING,單位,Unit
+compositeEditor.table.weight,STRING,權重,Weight
+compositeEditor.text.noComponents,STRING,尚未加入任何組成係數,No component factors added yet
+compositeEditor.text.addComponentsHint,STRING,點擊「新增係數」開始建立組合,Click "Add Factor" to start building composite
+compositeEditor.text.weightTotal,STRING,權重總計:,Weight Total:
+compositeEditor.badge.shouldBe1,STRING,應為 1.0,Should be 1.0
+compositeEditor.badge.mismatch,STRING,不匹配,Mismatch
+compositeEditor.unitConversion.title,STRING,單位轉換:,Unit Conversion:
+compositeEditor.unitConversion.mode.auto,STRING,Auto,Auto
+compositeEditor.unitConversion.mode.custom,STRING,Custom,Custom
+compositeEditor.unitConversion.badge.customOnly,STRING,Custom Only,Custom Only
+compositeEditor.unitConversion.tooltip.unitMismatch,STRING,單位不一致，但可自動轉換（{category}）,Unit mismatch but auto-conversion available ({category})
+compositeEditor.unitConversion.tooltip.categoryMismatch,STRING,單位類別不同（{fromCategory} → {toCategory}），需手動輸入,Different unit categories ({fromCategory} → {toCategory}) manual input required
+compositeEditor.unitConversion.tooltip.manualOnly,STRING,單位類別不一致（{fromCategory} → {toCategory}），僅能手動輸入轉換因子,Unit category mismatch ({fromCategory} → {toCategory}) manual conversion factor required
+compositeEditor.unitConversion.text.useDefaultFactor,STRING,使用預設轉換因子: 1 {fromUnit} = {factor} {toUnit},Using default conversion factor: 1 {fromUnit} = {factor} {toUnit}
+compositeEditor.unitConversion.text.convert,STRING,Convert: {fromUnit} → {toUnit} using ratio,Convert: {fromUnit} → {toUnit} using ratio
+compositeEditor.unitConversion.placeholder.factor,STRING,輸入因子,Enter factor
+compositeEditor.unitConversion.text.convertedValue,STRING,Converted Value:,Converted Value:
+compositeEditor.unitConversion.warning.categoryMismatch,STRING,單位類別不一致（{fromCategory} ≠ {toCategory}），請手動輸入轉換因子,Unit category mismatch ({fromCategory} ≠ {toCategory}) please enter conversion factor manually
+compositeEditor.gwp.badge.conversion,STRING,GWP {version} 轉換,GWP {version} Conversion
+compositeEditor.gwp.title.details,STRING,GWP {version} 轉換詳情,GWP {version} Conversion Details
+compositeEditor.gwp.text.convertedCO2e,STRING,轉換後 CO₂e:,Converted CO₂e:
+compositeEditor.warning.unitCompatibility.title,STRING,單位相容性警告,Unit Compatibility Warning
+compositeEditor.warning.unitCompatibility.message,STRING,部分係數的單位類型不一致。建議使用「權重加總」方法或驗證計算邏輯。,Some factors have inconsistent unit types. Recommend using "Weighted Sum" method or verifying calculation logic.
+compositeEditor.warning.weightTotal,STRING,權重總和應該等於 1.0，目前為 {total},Weight total should equal 1.0 currently {total}
+compositeEditor.section.calculationResult,STRING,計算結果,Calculation Result
+compositeEditor.result.calculationMethod,STRING,計算方式:,Calculation Method:
+compositeEditor.result.componentCount,STRING,組成係數數量:,Component Count:
+compositeEditor.result.componentCountValue,STRING,{count} 個,{count} items
+compositeEditor.result.formula,STRING,計算公式:,Calculation Formula:
+compositeEditor.result.unitConversionSummary,STRING,✓ {count} 個係數已進行單位轉換,✓ {count} factors converted
+compositeEditor.result.compositeValue,STRING,組合係數值:,Composite Value:
+compositeEditor.error.nameRequired,STRING,請輸入組合係數名稱,Please enter composite factor name
+compositeEditor.error.componentsRequired,STRING,至少需要一個組成係數,At least one component factor is required
+compositeEditor.error.weightTotalMustBe1,STRING,權重總和應該等於 1.0,Weight total should equal 1.0
+compositeEditor.error.weightsMustBePositive,STRING,所有權重必須大於 0,All weights must be greater than 0
+compositeEditor.button.reset,STRING,重置,Reset
+compositeEditor.button.cancel,STRING,取消,Cancel
+compositeEditor.button.save,STRING,儲存組合係數,Save Composite Factor
+compositeEditor.toast.factorAdded.title,STRING,係數已加入,Factors Added
+compositeEditor.toast.factorAdded.description,STRING,成功加入 {count} 個係數到組合中,Successfully added {count} factors to composite
+compositeEditor.toast.created.title,STRING,組合係數已建立,Composite Factor Created
+compositeEditor.toast.created.description,STRING,「{name}」已儲存到自建係數資料夾,"{name}" saved to custom factors folder
+compositeEditor.toast.updated.title,STRING,組合係數已更新,Composite Factor Updated
+compositeEditor.toast.updated.description,STRING,「{name}」已更新,"{name}" updated
+compositeEditor.ariaLabel.removeComponent,STRING,Remove component,Remove component
