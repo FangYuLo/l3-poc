@@ -23,7 +23,7 @@ import SidebarTree from '@/components/SidebarTree'
 import FactorTable from '@/components/FactorTable'
 import FactorDetail from '@/components/FactorDetail'
 import CompositeEditorDrawer from '@/components/CompositeEditorDrawer'
-import CustomFactorModal from '@/components/CustomFactorModal'
+import CustomFactorDrawer from '@/components/CustomFactorDrawer'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import FactorSelectorModal from '@/components/FactorSelectorModal'
@@ -1133,8 +1133,8 @@ export default function HomePage() {
         editingFactor={editingComposite}
       />
 
-      {/* 自訂係數 Modal */}
-      <CustomFactorModal
+      {/* 自訂係數 Drawer */}
+      <CustomFactorDrawer
         isOpen={isCustomFactorOpen}
         onClose={onCustomFactorClose}
         onSave={handleCustomFactorSave}

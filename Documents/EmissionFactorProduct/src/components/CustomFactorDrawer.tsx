@@ -1,13 +1,13 @@
 'use client'
 
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerHeader,
+  DrawerBody,
+  DrawerFooter,
+  DrawerCloseButton,
   Button,
   VStack,
   HStack,
@@ -309,25 +309,14 @@ export default function CustomFactorModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
-      <ModalOverlay />
-      <ModalContent maxH="90vh">
-        <ModalHeader>自訂係數</ModalHeader>
-        <ModalCloseButton />
+    <Drawer isOpen={isOpen} onClose={onClose} size="lg" placement="right">
+      <DrawerOverlay />
+      <DrawerContent>
+        <DrawerHeader borderBottomWidth="1px">自訂係數</DrawerHeader>
+        <DrawerCloseButton />
 
-        <ModalBody overflowY="auto">
+        <DrawerBody overflowY="auto">
           <VStack spacing={4} align="stretch">
-            {/* 係數來源 */}
-            <FormControl isRequired isInvalid={!!errors.source}>
-              <FormLabel fontSize="sm">係數來源 *</FormLabel>
-              <Input
-                value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                placeholder="例：環保署、內部調查、供應商提供..."
-              />
-              <FormErrorMessage>{errors.source}</FormErrorMessage>
-            </FormControl>
-
             {/* 係數名稱 */}
             <FormControl isRequired isInvalid={!!errors.name}>
               <FormLabel fontSize="sm">係數名稱 *</FormLabel>
@@ -337,6 +326,17 @@ export default function CustomFactorModal({
                 placeholder="例：柴油車運輸-自有車隊"
               />
               <FormErrorMessage>{errors.name}</FormErrorMessage>
+            </FormControl>
+
+            {/* 係數來源 */}
+            <FormControl isRequired isInvalid={!!errors.source}>
+              <FormLabel fontSize="sm">係數來源 *</FormLabel>
+              <Input
+                value={formData.source}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                placeholder="例：環保署、內部調查、供應商提供..."
+              />
+              <FormErrorMessage>{errors.source}</FormErrorMessage>
             </FormControl>
 
             {/* Country/Area 和 啟用日期 */}
@@ -521,17 +521,17 @@ export default function CustomFactorModal({
               />
             </FormControl>
           </VStack>
-        </ModalBody>
+        </DrawerBody>
 
-        <ModalFooter>
+        <DrawerFooter borderTopWidth="1px">
           <Button variant="ghost" mr={3} onClick={onClose}>
             取消
           </Button>
           <Button colorScheme="blue" onClick={handleSave}>
             儲存係數
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

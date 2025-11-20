@@ -69,7 +69,7 @@ export default function BatchImportConfirmDialog({
 
             {/* 係數列表 */}
             <Box>
-              <Text fontWeight="bold" mb={2}>選中的係數：</Text>
+              <Text fontWeight="bold" mb={2}>已選係數：</Text>
               <Box
                 maxH="300px"
                 overflowY="auto"
@@ -80,16 +80,11 @@ export default function BatchImportConfirmDialog({
               >
                 <VStack align="stretch" spacing={2}>
                   {selectedFactors.map((factor, index) => (
-                    <HStack key={factor.id} justify="space-between">
-                      <HStack spacing={2}>
-                        <Badge colorScheme="blue" fontSize="xs">
-                          {index + 1}
-                        </Badge>
-                        <Text fontSize="sm">{factor.name}</Text>
-                      </HStack>
-                      <Text fontSize="xs" color="gray.600">
-                        {factor.value} {factor.unit}
-                      </Text>
+                    <HStack key={factor.id} spacing={2}>
+                      <Badge colorScheme="blue" fontSize="xs">
+                        {index + 1}
+                      </Badge>
+                      <Text fontSize="sm">{factor.name}</Text>
                     </HStack>
                   ))}
                 </VStack>
