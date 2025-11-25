@@ -13,12 +13,10 @@ import {
   HStack,
   Text,
   Box,
-  Alert,
-  AlertIcon,
-  Badge,
   Icon,
+  Badge,
 } from '@chakra-ui/react'
-import { AddIcon } from '@chakra-ui/icons'
+import { WarningIcon } from '@chakra-ui/icons'
 import { FactorTableItem } from '@/types/types'
 
 interface BatchImportConfirmDialogProps {
@@ -41,70 +39,79 @@ export default function BatchImportConfirmDialog({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="md" isCentered>
       <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          <HStack>
-            <Icon as={AddIcon} color="brand.500" />
-            <Text>批次加入中央庫</Text>
+      <ModalContent borderRadius="lg" boxShadow="xl">
+        <ModalHeader pb={0}>
+          <HStack justify="space-between" align="center">
+            <Text fontSize="lg" fontWeight="semibold">批次加入中央庫</Text>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
 
-        <ModalBody>
-          <VStack align="stretch" spacing={4}>
-            {/* 摘要資訊 */}
-            <Alert status="info" borderRadius="md">
-              <AlertIcon />
-              <VStack align="start" spacing={1}>
-                <Text fontWeight="bold">
-                  您即將加入 {selectedFactors.length} 個係數到中央庫
-                </Text>
-                <Text fontSize="sm">
-                  確認後這些係數將可在中央係數庫中使用
-                </Text>
-              </VStack>
-            </Alert>
-
-            {/* 係數列表 */}
-            <Box>
-              <Text fontWeight="bold" mb={2}>已選係數：</Text>
-              <Box
-                maxH="300px"
-                overflowY="auto"
-                borderWidth="1px"
-                borderRadius="md"
-                p={3}
-                bg="gray.50"
-              >
-                <VStack align="stretch" spacing={2}>
-                  {selectedFactors.map((factor, index) => (
-                    <HStack key={factor.id} spacing={2}>
-                      <Badge colorScheme="blue" fontSize="xs">
-                        {index + 1}
-                      </Badge>
-                      <Text fontSize="sm">{factor.name}</Text>
-                    </HStack>
-                  ))}
-                </VStack>
-              </Box>
+        <ModalBody py={6}>
+          <VStack spacing={4}>
+            {/* 黃色警告圖示 */}
+            <Box
+              w={12}
+              h={12}
+              borderRadius="full"
+              bg="yellow.100"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon as={WarningIcon} color="yellow.500" boxSize={6} />
             </Box>
+
+            {/* 確認訊息 */}
+            <VStack spacing={2}>
+              <Text fontSize="sm" color="gray.600" textAlign="center">
+                您即將加入 <Text as="span" fontWeight="bold">{selectedFactors.length}</Text> 個係數到中央庫
+              </Text>
+
+              {/* 係數列表預覽（最多顯示5個） */}
+              {selectedFactors.length <= 5 && (
+                <Box
+                  maxH="150px"
+                  overflowY="auto"
+                  w="100%"
+                  mt={2}
+                >
+                  <VStack align="stretch" spacing={1}>
+                    {selectedFactors.map((factor, index) => (
+                      <HStack key={factor.id} spacing={2} justify="center">
+                        <Badge colorScheme="blue" fontSize="xs">
+                          {index + 1}
+                        </Badge>
+                        <Text fontSize="xs" color="gray.600">{factor.name}</Text>
+                      </HStack>
+                    ))}
+                  </VStack>
+                </Box>
+              )}
+            </VStack>
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose} isDisabled={isProcessing}>
-            取消
-          </Button>
-          <Button
-            colorScheme="brand"
-            onClick={handleConfirm}
-            isLoading={isProcessing}
-            loadingText="加入中..."
-          >
-            確認加入
-          </Button>
+        <ModalFooter pt={0}>
+          <HStack spacing={3} justify="flex-end">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              isDisabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleConfirm}
+              isLoading={isProcessing}
+              loadingText="加入中..."
+            >
+              Confirm
+            </Button>
+          </HStack>
         </ModalFooter>
       </ModalContent>
     </Modal>

@@ -107,6 +107,7 @@ interface FactorTableProps {
   userDefinedFactors?: any[] // 自建係數數據
   onOpenComposite?: () => void // 新增開啟組合係數編輯器的回調
   onEditComposite?: (factor: any) => void // 編輯組合係數的回調
+  onEditCustomFactor?: (factor: any) => void // 編輯自訂係數的回調
   onOpenCustomFactor?: () => void // 新增：開啟自訂係數 Modal
   datasetFactors?: FactorTableItem[] // 資料集包含的係數數據
   onOpenGlobalSearch?: () => void // 新增開啟全庫搜尋的回調
@@ -120,6 +121,7 @@ interface FactorTableProps {
   dataRefreshKey?: number // 用於強制刷新數據的 key
   onDeleteFactor?: (factor: any) => void // 刪除自建係數的回調
   onNavigateToCentral?: (factor: any) => void // 導航到中央庫並選中係數的回調
+  onBlockEdit?: (factor: any) => void // 阻止編輯已匯入係數的回調
 }
 
 export default function FactorTable({
@@ -129,6 +131,7 @@ export default function FactorTable({
   userDefinedFactors = [],
   onOpenComposite,
   onEditComposite,
+  onEditCustomFactor,
   onOpenCustomFactor,
   datasetFactors = [],
   onOpenGlobalSearch,
@@ -141,7 +144,8 @@ export default function FactorTable({
   onImportProduct,
   dataRefreshKey = 0,
   onDeleteFactor,
-  onNavigateToCentral
+  onNavigateToCentral,
+  onBlockEdit
 }: FactorTableProps) {
   const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -553,6 +557,9 @@ export default function FactorTable({
           source_ref: factor.source_ref,
           version: factor.version,
           data: factor,
+          // 重要：複製日期欄位（組合係數用 enabledDate，自訂係數用 effective_date）
+          enabledDate: (factor as any).enabledDate,
+          effective_date: (factor as any).effective_date,
           // 重要：複製同步相關欄位到頂層，以便刪除檢查和狀態顯示
           imported_to_central: factor.imported_to_central,
           central_library_id: factor.central_library_id,
@@ -1387,7 +1394,19 @@ export default function FactorTable({
                             icon={<EditIcon />}
                             onClick={() => {
                               const factor = (row as any).data || row
-                              onEditComposite?.(factor)
+
+                              // 檢查是否已匯入中央庫
+                              if (factor.imported_to_central) {
+                                onBlockEdit?.(factor)
+                                return
+                              }
+
+                              // 根據係數類型呼叫對應的編輯函數
+                              if (factor.type === 'custom_factor') {
+                                onEditCustomFactor?.(row)
+                              } else {
+                                onEditComposite?.(factor)
+                              }
                             }}
                           >
                             Edit
@@ -1495,8 +1514,9 @@ export default function FactorTable({
             formulaType: selectedComposite.formulaType || 'weighted',
             components: selectedComposite.components || [],
             region: selectedComposite.region,
-            enabledDate: selectedComposite.enabledDate,
-          }}
+            // 支援兩種日期欄位：組合係數用 enabledDate，自訂係數用 effective_date
+            enabledDate: selectedComposite.enabledDate || selectedComposite.effective_date,
+          } as any}
           onConfirm={handleImportConfirm}
           onEditComposite={(factor) => {
             // 關閉匯入對話框

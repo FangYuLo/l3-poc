@@ -129,7 +129,7 @@ export default function CustomFactorModal({
     source: '',
     name: '',
     region: '',
-    effective_date: '',
+    effective_date: new Date().toISOString().split('T')[0], // 預設今天日期
     selected_ghgs: [],
     method_gwp: 'GWP100',
     description: '',
@@ -156,7 +156,7 @@ export default function CustomFactorModal({
         source: '',
         name: '',
         region: '',
-        effective_date: '',
+        effective_date: new Date().toISOString().split('T')[0], // 預設今天日期
         selected_ghgs: [],
         method_gwp: 'GWP100',
         description: '',

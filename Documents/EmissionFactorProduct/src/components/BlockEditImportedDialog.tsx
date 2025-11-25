@@ -14,28 +14,31 @@ import {
   Text,
   Box,
   Icon,
-  Badge,
 } from '@chakra-ui/react'
-import { CheckCircleIcon } from '@chakra-ui/icons'
-import { getSyncStatus } from '@/hooks/useMockData'
 
-interface ImportedFactorInfoDialogProps {
+// 紅色圓形驚嘆號圖示
+const DangerIcon = (props: any) => (
+  <Icon viewBox="0 0 24 24" {...props}>
+    <circle cx="12" cy="12" r="10" fill="currentColor" />
+    <line x1="12" y1="8" x2="12" y2="12" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="white" />
+  </Icon>
+)
+
+interface BlockEditImportedDialogProps {
   isOpen: boolean
   onClose: () => void
   factor: any
   onNavigateToCentral: (factor: any) => void
 }
 
-export default function ImportedFactorInfoDialog({
+export default function BlockEditImportedDialog({
   isOpen,
   onClose,
   factor,
   onNavigateToCentral
-}: ImportedFactorInfoDialogProps) {
+}: BlockEditImportedDialogProps) {
   if (!factor) return null
-
-  const syncStatus = getSyncStatus(factor)
-  const isSynced = syncStatus === 'synced'
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md" isCentered>
@@ -43,37 +46,33 @@ export default function ImportedFactorInfoDialog({
       <ModalContent borderRadius="lg" boxShadow="xl">
         <ModalHeader pb={0}>
           <HStack justify="space-between" align="center">
-            <Text fontSize="lg" fontWeight="semibold">係數已匯入中央庫</Text>
+            <Text fontSize="lg" fontWeight="semibold">無法編輯已匯入的係數</Text>
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
 
         <ModalBody py={6}>
           <VStack spacing={4}>
-            {/* 綠色成功圖示 */}
+            {/* 紅色圓形驚嘆號圖示 */}
             <Box
               w={12}
               h={12}
               borderRadius="full"
-              bg="green.100"
+              bg="red.100"
               display="flex"
               alignItems="center"
               justifyContent="center"
             >
-              <Icon as={CheckCircleIcon} color="green.500" boxSize={6} />
+              <DangerIcon color="red.500" boxSize={6} />
             </Box>
 
-            {/* 係數資訊 */}
+            {/* 說明訊息 */}
             <VStack spacing={2}>
-              <HStack spacing={2}>
-                <Text fontWeight="medium">{factor.name}</Text>
-                <Badge colorScheme={isSynced ? 'green' : 'orange'}>
-                  {isSynced ? '已同步' : '需要同步'}
-                </Badge>
-              </HStack>
-
+              <Text fontWeight="medium">{factor.name}</Text>
               <Text fontSize="sm" color="gray.600" textAlign="center">
-                此係數已成功匯入至中央係數庫，可供專案引用使用。
+                此係數已匯入至中央係數庫並可能被專案引用，無法直接編輯。
+                <br />
+                若需修改，請先從中央庫移除後再編輯。
               </Text>
             </VStack>
           </VStack>
@@ -85,7 +84,7 @@ export default function ImportedFactorInfoDialog({
               variant="outline"
               onClick={onClose}
             >
-              關閉
+              Cancel
             </Button>
             <Button
               colorScheme="blue"

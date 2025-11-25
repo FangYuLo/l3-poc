@@ -1,24 +1,31 @@
 'use client'
 
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
   Button,
-  Text,
   VStack,
   HStack,
-  Badge,
+  Text,
   Box,
-  Alert,
-  AlertIcon,
-  AlertDescription,
+  Icon,
+  Badge,
 } from '@chakra-ui/react'
-import { WarningIcon } from '@chakra-ui/icons'
 import { useRef } from 'react'
+
+// 紅色圓形驚嘆號圖示
+const DangerIcon = (props: any) => (
+  <Icon viewBox="0 0 24 24" {...props}>
+    <circle cx="12" cy="12" r="10" fill="currentColor" />
+    <line x1="12" y1="8" x2="12" y2="12" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="12" cy="16" r="1" fill="white" />
+  </Icon>
+)
 
 interface DeleteConfirmDialogProps {
   isOpen: boolean
@@ -44,118 +51,84 @@ export default function DeleteConfirmDialog({
   isLoading = false
 }: DeleteConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null)
-  
+
   const hasUsage = usageInfo && (
-    usageInfo.usedInProjects > 0 || 
-    usageInfo.usedInComposites.length > 0 || 
+    usageInfo.usedInProjects > 0 ||
+    usageInfo.usedInComposites.length > 0 ||
     usageInfo.usedInDatasets > 0
   )
 
-  const getFactorTypeBadge = () => {
-    if (factorType === 'composite_factor') {
-      return (
-        <Badge colorScheme="orange" size="sm">
-          組合係數
-        </Badge>
-      )
-    }
-    return (
-      <Badge colorScheme="blue" size="sm">
-        排放係數
-      </Badge>
-    )
-  }
-
   return (
-    <AlertDialog
-      isOpen={isOpen}
-      leastDestructiveRef={cancelRef}
-      onClose={onClose}
-      size="md"
-    >
-      <AlertDialogOverlay>
-        <AlertDialogContent>
-          <AlertDialogHeader fontSize="lg" fontWeight="bold">
-            <HStack spacing={3}>
-              <WarningIcon color="red.500" />
-              <Text>確認刪除係數</Text>
-            </HStack>
-          </AlertDialogHeader>
+    <Modal isOpen={isOpen} onClose={onClose} size="md" isCentered>
+      <ModalOverlay />
+      <ModalContent borderRadius="lg" boxShadow="xl">
+        <ModalHeader pb={0}>
+          <HStack justify="space-between" align="center">
+            <Text fontSize="lg" fontWeight="semibold">確認刪除係數</Text>
+          </HStack>
+        </ModalHeader>
+        <ModalCloseButton />
 
-          <AlertDialogBody>
-            <VStack spacing={4} align="stretch">
-              <Box>
-                <Text fontSize="sm" color="gray.600" mb={2}>
-                  即將刪除的係數：
-                </Text>
-                <HStack spacing={2}>
-                  <Text fontWeight="medium">{factorName}</Text>
-                  {getFactorTypeBadge()}
-                </HStack>
-              </Box>
+        <ModalBody py={6}>
+          <VStack spacing={4}>
+            {/* 紅色圓形驚嘆號圖示 */}
+            <Box
+              w={12}
+              h={12}
+              borderRadius="full"
+              bg="red.100"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <DangerIcon color="red.500" boxSize={6} />
+            </Box>
+
+            {/* 係數資訊 */}
+            <VStack spacing={2}>
+              <HStack spacing={2}>
+                <Text fontWeight="medium">{factorName}</Text>
+                <Badge colorScheme={factorType === 'composite_factor' ? 'orange' : 'blue'} size="sm">
+                  {factorType === 'composite_factor' ? '組合係數' : '排放係數'}
+                </Badge>
+              </HStack>
 
               {hasUsage ? (
-                <Alert status="warning" borderRadius="md">
-                  <AlertIcon />
-                  <AlertDescription fontSize="sm">
-                    <Text fontWeight="medium" mb={2}>此係數正在被使用中：</Text>
-                    <VStack align="start" spacing={1}>
-                      {usageInfo!.usedInProjects > 0 && (
-                        <Text fontSize="sm">• {usageInfo!.usedInProjects} 個專案中</Text>
-                      )}
-                      {usageInfo!.usedInComposites.length > 0 && (
-                        <Text fontSize="sm">
-                          • {usageInfo!.usedInComposites.length} 個組合係數中：
-                          {usageInfo!.usedInComposites.map((name, index) => (
-                            <Text key={index} fontSize="xs" color="gray.600" ml={4}>
-                              - {name}
-                            </Text>
-                          ))}
-                        </Text>
-                      )}
-                      {usageInfo!.usedInDatasets > 0 && (
-                        <Text fontSize="sm">• {usageInfo!.usedInDatasets} 個資料集中</Text>
-                      )}
-                    </VStack>
-                  </AlertDescription>
-                </Alert>
+                <Text fontSize="sm" color="gray.600" textAlign="center">
+                  此係數正被 {usageInfo!.usedInProjects > 0 ? `${usageInfo!.usedInProjects} 個專案` : ''}
+                  {usageInfo!.usedInComposites.length > 0 ? `、${usageInfo!.usedInComposites.length} 個組合係數` : ''}
+                  {usageInfo!.usedInDatasets > 0 ? `、${usageInfo!.usedInDatasets} 個資料集` : ''} 使用中
+                </Text>
               ) : (
-                <Alert status="info" borderRadius="md">
-                  <AlertIcon />
-                  <AlertDescription fontSize="sm">
-                    此係數目前未被任何專案、組合係數或資料集使用，可以安全刪除。
-                  </AlertDescription>
-                </Alert>
+                <Text fontSize="sm" color="gray.600" textAlign="center">
+                  確定要刪除此係數嗎？此操作無法復原。
+                </Text>
               )}
-
-              <Alert status="error" borderRadius="md">
-                <AlertIcon />
-                <AlertDescription fontSize="sm">
-                  <Text fontWeight="medium" mb={1}>注意：</Text>
-                  <Text>刪除後將無法復原。{hasUsage ? '相關引用將會失效。' : ''}</Text>
-                </AlertDescription>
-              </Alert>
             </VStack>
-          </AlertDialogBody>
+          </VStack>
+        </ModalBody>
 
-          <AlertDialogFooter>
-            <HStack spacing={3}>
-              <Button ref={cancelRef} onClick={onClose} size="sm">
-                取消
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={onConfirm}
-                isLoading={isLoading}
-                loadingText="刪除中..."
-                size="sm"
-              >
-                {hasUsage ? '確認刪除' : '刪除'}
-              </Button>
-            </HStack>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialogOverlay>
-    </AlertDialog>
+        <ModalFooter pt={0}>
+          <HStack spacing={3} justify="flex-end">
+            <Button
+              ref={cancelRef}
+              variant="outline"
+              onClick={onClose}
+              isDisabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              colorScheme="red"
+              onClick={onConfirm}
+              isLoading={isLoading}
+              loadingText="刪除中..."
+            >
+              Delete
+            </Button>
+          </HStack>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   )
 }

@@ -29,6 +29,7 @@ import ProductCarbonFootprintCard from '@/components/ProductCarbonFootprintCard'
 import FactorSelectorModal from '@/components/FactorSelectorModal'
 import FormulaBuilderModal from '@/components/formula-builder/FormulaBuilderModal'
 import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
+import BlockEditImportedDialog from '@/components/BlockEditImportedDialog'
 import RemoveFromCentralDialog from '@/components/RemoveFromCentralDialog'
 import { Dataset, ImportToCentralFormData, CustomFactor } from '@/types/types'
 import {
@@ -77,6 +78,8 @@ export default function HomePage() {
   // 新增對話框狀態
   const [blockDeleteDialogOpen, setBlockDeleteDialogOpen] = useState(false)
   const [blockedFactor, setBlockedFactor] = useState<any | null>(null)
+  const [blockEditDialogOpen, setBlockEditDialogOpen] = useState(false)
+  const [blockedEditFactor, setBlockedEditFactor] = useState<any | null>(null)
   const [removeFromCentralDialogOpen, setRemoveFromCentralDialogOpen] = useState(false)
   const [factorToRemove, setFactorToRemove] = useState<any | null>(null)
   
@@ -91,6 +94,8 @@ export default function HomePage() {
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
   // 編輯中的組合係數
   const [editingComposite, setEditingComposite] = useState<any | null>(null)
+  // 編輯中的自訂係數
+  const [editingCustomFactor, setEditingCustomFactor] = useState<CustomFactor | null>(null)
   // 用於觸發重新渲染的狀態
   const [refreshKey, setRefreshKey] = useState(0)
   
@@ -135,6 +140,9 @@ export default function HomePage() {
 
   // 處理係數選擇
   const handleFactorSelect = (factor: any) => {
+    console.log('[handleFactorSelect] 選中係數:', factor)
+    console.log('[handleFactorSelect] factor.type:', factor?.type)
+    console.log('[handleFactorSelect] factor.data:', factor?.data)
     setSelectedFactor(factor)
     setIsDetailPanelOpen(true)
   }
@@ -314,6 +322,20 @@ export default function HomePage() {
   const handleCompositeFactorEdit = (factor: any) => {
     setEditingComposite(factor)
     onCompositeOpen()
+  }
+
+  // 處理編輯自訂係數
+  const handleCustomFactorEdit = (factor: any) => {
+    // 從 factor.data 取得實際的 CustomFactor 資料
+    const customFactorData = factor.data?.data || factor.data || factor
+    setEditingCustomFactor(customFactorData as CustomFactor)
+    onCustomFactorOpen()
+  }
+
+  // 處理阻止編輯已匯入係數
+  const handleBlockEdit = (factor: any) => {
+    setBlockedEditFactor(factor)
+    setBlockEditDialogOpen(true)
   }
 
   // 處理從匯入對話框返回編輯
@@ -1045,7 +1067,9 @@ export default function HomePage() {
               })()}
               onOpenComposite={onCompositeOpen}
               onEditComposite={handleEditCompositeFromImport}
+              onEditCustomFactor={handleCustomFactorEdit}
               onOpenCustomFactor={onCustomFactorOpen}
+              onBlockEdit={handleBlockEdit}
               datasetFactors={getDatasetFactors()}
               onRefreshSelectedFactor={refreshSelectedFactor}
               onOpenGlobalSearch={handleOpenFactorSelector}
@@ -1111,6 +1135,8 @@ export default function HomePage() {
                 selectedFactor={selectedFactor}
                 onEditFactor={handleEditFactor}
                 onEditComposite={handleCompositeFactorEdit}
+                onEditCustomFactor={handleCustomFactorEdit}
+                onBlockEdit={handleBlockEdit}
                 isUserDefinedFactor={selectedNode?.id === 'user_defined'}
                 isCentralLibrary={selectedNode?.id === 'favorites'}
                 onRemoveFromCentral={handleRemoveFromCentralRequest}
@@ -1136,8 +1162,12 @@ export default function HomePage() {
       {/* 自訂係數 Drawer */}
       <CustomFactorDrawer
         isOpen={isCustomFactorOpen}
-        onClose={onCustomFactorClose}
+        onClose={() => {
+          setEditingCustomFactor(null)
+          onCustomFactorClose()
+        }}
         onSave={handleCustomFactorSave}
+        editingFactor={editingCustomFactor}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1199,6 +1229,17 @@ export default function HomePage() {
         isOpen={blockDeleteDialogOpen}
         onClose={() => setBlockDeleteDialogOpen(false)}
         factor={blockedFactor}
+        onNavigateToCentral={handleNavigateToCentral}
+      />
+
+      {/* Block Edit Imported Dialog */}
+      <BlockEditImportedDialog
+        isOpen={blockEditDialogOpen}
+        onClose={() => {
+          setBlockEditDialogOpen(false)
+          setBlockedEditFactor(null)
+        }}
+        factor={blockedEditFactor}
         onNavigateToCentral={handleNavigateToCentral}
       />
 

@@ -122,7 +122,10 @@ export default function ImportCompositeToCentralModal({
   if (!compositeFactor.region || compositeFactor.region.trim() === '') {
     missingFields.push('國家/區域')
   }
-  if (!compositeFactor.enabledDate || compositeFactor.enabledDate.trim() === '') {
+
+  // 支援兩種欄位名稱：enabledDate (組合係數) 或 effective_date (自訂係數)
+  const effectiveDate = (compositeFactor as any).enabledDate || (compositeFactor as any).effective_date
+  if (!effectiveDate || effectiveDate.trim() === '') {
     missingFields.push('啟用日期')
   }
   const hasMissingFields = missingFields.length > 0
@@ -288,7 +291,7 @@ export default function ImportCompositeToCentralModal({
     lifecycle_stages: [],  // 新增：生命週期階段
     data_quality: 'Secondary',  // 預設為 Secondary
     // 以下欄位自動生成，不在表單中顯示
-    valid_from: compositeFactor.enabledDate || new Date().toISOString().split('T')[0],
+    valid_from: effectiveDate || new Date().toISOString().split('T')[0],
     // composition_notes 將在提交時根據表單資料動態生成
   })
 
@@ -322,7 +325,7 @@ export default function ImportCompositeToCentralModal({
       // 提交前確保所有自動生成的欄位都已填入
       const enrichedData = {
         ...formData,
-        valid_from: formData.valid_from || compositeFactor.enabledDate || new Date().toISOString().split('T')[0],
+        valid_from: formData.valid_from || effectiveDate || new Date().toISOString().split('T')[0],
         composition_notes: compositionNotes,
         // 新增：將適用範圍資訊對應到係數欄位
         isic_categories: formData.isic_categories,

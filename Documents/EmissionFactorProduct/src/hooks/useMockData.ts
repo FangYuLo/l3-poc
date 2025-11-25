@@ -571,6 +571,7 @@ function convertCustomFactorToTableItem(factor: CustomFactor): FactorTableItem {
     source_ref: factor.source,
     version: factor.version,
     data: factor,
+    effective_date: factor.effective_date, // 重要：複製 effective_date 到頂層
     imported_to_central: factor.imported_to_central,
     central_library_id: factor.central_library_id,
     imported_at: factor.imported_at,

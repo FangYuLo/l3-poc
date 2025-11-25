@@ -134,6 +134,8 @@ interface FactorDetailProps {
   selectedFactor?: any // 從父組件傳入的選中係數
   onEditFactor?: (updatedFactor: any) => void // 編輯係數回調
   onEditComposite?: (factor: any) => void // 編輯組合係數回調
+  onEditCustomFactor?: (factor: any) => void // 編輯自訂係數回調
+  onBlockEdit?: (factor: any) => void // 阻止編輯已匯入係數的回調
   isUserDefinedFactor?: boolean // 是否為自建係數
   isCentralLibrary?: boolean // 是否為中央係數庫
   onRemoveFromCentral?: (factor: any) => void // 從中央庫移除回調
@@ -145,6 +147,8 @@ export default function FactorDetail({
   selectedFactor,
   onEditFactor,
   onEditComposite,
+  onEditCustomFactor,
+  onBlockEdit,
   isUserDefinedFactor = false,
   isCentralLibrary = false,
   onRemoveFromCentral,
@@ -505,12 +509,28 @@ export default function FactorDetail({
 
     // 如果是自訂係數資料
     if (selected.type === 'custom_factor') {
-      // selected.data 包含完整的 CustomFactor 資料
-      const customData = selected.data
+      // selected.data 可能包含巢狀的 data 屬性
+      // 需要找到實際的 CustomFactor 資料（包含 source, effective_date, co2_factor 等）
+      let customData = selected.data
 
-      if (!customData) {
-        console.error('[transformSelectedData] customData is undefined for custom_factor')
-        return selected
+      // 如果 customData.data 存在且包含 source，則實際資料在 customData.data 裡
+      if (customData?.data && customData.data.source !== undefined) {
+        customData = customData.data
+      }
+
+      console.log('[transformSelectedData] custom_factor - 最終 customData:', customData)
+
+      if (!customData || !customData.source) {
+        console.error('[transformSelectedData] customData is invalid for custom_factor')
+        // 嘗試直接從 selected 提取資料（備援方案）
+        return {
+          ...selected,
+          type: 'custom_factor',
+          source: selected.source_ref || selected.source || '-',
+          effective_date: selected.effective_date || '-',
+          continent: '-',
+          country: '-',
+        }
       }
 
       return {
@@ -1320,6 +1340,45 @@ export default function FactorDetail({
 
         {/* Actions */}
         <VStack spacing={3}>
+          {/* 自建係數庫：根據係數類型顯示編輯按鈕 */}
+          {isUserDefinedFactor && (
+            <>
+              {mockFactor.type === 'composite_factor' ? (
+                <Button
+                  colorScheme="blue"
+                  size="sm"
+                  w="100%"
+                  onClick={() => {
+                    // 檢查是否已匯入中央庫
+                    if (mockFactor.imported_to_central) {
+                      onBlockEdit?.(mockFactor)
+                    } else {
+                      onEditComposite?.(mockFactor)
+                    }
+                  }}
+                >
+                  編輯組合係數
+                </Button>
+              ) : mockFactor.type === 'custom_factor' ? (
+                <Button
+                  colorScheme="blue"
+                  size="sm"
+                  w="100%"
+                  onClick={() => {
+                    // 檢查是否已匯入中央庫
+                    if (mockFactor.imported_to_central) {
+                      onBlockEdit?.(mockFactor)
+                    } else {
+                      onEditCustomFactor?.(mockFactor)
+                    }
+                  }}
+                >
+                  編輯自訂係數
+                </Button>
+              ) : null}
+            </>
+          )}
+
           {/* 在中央庫中：所有係數都可以移除 */}
           {isCentralLibrary ? (
             <Button
