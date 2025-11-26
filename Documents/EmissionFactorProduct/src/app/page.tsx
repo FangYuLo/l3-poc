@@ -31,6 +31,7 @@ import FormulaBuilderModal from '@/components/formula-builder/FormulaBuilderModa
 import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
 import BlockEditImportedDialog from '@/components/BlockEditImportedDialog'
 import RemoveFromCentralDialog from '@/components/RemoveFromCentralDialog'
+import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
 import { Dataset, ImportToCentralFormData, CustomFactor } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
@@ -49,6 +50,9 @@ import {
   updateCustomFactor,
   getCustomFactorById,
   getAllUserDefinedFactors,
+  importCustomFactorToCentral,
+  deleteCustomFactorSafe,
+  canDeleteCustomFactor,
 } from '@/hooks/useMockData'
 import { useComposites } from '@/hooks/useComposites'
 import { useToast } from '@chakra-ui/react'
@@ -82,6 +86,10 @@ export default function HomePage() {
   const [blockedEditFactor, setBlockedEditFactor] = useState<any | null>(null)
   const [removeFromCentralDialogOpen, setRemoveFromCentralDialogOpen] = useState(false)
   const [factorToRemove, setFactorToRemove] = useState<any | null>(null)
+  
+  // 匯入中央庫對話框狀態
+  const [importToCentralModalOpen, setImportToCentralModalOpen] = useState(false)
+  const [factorToImport, setFactorToImport] = useState<any | null>(null)
   
   // 新增選中節點狀態（預設選中中央係數庫）
   const [selectedNode, setSelectedNode] = useState<TreeNodeProps | null>({
@@ -450,9 +458,63 @@ export default function HomePage() {
 
   // 處理匯入中央庫
   const handleImportToCentral = (factor: any) => {
-    console.log('[handleImportToCentral] 匯入係數到中央庫:', factor.name)
-    // TODO: 實作匯入中央庫的邏輯
-    // 這裡可以開啟匯入表單 modal
+    console.log('[handleImportToCentral] 匯入係數到中央庫:', factor.name, 'type:', factor.type)
+    setFactorToImport(factor)
+    setImportToCentralModalOpen(true)
+  }
+
+  // 處理匯入中央庫確認
+  const handleImportToCentralConfirm = async (formData: any) => {
+    if (!factorToImport) return
+
+    try {
+      let result
+      
+      // 根據係數類型選擇不同的匯入函數
+      if (factorToImport.type === 'custom_factor') {
+        // 自訂係數
+        result = importCustomFactorToCentral(factorToImport.id, formData)
+      } else {
+        // 組合係數（使用原有的匯入函數）
+        // TODO: 實作組合係數匯入邏輯
+        result = { success: false, message: '組合係數匯入尚未實作' }
+      }
+
+      if (result.success) {
+        toast({
+          title: '匯入成功',
+          description: result.message,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+        
+        // 關閉對話框並清空狀態
+        setImportToCentralModalOpen(false)
+        setFactorToImport(null)
+        
+        // 刷新相關數據
+        refreshSelectedFactor()
+        
+      } else {
+        toast({
+          title: '匯入失敗',
+          description: result.message,
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      toast({
+        title: '匯入失敗',
+        description: '發生未知錯誤',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+      console.error('[handleImportToCentralConfirm] 錯誤:', error)
+    }
   }
 
   // 希達係數加入中央庫（無需彈窗，直接加入）
@@ -1168,6 +1230,29 @@ export default function HomePage() {
         }}
         onSave={handleCustomFactorSave}
         editingFactor={editingCustomFactor}
+        onImportToCenter={(factor) => {
+          // 轉換為 FactorTableItem 格式
+          const tableItem = {
+            id: factor.id,
+            type: 'custom_factor',
+            name: factor.name,
+            value: factor.co2_factor || 0,
+            unit: factor.co2_unit || '',
+            year: new Date(factor.effective_date).getFullYear(),
+            region: factor.region,
+            method_gwp: factor.method_gwp,
+            source_type: 'user_defined',
+            source_ref: factor.source,
+            version: factor.version,
+            data: factor,
+            effective_date: factor.effective_date,
+            imported_to_central: factor.imported_to_central,
+            central_library_id: factor.central_library_id,
+            imported_at: factor.imported_at,
+          } as any
+          handleImportToCentral(tableItem)
+          onCustomFactorClose()  // 關閉 Drawer
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1249,6 +1334,27 @@ export default function HomePage() {
         onClose={() => setRemoveFromCentralDialogOpen(false)}
         factor={factorToRemove}
         onConfirm={handleRemoveFromCentralConfirm}
+      />
+
+      {/* Import To Central Modal */}
+      <ImportCompositeToCentralModal
+        isOpen={importToCentralModalOpen}
+        onClose={() => {
+          setImportToCentralModalOpen(false)
+          setFactorToImport(null)
+        }}
+        compositeFactor={factorToImport || {} as any}
+        onConfirm={handleImportToCentralConfirm}
+        onEditComposite={(factor) => {
+          setImportToCentralModalOpen(false)
+          if ('selected_ghgs' in factor) {
+            // 自訂係數
+            handleCustomFactorEdit({ data: factor })
+          } else {
+            // 組合係數
+            handleEditCompositeFromImport(factor)
+          }
+        }}
       />
     </Box>
   )

@@ -84,6 +84,33 @@ interface CompositeFactor {
   usage_info?: FactorUsageInfo
 }
 
+// 自訂係數介面（簡化版，僅包含匯入所需欄位）
+interface CustomFactor {
+  id: number
+  name: string
+  description?: string
+  region?: string
+  effective_date?: string
+  selected_ghgs?: string[]
+  co2_factor?: number
+  co2_unit?: string
+  ch4_factor?: number
+  ch4_unit?: string
+  n2o_factor?: number
+  n2o_unit?: string
+  hfcs_factor?: number
+  hfcs_unit?: string
+  pfcs_factor?: number
+  pfcs_unit?: string
+  sf6_factor?: number
+  sf6_unit?: string
+  nf3_factor?: number
+  nf3_unit?: string
+  imported_to_central?: boolean
+  central_library_id?: string
+  imported_at?: string
+}
+
 interface ImportCompositeToCentralFormData {
   factor_name: string
   description: string
@@ -102,9 +129,9 @@ interface ImportCompositeToCentralFormData {
 interface ImportCompositeToCentralModalProps {
   isOpen: boolean
   onClose: () => void
-  compositeFactor: CompositeFactor
+  compositeFactor: CompositeFactor | CustomFactor  // 支援組合係數和自訂係數
   onConfirm: (formData: ImportCompositeToCentralFormData) => Promise<void>
-  onEditComposite?: (factor: CompositeFactor) => void  // 新增：編輯回調
+  onEditComposite?: (factor: CompositeFactor | CustomFactor) => void  // 新增：編輯回調
 }
 
 export default function ImportCompositeToCentralModal({
@@ -117,6 +144,10 @@ export default function ImportCompositeToCentralModal({
   const toast = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // 判斷是組合係數還是自訂係數
+  const isCompositeFactor = 'components' in compositeFactor
+  const isCustomFactor = 'selected_ghgs' in compositeFactor
+
   // 檢測必要欄位是否缺失
   const missingFields: string[] = []
   if (!compositeFactor.region || compositeFactor.region.trim() === '') {
@@ -124,7 +155,9 @@ export default function ImportCompositeToCentralModal({
   }
 
   // 支援兩種欄位名稱：enabledDate (組合係數) 或 effective_date (自訂係數)
-  const effectiveDate = (compositeFactor as any).enabledDate || (compositeFactor as any).effective_date
+  const effectiveDate = isCompositeFactor 
+    ? (compositeFactor as CompositeFactor).enabledDate 
+    : (compositeFactor as CustomFactor).effective_date
   if (!effectiveDate || effectiveDate.trim() === '') {
     missingFields.push('啟用日期')
   }
@@ -204,8 +237,13 @@ export default function ImportCompositeToCentralModal({
     return stageNames.join(' + ')
   }
 
-  // 彙整組合係數的所有組成係數來源
-  const getComponentSources = (compositeFactor: CompositeFactor): string => {
+  // 獲取係數來源（根據係數類型不同處理）
+  const getFactorSources = (factor: CompositeFactor | CustomFactor): string => {
+    if (isCustomFactor) {
+      return '自訂係數'
+    }
+    
+    const compositeFactor = factor as CompositeFactor
     const sources = compositeFactor.components
       .map(comp => {
         // 優先使用 source，其次使用 source_ref
@@ -228,8 +266,37 @@ export default function ImportCompositeToCentralModal({
     return sources.join('、')
   }
 
-  // 格式化引用專案資訊（進階版：包含專案類型）
-  const getReferencedProjectsWithTypes = (compositeFactor: CompositeFactor): JSX.Element => {
+  // 獲取係數值和單位（根據係數類型不同處理）
+  const getFactorValueAndUnit = (factor: CompositeFactor | CustomFactor): { value: number, unit: string } => {
+    if (isCustomFactor) {
+      const customFactor = factor as CustomFactor
+      // 對於自訂係數，使用第一個選中的 GHG 作為代表值
+      const firstGhg = customFactor.selected_ghgs?.[0]?.toLowerCase()
+      if (firstGhg) {
+        const factorKey = `${firstGhg}_factor` as keyof CustomFactor
+        const unitKey = `${firstGhg}_unit` as keyof CustomFactor
+        return {
+          value: (customFactor[factorKey] as number) || 0,
+          unit: (customFactor[unitKey] as string) || ''
+        }
+      }
+      return { value: 0, unit: '' }
+    }
+    
+    const compositeFactor = factor as CompositeFactor
+    return {
+      value: compositeFactor.value,
+      unit: compositeFactor.unit
+    }
+  }
+
+  // 格式化引用專案資訊（僅適用於組合係數）
+  const getReferencedProjectsWithTypes = (factor: CompositeFactor | CustomFactor): JSX.Element => {
+    if (!isCompositeFactor) {
+      return <Text fontSize="sm" color="gray.500">自訂係數不適用</Text>
+    }
+    
+    const compositeFactor = factor as CompositeFactor
     // 檢查是否有 usage_info
     if (!compositeFactor.usage_info) {
       return <Text fontSize="sm" color="gray.500">未被引用</Text>
@@ -267,11 +334,29 @@ export default function ImportCompositeToCentralModal({
     )
   }
 
-  // 生成組成備註（只包含組成資訊）
-  const generateCompositionNotes = (
-    compositeFactor: CompositeFactor,
+  // 生成係數備註（根據係數類型不同處理）
+  const generateFactorNotes = (
+    factor: CompositeFactor | CustomFactor,
     formData: ImportCompositeToCentralFormData
   ): string => {
+    if (isCustomFactor) {
+      const customFactor = factor as CustomFactor
+      const selectedGhgs = customFactor.selected_ghgs || []
+      const ghgInfo = selectedGhgs.map(ghg => {
+        const ghgKey = ghg.toLowerCase()
+        const factorKey = `${ghgKey}_factor` as keyof CustomFactor
+        const unitKey = `${ghgKey}_unit` as keyof CustomFactor
+        const value = customFactor[factorKey]
+        const unit = customFactor[unitKey]
+        return `${ghg}: ${value} ${unit}`
+      }).join('、')
+      
+      return `【自訂係數資訊】
+本自訂係數包含 ${selectedGhgs.length} 種溫室氣體係數。
+係數詳情：${ghgInfo}。`
+    }
+    
+    const compositeFactor = factor as CompositeFactor
     // 組成資訊
     const compositionInfo = `【組成資訊】
 本組合係數由 ${compositeFactor.components.length} 個基礎係數組成，採用${compositeFactor.formulaType === 'weighted' ? '權重平均' : '權重加總'}計算方式。
@@ -281,11 +366,12 @@ export default function ImportCompositeToCentralModal({
   }
 
   // 表單狀態
+  const factorValueAndUnit = getFactorValueAndUnit(compositeFactor)
   const [formData, setFormData] = useState<ImportCompositeToCentralFormData>({
     factor_name: compositeFactor.name,
     description: compositeFactor.description || '',
-    factor_value: compositeFactor.value,
-    unit: compositeFactor.unit,
+    factor_value: factorValueAndUnit.value,
+    unit: factorValueAndUnit.unit,
     isic_categories: [],  // 新增：ISIC 產業分類
     geographic_scope: mapRegionToScope(compositeFactor.region),  // 自動對應地理範圍
     lifecycle_stages: [],  // 新增：生命週期階段
@@ -319,14 +405,14 @@ export default function ImportCompositeToCentralModal({
 
     setIsSubmitting(true)
     try {
-      // 生成包含組成資訊和適用範圍的完整備註
-      const compositionNotes = generateCompositionNotes(compositeFactor, formData)
+      // 生成包含係數資訊和適用範圍的完整備註
+      const factorNotes = generateFactorNotes(compositeFactor, formData)
 
       // 提交前確保所有自動生成的欄位都已填入
       const enrichedData = {
         ...formData,
         valid_from: formData.valid_from || effectiveDate || new Date().toISOString().split('T')[0],
-        composition_notes: compositionNotes,
+        composition_notes: factorNotes,
         // 新增：將適用範圍資訊對應到係數欄位
         isic_categories: formData.isic_categories,
         lifecycle_stages: formData.lifecycle_stages,
@@ -336,7 +422,7 @@ export default function ImportCompositeToCentralModal({
       await onConfirm(enrichedData)
       toast({
         title: '匯入成功',
-        description: '組合係數已成功匯入中央庫',
+        description: `${isCustomFactor ? '自訂' : '組合'}係數已成功匯入中央庫`,
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -384,7 +470,7 @@ export default function ImportCompositeToCentralModal({
                 <AlertDescription fontSize="md" w="100%">
                   <VStack align="stretch" spacing={4}>
                     <Text>
-                      自建係數尚未填寫以下資訊，無法匯入中央庫：
+                      係數尚未填寫以下資訊，無法匯入中央庫：
                     </Text>
 
                     <Box pl={4}>
@@ -406,7 +492,7 @@ export default function ImportCompositeToCentralModal({
                           💡 建議做法：
                         </Text>
                         <Text color="blue.700">
-                          請先完善自建係數的基本資訊，確保資料完整後再進行匯入。
+                          請先完善係數的基本資訊，確保資料完整後再進行匯入。
                           這樣可以避免版本控制上的混亂。
                         </Text>
                       </VStack>
@@ -428,7 +514,7 @@ export default function ImportCompositeToCentralModal({
                   <HStack>
                     <Text fontSize="sm" color="gray.600">計算值：</Text>
                     <Text fontSize="sm" fontWeight="medium">
-                      {compositeFactor.value.toFixed(4)} {compositeFactor.unit}
+                      {factorValueAndUnit.value.toFixed(4)} {factorValueAndUnit.unit}
                     </Text>
                   </HStack>
                 </VStack>
@@ -475,7 +561,7 @@ export default function ImportCompositeToCentralModal({
                       <Td bg="gray.50" fontWeight="medium">係數來源</Td>
                       <Td>
                         <Text fontSize="sm">
-                          {getComponentSources(compositeFactor)}
+                          {getFactorSources(compositeFactor)}
                         </Text>
                       </Td>
                     </Tr>
@@ -489,11 +575,12 @@ export default function ImportCompositeToCentralModal({
                 </Table>
               </Box>
 
-              {/* 計算過程區塊 - 採用係數詳情樣式 */}
-              <Box>
-                <Text fontWeight="bold" fontSize="lg" color="gray.700" mb={3}>
-                  【計算過程】
-                </Text>
+              {/* 計算過程區塊 - 僅組合係數顯示 */}
+              {isCompositeFactor && (
+                <Box>
+                  <Text fontWeight="bold" fontSize="lg" color="gray.700" mb={3}>
+                    【計算過程】
+                  </Text>
 
                 <Box
                   border="1px solid"
@@ -508,7 +595,7 @@ export default function ImportCompositeToCentralModal({
                   </Text>
 
                   <VStack align="stretch" spacing={2} my={3}>
-                    {compositeFactor.components.map((comp, idx) => {
+                    {(compositeFactor as CompositeFactor).components.map((comp, idx) => {
                       const actualValue = comp.value || 0
                       const weight = comp.weight || 0
                       const contribution = actualValue * weight
@@ -526,7 +613,7 @@ export default function ImportCompositeToCentralModal({
                               {actualValue.toFixed(6)}×{weight.toFixed(0)} = {contribution.toFixed(6)}
                             </Text>
                           </HStack>
-                          {idx < compositeFactor.components.length - 1 && <Divider mt={2} />}
+                          {idx < (compositeFactor as CompositeFactor).components.length - 1 && <Divider mt={2} />}
                         </Box>
                       )
                     })}
@@ -537,11 +624,12 @@ export default function ImportCompositeToCentralModal({
                   <HStack justify="space-between">
                     <Text fontWeight="bold" fontSize="md">Composite Value</Text>
                     <Text fontSize="xl" fontWeight="bold" color="blue.600" fontFamily="mono">
-                      {compositeFactor.value.toFixed(6)} {formData.unit}
+                      {factorValueAndUnit.value.toFixed(6)} {formData.unit}
                     </Text>
                   </HStack>
                 </Box>
-              </Box>
+                </Box>
+              )}
 
             <Divider borderColor="gray.400" />
 

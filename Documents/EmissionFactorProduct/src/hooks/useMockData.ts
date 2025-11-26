@@ -259,17 +259,30 @@ export function removeFromCentralLibrary(
 
       // 更新對應的自建係數狀態（無論是否在 importedCompositeFactors 中找到）
       console.log('[useMockData] 嘗試更新自建係數狀態，sourceCompositeId:', sourceCompositeId)
-      const sourceFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
-      if (sourceFactor) {
-        console.log('[useMockData] 找到自建係數:', sourceFactor.name, '當前 imported_to_central:', sourceFactor.imported_to_central)
+      
+      // 先嘗試組合係數
+      const sourceCompositeFactor = getUserDefinedCompositeFactorById(sourceCompositeId)
+      if (sourceCompositeFactor) {
+        console.log('[useMockData] 找到組合係數:', sourceCompositeFactor.name, '當前 imported_to_central:', sourceCompositeFactor.imported_to_central)
         updateUserDefinedCompositeFactor(sourceCompositeId, {
-          ...sourceFactor,
+          ...sourceCompositeFactor,
           imported_to_central: false,
           central_library_id: undefined,
         })
-        console.log('[useMockData] 更新自建係數狀態完成:', sourceFactor.name, 'imported_to_central = false')
+        console.log('[useMockData] 更新組合係數狀態完成:', sourceCompositeFactor.name, 'imported_to_central = false')
       } else {
-        console.log('[useMockData] 找不到自建係數，sourceCompositeId:', sourceCompositeId)
+        // 嘗試自訂係數
+        const sourceCustomFactor = getCustomFactorById(sourceCompositeId)
+        if (sourceCustomFactor) {
+          console.log('[useMockData] 找到自訂係數:', sourceCustomFactor.name, '當前 imported_to_central:', sourceCustomFactor.imported_to_central)
+          updateCustomFactor(sourceCompositeId, {
+            imported_to_central: false,
+            central_library_id: undefined,
+          })
+          console.log('[useMockData] 更新自訂係數狀態完成:', sourceCustomFactor.name, 'imported_to_central = false')
+        } else {
+          console.log('[useMockData] 找不到自建係數（組合或自訂），sourceCompositeId:', sourceCompositeId)
+        }
       }
 
       return {
@@ -518,11 +531,65 @@ export function updateCustomFactor(id: number, updates: Partial<CustomFactor>) {
       updated_at: new Date().toISOString()
     }
     console.log('[updateCustomFactor] 更新自訂係數:', customFactors[index].name)
+    return customFactors[index]
+  }
+  return null
+}
+
+/**
+ * 檢查自訂係數是否可以刪除
+ */
+export function canDeleteCustomFactor(factor: CustomFactor): {
+  canDelete: boolean
+  reason?: string
+} {
+  // 檢查是否已匯入中央庫
+  if (factor.imported_to_central) {
+    return {
+      canDelete: false,
+      reason: '此係數已匯入中央庫，請先從中央庫移除後再刪除'
+    }
+  }
+
+  return { canDelete: true }
+}
+
+/**
+ * 安全刪除自訂係數（含保護機制）
+ */
+export function deleteCustomFactorSafe(id: number): {
+  success: boolean
+  error?: string
+  reason?: string
+} {
+  const factor = customFactors.find(f => f.id === id)
+  if (!factor) {
+    return {
+      success: false,
+      error: 'factor_not_found',
+      reason: '找不到指定的自訂係數'
+    }
+  }
+
+  const checkResult = canDeleteCustomFactor(factor)
+  if (!checkResult.canDelete) {
+    return {
+      success: false,
+      reason: checkResult.reason,
+      error: 'blocked_by_import'
+    }
+  }
+
+  // 執行刪除
+  const deleted = deleteCustomFactor(id)
+  return {
+    success: deleted,
+    reason: deleted ? undefined : '刪除失敗'
   }
 }
 
 /**
- * 刪除自訂係數
+ * 刪除自訂係數（內部使用）
  */
 export function deleteCustomFactor(id: number) {
   const index = customFactors.findIndex(f => f.id === id)
@@ -575,6 +642,106 @@ function convertCustomFactorToTableItem(factor: CustomFactor): FactorTableItem {
     imported_to_central: factor.imported_to_central,
     central_library_id: factor.central_library_id,
     imported_at: factor.imported_at,
+  }
+}
+
+/**
+ * 將自訂係數匯入中央庫
+ */
+export function importCustomFactorToCentral(
+  factorId: number, 
+  importData: {
+    factor_name: string
+    description: string
+    factor_value: number
+    unit: string
+    isic_categories: string[]
+    geographic_scope: string
+    lifecycle_stages: string[]
+    data_quality: 'Secondary' | 'Primary'
+    valid_from?: string
+    composition_notes?: string
+    system_boundary_detail?: string
+  }
+): { success: boolean, message: string, centralLibraryId?: string } {
+  try {
+    console.log('[importCustomFactorToCentral] 匯入自訂係數到中央庫, factorId:', factorId)
+    
+    // 找到目標自訂係數
+    const factor = customFactors.find(f => f.id === factorId)
+    if (!factor) {
+      return {
+        success: false,
+        message: '找不到指定的自訂係數'
+      }
+    }
+
+    // 檢查是否已匯入
+    if (factor.imported_to_central) {
+      return {
+        success: false,
+        message: '此係數已經匯入中央庫'
+      }
+    }
+
+    // 生成中央庫 ID
+    const centralLibraryId = Date.now() + factorId  // 使用數字格式
+    
+    // 更新自訂係數的匯入狀態
+    const updatedFactor = updateCustomFactor(factorId, {
+      imported_to_central: true,
+      central_library_id: centralLibraryId,
+      imported_at: new Date().toISOString()
+    })
+
+    if (!updatedFactor) {
+      return {
+        success: false,
+        message: '更新自訂係數狀態失敗'
+      }
+    }
+
+    // 將自訂係數轉換為中央庫格式並加入匯入列表
+    const centralFactor: ExtendedFactorTableItem = {
+      ...convertCustomFactorToTableItem(updatedFactor),
+      // 新增中央庫相關資訊
+      central_library_id: centralLibraryId,
+      imported_to_central: true,
+      imported_at: updatedFactor.imported_at,
+      source_composite_id: factorId, // 記錄來源自訂係數 ID
+      source_version: updatedFactor.version,
+    } as ExtendedFactorTableItem & {
+      // 中央庫的額外資訊（不在型別中但實際存在）
+      isic_categories: string[]
+      geographic_scope: string
+      lifecycle_stages: string[]
+      data_quality: string
+      composition_notes?: string
+      system_boundary_detail?: string
+    }
+    
+    // 加入額外資訊
+    ;(centralFactor as any).isic_categories = importData.isic_categories
+    ;(centralFactor as any).geographic_scope = importData.geographic_scope
+    ;(centralFactor as any).lifecycle_stages = importData.lifecycle_stages
+    ;(centralFactor as any).data_quality = importData.data_quality
+    ;(centralFactor as any).composition_notes = importData.composition_notes
+    ;(centralFactor as any).system_boundary_detail = importData.system_boundary_detail
+
+    // 加入中央庫匯入列表
+    addImportedCompositeToCentral(centralFactor)
+
+    return {
+      success: true,
+      message: `自訂係數「${factor.name}」已成功匯入中央庫`,
+      centralLibraryId: centralLibraryId.toString()  // 回傳字串格式供顯示
+    }
+  } catch (error) {
+    console.error('[importCustomFactorToCentral] 匯入失敗:', error)
+    return {
+      success: false,
+      message: '匯入過程發生錯誤'
+    }
   }
 }
 

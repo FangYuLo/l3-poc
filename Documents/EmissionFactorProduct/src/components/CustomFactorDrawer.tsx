@@ -114,13 +114,15 @@ interface CustomFactorModalProps {
   onClose: () => void
   onSave: (factor: CustomFactor) => void
   editingFactor?: CustomFactor | null
+  onImportToCenter?: (factor: CustomFactor) => void  // 新增：匯入中央庫回調
 }
 
 export default function CustomFactorModal({
   isOpen,
   onClose,
   onSave,
-  editingFactor
+  editingFactor,
+  onImportToCenter
 }: CustomFactorModalProps) {
   const toast = useToast()
 
@@ -146,10 +148,15 @@ export default function CustomFactorModal({
   // 表單驗證錯誤
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // 匯入中央庫相關狀態
+  const [showImportButton, setShowImportButton] = useState(false)
+
   // 編輯模式：載入現有資料
   useEffect(() => {
     if (editingFactor) {
       setFormData(editingFactor)
+      // 檢查是否可顯示匯入按鈕：已儲存且未匯入
+      setShowImportButton(!editingFactor.imported_to_central)
     } else {
       // 新增模式：重置表單
       setFormData({
@@ -166,6 +173,7 @@ export default function CustomFactorModal({
       setDenominatorCategory('')
       setDenominatorUnit('')
       setErrors({})
+      setShowImportButton(false)
     }
   }, [editingFactor, isOpen])
 
@@ -306,6 +314,18 @@ export default function CustomFactorModal({
       duration: 3000,
       isClosable: true,
     })
+
+    // 更新匯入按鈕顯示狀態
+    if (!editingFactor) {
+      setShowImportButton(true) // 新建係數後顯示匯入按鈕
+    }
+  }
+
+  // 處理匯入中央庫
+  const handleImportToCenter = () => {
+    if (editingFactor && onImportToCenter) {
+      onImportToCenter(editingFactor)
+    }
   }
 
   return (
@@ -524,12 +544,27 @@ export default function CustomFactorModal({
         </DrawerBody>
 
         <DrawerFooter borderTopWidth="1px">
-          <Button variant="ghost" mr={3} onClick={onClose}>
-            取消
-          </Button>
-          <Button colorScheme="blue" onClick={handleSave}>
-            儲存係數
-          </Button>
+          <HStack spacing={3} width="full">
+            <Button variant="ghost" onClick={onClose}>
+              取消
+            </Button>
+            
+            {/* 匯入中央庫按鈕 - 僅在編輯模式且未匯入時顯示 */}
+            {editingFactor && showImportButton && onImportToCenter && (
+              <Button
+                colorScheme="green"
+                variant="outline"
+                onClick={handleImportToCenter}
+                flex={1}
+              >
+                匯入中央庫
+              </Button>
+            )}
+            
+            <Button colorScheme="blue" onClick={handleSave} flex={editingFactor && showImportButton ? 1 : 0}>
+              儲存係數
+            </Button>
+          </HStack>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
