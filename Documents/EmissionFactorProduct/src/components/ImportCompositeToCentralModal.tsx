@@ -268,6 +268,11 @@ export default function ImportCompositeToCentralModal({
 
   // 獲取係數值和單位（根據係數類型不同處理）
   const getFactorValueAndUnit = (factor: CompositeFactor | CustomFactor): { value: number, unit: string } => {
+    // 安全檢查
+    if (!factor) {
+      return { value: 0, unit: '' }
+    }
+    
     if (isCustomFactor) {
       const customFactor = factor as CustomFactor
       // 對於自訂係數，使用第一個選中的 GHG 作為代表值
@@ -285,8 +290,8 @@ export default function ImportCompositeToCentralModal({
     
     const compositeFactor = factor as CompositeFactor
     return {
-      value: compositeFactor.value,
-      unit: compositeFactor.unit
+      value: compositeFactor?.value || 0,
+      unit: compositeFactor?.unit || ''
     }
   }
 
@@ -367,18 +372,21 @@ export default function ImportCompositeToCentralModal({
 
   // 表單狀態
   const factorValueAndUnit = getFactorValueAndUnit(compositeFactor)
-  const [formData, setFormData] = useState<ImportCompositeToCentralFormData>({
-    factor_name: compositeFactor.name,
-    description: compositeFactor.description || '',
-    factor_value: factorValueAndUnit.value,
-    unit: factorValueAndUnit.unit,
-    isic_categories: [],  // 新增：ISIC 產業分類
-    geographic_scope: mapRegionToScope(compositeFactor.region),  // 自動對應地理範圍
-    lifecycle_stages: [],  // 新增：生命週期階段
-    data_quality: 'Secondary',  // 預設為 Secondary
-    // 以下欄位自動生成，不在表單中顯示
-    valid_from: effectiveDate || new Date().toISOString().split('T')[0],
-    // composition_notes 將在提交時根據表單資料動態生成
+  const [formData, setFormData] = useState<ImportCompositeToCentralFormData>(() => {
+    const safeValueAndUnit = factorValueAndUnit || { value: 0, unit: '' }
+    return {
+      factor_name: compositeFactor.name || '',
+      description: compositeFactor.description || '',
+      factor_value: safeValueAndUnit.value || 0,
+      unit: safeValueAndUnit.unit || '',
+      isic_categories: [],  // 新增：ISIC 產業分類
+      geographic_scope: mapRegionToScope(compositeFactor.region),  // 自動對應地理範圍
+      lifecycle_stages: [],  // 新增：生命週期階段
+      data_quality: 'Secondary',  // 預設為 Secondary
+      // 以下欄位自動生成，不在表單中顯示
+      valid_from: effectiveDate || new Date().toISOString().split('T')[0],
+      // composition_notes 將在提交時根據表單資料動態生成
+    }
   })
 
   const handleSubmit = async () => {
@@ -514,7 +522,7 @@ export default function ImportCompositeToCentralModal({
                   <HStack>
                     <Text fontSize="sm" color="gray.600">計算值：</Text>
                     <Text fontSize="sm" fontWeight="medium">
-                      {factorValueAndUnit.value.toFixed(4)} {factorValueAndUnit.unit}
+                      {(factorValueAndUnit?.value || 0).toFixed(4)} {factorValueAndUnit?.unit || ''}
                     </Text>
                   </HStack>
                 </VStack>
@@ -624,7 +632,7 @@ export default function ImportCompositeToCentralModal({
                   <HStack justify="space-between">
                     <Text fontWeight="bold" fontSize="md">Composite Value</Text>
                     <Text fontSize="xl" fontWeight="bold" color="blue.600" fontFamily="mono">
-                      {factorValueAndUnit.value.toFixed(6)} {formData.unit}
+                      {(factorValueAndUnit?.value || 0).toFixed(6)} {formData.unit}
                     </Text>
                   </HStack>
                 </Box>
