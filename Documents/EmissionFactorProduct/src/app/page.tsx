@@ -39,6 +39,8 @@ import {
 } from '@/data/mockProjectData'
 import {
   useMockData,
+  UpdateResult,
+  RelatedFactorInfo,
   addUserDefinedCompositeFactor,
   updateUserDefinedCompositeFactor,
   deleteUserDefinedCompositeFactor,
@@ -120,6 +122,10 @@ export default function HomePage() {
 
   // 中央係數庫更新觸發器（用於強制重新渲染）
   const [centralLibraryUpdateKey, setCentralLibraryUpdateKey] = useState(0)
+
+  // Resource_8 係數更新通知狀態（全域管理）
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null)
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false)
 
   // 處理節點選擇
   const handleNodeSelect = (node: TreeNodeProps) => {
@@ -618,6 +624,26 @@ export default function HomePage() {
     
     setDatasets(prev => [...prev, newDataset])
     console.log('新增資料集:', newDataset)
+  }
+
+  // 處理係數更新檢測結果（從希達係數庫觸發，在中央係數庫顯示）
+  const handleUpdateDetected = (result: UpdateResult) => {
+    setUpdateResult(result)
+    setShowUpdateNotification(true)
+    
+    // 自動切換到中央係數庫以顯示通知
+    if (selectedNode?.id !== 'favorites') {
+      setSelectedNode({
+        id: 'favorites',
+        name: '中央係數庫',
+        type: 'collection'
+      })
+    }
+  }
+
+  // 關閉更新通知
+  const handleDismissNotification = () => {
+    setShowUpdateNotification(false)
   }
 
   // 處理加入係數到資料集
@@ -1144,6 +1170,10 @@ export default function HomePage() {
               onImportProduct={handleImportProduct}
               onDeleteFactor={handleDeleteFactorRequest}
               onNavigateToCentral={handleNavigateToCentral}
+              onUpdateDetected={handleUpdateDetected}
+              updateResult={updateResult}
+              showUpdateNotification={showUpdateNotification}
+              onDismissNotification={handleDismissNotification}
             />
           </Box>
         </Flex>

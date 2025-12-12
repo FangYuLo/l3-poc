@@ -64,7 +64,11 @@ import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentral
 import ImportedFactorInfoDialog from '@/components/ImportedFactorInfoDialog'
 import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
 import BatchImportConfirmDialog from '@/components/BatchImportConfirmDialog'
+import UpdateFactorButton from '@/components/UpdateFactorButton'
+import RelatedFactorUpdateNotification from '@/components/RelatedFactorUpdateNotification'
+import RelatedFactorComparisonModal from '@/components/RelatedFactorComparisonModal'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
+import { UpdateResult, RelatedFactorInfo } from '@/hooks/useMockData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
 
@@ -122,6 +126,12 @@ interface FactorTableProps {
   onDeleteFactor?: (factor: any) => void // 刪除自建係數的回調
   onNavigateToCentral?: (factor: any) => void // 導航到中央庫並選中係數的回調
   onBlockEdit?: (factor: any) => void // 阻止編輯已匯入係數的回調
+  
+  // Resource_8 係數更新相關
+  onUpdateDetected?: (result: UpdateResult) => void // 處理更新檢測結果的回調
+  updateResult?: UpdateResult | null // 更新結果狀態
+  showUpdateNotification?: boolean // 是否顯示更新通知
+  onDismissNotification?: () => void // 關閉更新通知的回調
 }
 
 export default function FactorTable({
@@ -145,7 +155,13 @@ export default function FactorTable({
   dataRefreshKey = 0,
   onDeleteFactor,
   onNavigateToCentral,
-  onBlockEdit
+  onBlockEdit,
+  
+  // Resource_8 係數更新相關
+  onUpdateDetected,
+  updateResult,
+  showUpdateNotification,
+  onDismissNotification
 }: FactorTableProps) {
   const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -171,10 +187,18 @@ export default function FactorTable({
   const [blockedFactor, setBlockedFactor] = useState<any | null>(null)
   const { importCompositeToCentral, isLoading: compositeLoading } = useComposites()
 
+  // 處理查看係數對比
+  const handleViewComparison = (relatedFactors: RelatedFactorInfo[]) => {
+    setIsComparisonModalOpen(true)
+  }
+
   // 批次匯入狀態（針對希達係數）
   const [batchSelectedIds, setBatchSelectedIds] = useState<number[]>([])
   const [isBatchImportDialogOpen, setIsBatchImportDialogOpen] = useState(false)
   const [isBatchProcessing, setIsBatchProcessing] = useState(false)
+
+  // Resource_8 係數更新相關狀態（模態框控制）
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false)
 
   // 獲取表格配置（希達係數庫使用 global_search 配置）
   const tableConfig = getTableConfig(
@@ -1023,17 +1047,25 @@ export default function FactorTable({
           </HStack>
         )}
 
-        {/* 資料集頁面顯示新增係數按鈕 */}
+        {/* 資料集頁面顯示按鈕群組 */}
         {selectedNodeType === 'dataset' && (
-          <Button
-            leftIcon={<AddIcon />}
-            colorScheme="green"
-            variant="outline"
-            size="sm"
-            onClick={onOpenGlobalSearch}
-          >
-            新增係數
-          </Button>
+          <HStack spacing={2}>
+            {/* 希達係數庫才顯示更新按鈕 */}
+            {selectedNode?.id === 'global_search' && onUpdateDetected && (
+              <UpdateFactorButton
+                onUpdateDetected={onUpdateDetected}
+              />
+            )}
+            <Button
+              leftIcon={<AddIcon />}
+              colorScheme="green"
+              variant="outline"
+              size="sm"
+              onClick={onOpenGlobalSearch}
+            >
+              新增係數
+            </Button>
+          </HStack>
         )}
 
         <Text fontSize="sm" color="gray.500">
@@ -1561,6 +1593,26 @@ export default function FactorTable({
         onConfirm={handleBatchImport}
         isProcessing={isBatchProcessing}
       />
+
+      {/* Resource_8 係數更新通知 - 只在中央係數庫顯示 */}
+      {selectedNodeType === 'favorites' && showUpdateNotification && updateResult && (
+        <Box position="fixed" top="80px" right="20px" zIndex={1000} maxW="500px">
+          <RelatedFactorUpdateNotification
+            updateResult={updateResult}
+            onViewComparison={handleViewComparison}
+            onDismiss={onDismissNotification}
+          />
+        </Box>
+      )}
+
+      {/* 係數對比模態框 */}
+      {updateResult && (
+        <RelatedFactorComparisonModal
+          isOpen={isComparisonModalOpen}
+          onClose={() => setIsComparisonModalOpen(false)}
+          relatedFactors={updateResult.relatedFactors}
+        />
+      )}
 
       {/* Pagination */}
       <Flex p={4} borderTop="1px solid" borderColor="gray.200" align="center" justify="space-between">

@@ -1400,5 +1400,158 @@ export function useMockData() {
      * 批次加入希達係數到中央庫
      */
     batchAddStandardFactorsToCentral,
+
+    // === Resource_8 係數更新相關功能 ===
+
+    /**
+     * 檢測新係數的母資料源關聯
+     */
+    detectRelatedFactors: (newFactors: EmissionFactor[]): RelatedFactorInfo[] => {
+      return detectRelatedFactors(newFactors)
+    },
+
+    /**
+     * 取得所有新增係數
+     */
+    getNewResource8Factors: (): EmissionFactor[] => {
+      return getNewResource8Factors()
+    },
+
+    /**
+     * 模擬更新係數庫
+     */
+    simulateUpdateFactorDatabase: (): UpdateResult => {
+      return simulateUpdateFactorDatabase()
+    }
+  }
+}
+
+// ============================================================================
+// Resource_8 係數更新相關功能
+// ============================================================================
+
+/**
+ * 新係數關聯資訊
+ */
+export interface RelatedFactorInfo {
+  newFactorId: number
+  newFactorName: string
+  newFactorSource: string
+  relatedFactorId: number
+  relatedFactorName: string
+  relatedFactorSource: string
+  relationshipType: 'parent_source' | 'source_family'
+  comparisonData: {
+    newValue: number
+    oldValue: number
+    unit: string
+    changePercentage: number
+  }
+}
+
+/**
+ * 更新結果
+ */
+export interface UpdateResult {
+  totalNewFactors: number
+  relatedFactorsCount: number
+  unrelatedFactorsCount: number
+  relatedFactors: RelatedFactorInfo[]
+}
+
+/**
+ * 檢測新係數的母資料源關聯
+ * 只返回有關聯關係的新係數
+ */
+export function detectRelatedFactors(newFactors: EmissionFactor[]): RelatedFactorInfo[] {
+  const existingFactors = getAllEmissionFactors()
+  const relatedFactors: RelatedFactorInfo[] = []
+
+  newFactors.forEach(newFactor => {
+    // 檢查母資料源關聯 (parent_source)
+    if (newFactor.parent_source) {
+      const parentFactor = existingFactors.find(f => f.source_ref === newFactor.parent_source)
+      if (parentFactor) {
+        relatedFactors.push({
+          newFactorId: newFactor.id,
+          newFactorName: newFactor.name,
+          newFactorSource: newFactor.source,
+          relatedFactorId: parentFactor.id,
+          relatedFactorName: parentFactor.name,
+          relatedFactorSource: parentFactor.source,
+          relationshipType: 'parent_source',
+          comparisonData: {
+            newValue: newFactor.value,
+            oldValue: parentFactor.value,
+            unit: newFactor.unit,
+            changePercentage: parseFloat((((newFactor.value - parentFactor.value) / parentFactor.value) * 100).toFixed(2))
+          }
+        })
+      }
+    }
+
+    // 檢查資料源家族關聯 (source_family)
+    if (newFactor.source_family && !newFactor.parent_source) {
+      const familyFactors = existingFactors.filter(f => 
+        f.source_family === newFactor.source_family && 
+        f.id !== newFactor.id &&
+        f.version_sequence && newFactor.version_sequence &&
+        f.version_sequence < newFactor.version_sequence
+      )
+
+      // 找到版本序列最高的相關係數
+      const latestFamilyFactor = familyFactors.reduce((latest, current) => {
+        return (current.version_sequence || 0) > (latest.version_sequence || 0) ? current : latest
+      }, familyFactors[0])
+
+      if (latestFamilyFactor) {
+        relatedFactors.push({
+          newFactorId: newFactor.id,
+          newFactorName: newFactor.name,
+          newFactorSource: newFactor.source,
+          relatedFactorId: latestFamilyFactor.id,
+          relatedFactorName: latestFamilyFactor.name,
+          relatedFactorSource: latestFamilyFactor.source,
+          relationshipType: 'source_family',
+          comparisonData: {
+            newValue: newFactor.value,
+            oldValue: latestFamilyFactor.value,
+            unit: newFactor.unit,
+            changePercentage: parseFloat((((newFactor.value - latestFamilyFactor.value) / latestFamilyFactor.value) * 100).toFixed(2))
+          }
+        })
+      }
+    }
+  })
+
+  return relatedFactors
+}
+
+/**
+ * 取得所有新增的 Resource_8 係數
+ */
+export function getNewResource8Factors(): EmissionFactor[] {
+  const allFactors = getAllEmissionFactors()
+  return allFactors.filter(factor => 
+    factor.source.startsWith('Resource_8') && 
+    factor.id >= 101  // Resource_8 係數的 ID 從 101 開始
+  )
+}
+
+/**
+ * 模擬更新係數庫操作
+ */
+export function simulateUpdateFactorDatabase(): UpdateResult {
+  const newFactors = getNewResource8Factors()
+  const relatedFactors = detectRelatedFactors(newFactors)
+  
+  console.log('[simulateUpdateFactorDatabase] 發現新係數:', newFactors.length, '筆')
+  console.log('[simulateUpdateFactorDatabase] 具有關聯性新係數:', relatedFactors.length, '筆')
+  
+  return {
+    totalNewFactors: newFactors.length,
+    relatedFactorsCount: relatedFactors.length,
+    unrelatedFactorsCount: newFactors.length - relatedFactors.length,
+    relatedFactors
   }
 }

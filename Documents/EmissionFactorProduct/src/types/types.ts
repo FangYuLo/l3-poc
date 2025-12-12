@@ -67,6 +67,11 @@ export interface EmissionFactor {
   isic_categories?: string[]        // 適用產業分類 (ISIC)
   lifecycle_stages?: string[]       // 適用生命週期階段
   system_boundary_detail?: string   // 系統邊界詳細說明（用於顯示）
+
+  // 新增關聯欄位
+  parent_source?: string        // 母資料源標識
+  source_family?: string        // 資料源家族
+  version_sequence?: number     // 版本序列
 }
 
 // Composite Factor
