@@ -1422,6 +1422,13 @@ export function useMockData() {
      */
     simulateUpdateFactorDatabase: (): UpdateResult => {
       return simulateUpdateFactorDatabase()
+    },
+
+    /**
+     * 真實匯入相關係數到中央係數庫
+     */
+    importRelatedFactorsToCentral: (factorIds: number[]) => {
+      return importRelatedFactorsToCentral(factorIds)
     }
   }
 }
@@ -1441,11 +1448,40 @@ export interface RelatedFactorInfo {
   relatedFactorName: string
   relatedFactorSource: string
   relationshipType: 'parent_source' | 'source_family'
+  
+  // 母資料源詳細資訊
+  motherSourceInfo: {
+    name: string
+    value: number
+    unit: string
+    version: string
+    year: number
+    database: string  // Resource_1
+    source_ref: string
+  }
+  
+  // 新資料源詳細資訊
+  newSourceInfo: {
+    name: string
+    value: number
+    unit: string
+    version: string
+    year: number
+    database: string  // Resource_8
+    source_ref: string
+  }
+  
+  // 釋出單位資訊
+  publisher: {
+    name: string
+    databaseEvolution: string  // "Resource_1 → Resource_8"
+  }
+  
+  // 保留原有對比數據（簡化版）
   comparisonData: {
     newValue: number
     oldValue: number
     unit: string
-    changePercentage: number
   }
 }
 
@@ -1467,11 +1503,32 @@ export function detectRelatedFactors(newFactors: EmissionFactor[]): RelatedFacto
   const existingFactors = getAllEmissionFactors()
   const relatedFactors: RelatedFactorInfo[] = []
 
+  // 釋出單位映射
+  const publisherMap: Record<string, { name: string, databaseEvolution: string }> = {
+    'Taiwan-EPA-Electricity': { 
+      name: '台灣環保署', 
+      databaseEvolution: 'Resource_1 → Resource_8' 
+    },
+    'USA-EPA-Electricity': { 
+      name: '美國EPA', 
+      databaseEvolution: 'Resource_1 → Resource_8' 
+    },
+    'China-NDRC-Electricity': { 
+      name: '中國國家發改委', 
+      databaseEvolution: 'Resource_1 → Resource_8' 
+    }
+  }
+
   newFactors.forEach(newFactor => {
     // 檢查母資料源關聯 (parent_source)
     if (newFactor.parent_source) {
       const parentFactor = existingFactors.find(f => f.source_ref === newFactor.parent_source)
       if (parentFactor) {
+        const publisher = publisherMap[newFactor.source_family || ''] || {
+          name: '未知釋出單位',
+          databaseEvolution: 'Resource_1 → Resource_8'
+        }
+
         relatedFactors.push({
           newFactorId: newFactor.id,
           newFactorName: newFactor.name,
@@ -1480,11 +1537,37 @@ export function detectRelatedFactors(newFactors: EmissionFactor[]): RelatedFacto
           relatedFactorName: parentFactor.name,
           relatedFactorSource: parentFactor.source,
           relationshipType: 'parent_source',
+          
+          // 母資料源詳細資訊
+          motherSourceInfo: {
+            name: parentFactor.name,
+            value: parentFactor.value,
+            unit: parentFactor.unit,
+            version: parentFactor.version,
+            year: parentFactor.year || new Date(parentFactor.effective_date).getFullYear(),
+            database: 'Resource_1',
+            source_ref: parentFactor.source_ref || ''
+          },
+          
+          // 新資料源詳細資訊
+          newSourceInfo: {
+            name: newFactor.name,
+            value: newFactor.value,
+            unit: newFactor.unit,
+            version: newFactor.version,
+            year: newFactor.year || new Date(newFactor.effective_date).getFullYear(),
+            database: 'Resource_8',
+            source_ref: newFactor.source_ref || ''
+          },
+          
+          // 釋出單位資訊
+          publisher,
+          
+          // 簡化的對比數據
           comparisonData: {
             newValue: newFactor.value,
             oldValue: parentFactor.value,
-            unit: newFactor.unit,
-            changePercentage: parseFloat((((newFactor.value - parentFactor.value) / parentFactor.value) * 100).toFixed(2))
+            unit: newFactor.unit
           }
         })
       }
@@ -1505,6 +1588,11 @@ export function detectRelatedFactors(newFactors: EmissionFactor[]): RelatedFacto
       }, familyFactors[0])
 
       if (latestFamilyFactor) {
+        const publisher = publisherMap[newFactor.source_family || ''] || {
+          name: '未知釋出單位',
+          databaseEvolution: 'Resource_1 → Resource_8'
+        }
+
         relatedFactors.push({
           newFactorId: newFactor.id,
           newFactorName: newFactor.name,
@@ -1513,11 +1601,37 @@ export function detectRelatedFactors(newFactors: EmissionFactor[]): RelatedFacto
           relatedFactorName: latestFamilyFactor.name,
           relatedFactorSource: latestFamilyFactor.source,
           relationshipType: 'source_family',
+          
+          // 母資料源詳細資訊
+          motherSourceInfo: {
+            name: latestFamilyFactor.name,
+            value: latestFamilyFactor.value,
+            unit: latestFamilyFactor.unit,
+            version: latestFamilyFactor.version,
+            year: latestFamilyFactor.year || new Date(latestFamilyFactor.effective_date).getFullYear(),
+            database: 'Resource_1',
+            source_ref: latestFamilyFactor.source_ref || ''
+          },
+          
+          // 新資料源詳細資訊
+          newSourceInfo: {
+            name: newFactor.name,
+            value: newFactor.value,
+            unit: newFactor.unit,
+            version: newFactor.version,
+            year: newFactor.year || new Date(newFactor.effective_date).getFullYear(),
+            database: 'Resource_8',
+            source_ref: newFactor.source_ref || ''
+          },
+          
+          // 釋出單位資訊
+          publisher,
+          
+          // 簡化的對比數據
           comparisonData: {
             newValue: newFactor.value,
             oldValue: latestFamilyFactor.value,
-            unit: newFactor.unit,
-            changePercentage: parseFloat((((newFactor.value - latestFamilyFactor.value) / latestFamilyFactor.value) * 100).toFixed(2))
+            unit: newFactor.unit
           }
         })
       }
@@ -1536,6 +1650,53 @@ export function getNewResource8Factors(): EmissionFactor[] {
     factor.source.startsWith('Resource_8') && 
     factor.id >= 101  // Resource_8 係數的 ID 從 101 開始
   )
+}
+
+/**
+ * 真實匯入相關係數到中央係數庫
+ */
+export function importRelatedFactorsToCentral(factorIds: number[]): {
+  success: boolean
+  importedCount: number
+  message: string
+} {
+  try {
+    // 檢查哪些係數尚未在中央庫中（使用 addedToCentralIds 而不是 favoriteFactorIds）
+    const newFactorIds = factorIds.filter(id => !addedToCentralIds.has(id) || removedFromCentralIds.has(id))
+    
+    if (newFactorIds.length === 0) {
+      return {
+        success: true,
+        importedCount: 0,
+        message: '所選係數已在中央係數庫中'
+      }
+    }
+    
+    // 將新係數ID加入中央係數庫（使用 addedToCentralIds）
+    newFactorIds.forEach(id => {
+      addedToCentralIds.add(id)
+      // 從移除列表中移除（如果之前被移除過）
+      if (removedFromCentralIds.has(id)) {
+        removedFromCentralIds.delete(id)
+      }
+    })
+    
+    console.log('[importRelatedFactorsToCentral] 新增係數ID到中央庫:', newFactorIds)
+    console.log('[importRelatedFactorsToCentral] 中央庫現有係數數量:', addedToCentralIds.size)
+    
+    return {
+      success: true,
+      importedCount: newFactorIds.length,
+      message: `成功匯入 ${newFactorIds.length} 筆係數到中央庫`
+    }
+  } catch (error) {
+    console.error('[importRelatedFactorsToCentral] 匯入失敗:', error)
+    return {
+      success: false,
+      importedCount: 0,
+      message: '匯入過程中發生錯誤'
+    }
+  }
 }
 
 /**
