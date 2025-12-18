@@ -40,6 +40,24 @@ export interface CollectionCounts {
   composite: number
 }
 
+// 個別係數更新資訊
+export interface FactorUpdateInfo {
+  hasUpdate: boolean                  // 是否有可用更新
+  updateType: 'major' | 'minor' | 'patch' // 更新類型
+  newFactorId: number                 // 新版本係數的 ID
+  newVersion: string                  // 新版本號
+  currentVersion: string              // 當前版本號
+  updateReason: string                // 更新原因說明
+  riskLevel: 'high' | 'medium' | 'low' // 更新風險等級
+  changePercentage?: number           // 數值變化百分比
+  lastChecked: string                 // 最後檢查時間
+  userAction: 'none' | 'viewed' | 'dismissed' | 'updated' // 用戶操作狀態
+  publisherInfo?: {                   // 釋出單位資訊
+    name: string
+    databaseEvolution: string
+  }
+}
+
 // 擴展 FactorTableItem 以包含引用資訊
 export interface ExtendedFactorTableItem extends FactorTableItem {
   projectUsage?: ProjectUsage[]
@@ -55,6 +73,8 @@ export interface ExtendedFactorTableItem extends FactorTableItem {
   last_synced_version?: string        // 最後同步版本
   formula_type?: 'weighted' | 'sum'   // 計算方法
   components?: any[]                  // 組成係數
+  // 個別係數更新狀態
+  updateInfo?: FactorUpdateInfo       // 更新狀態資訊
 }
 
 // 全局存儲匯入到中央庫的組合係數
@@ -1401,6 +1421,11 @@ export function useMockData() {
      */
     batchAddStandardFactorsToCentral,
 
+    /**
+     * 加入希達係數到中央庫
+     */
+    addStandardFactorToCentral,
+
     // === Resource_8 係數更新相關功能 ===
 
     /**
@@ -1429,6 +1454,22 @@ export function useMockData() {
      */
     importRelatedFactorsToCentral: (factorIds: number[]) => {
       return importRelatedFactorsToCentral(factorIds)
+    },
+
+    // === 個別係數更新檢測功能 ===
+
+    /**
+     * 檢測單一係數是否有可用更新
+     */
+    checkIndividualFactorUpdate: (factorId: number): FactorUpdateInfo | null => {
+      return checkIndividualFactorUpdate(factorId)
+    },
+
+    /**
+     * 批次檢測係數更新狀態
+     */
+    checkAllFactorsForUpdates: (factorIds: number[]): Map<number, FactorUpdateInfo> => {
+      return checkAllFactorsForUpdates(factorIds)
     }
   }
 }
@@ -1715,4 +1756,193 @@ export function simulateUpdateFactorDatabase(): UpdateResult {
     unrelatedFactorsCount: newFactors.length - relatedFactors.length,
     relatedFactors
   }
+}
+
+// ============================================================================
+// 個別係數更新檢測功能
+// ============================================================================
+
+/**
+ * 檢測單一係數是否有可用更新
+ * @param factorId 要檢測的係數 ID
+ * @returns 更新資訊，如果沒有更新則返回 null
+ */
+export function checkIndividualFactorUpdate(factorId: number): FactorUpdateInfo | null {
+  try {
+    const allFactors = getAllEmissionFactors()
+    const currentFactor = allFactors.find(f => f.id === factorId)
+    
+    if (!currentFactor) {
+      console.log('[checkIndividualFactorUpdate] 找不到係數 ID:', factorId)
+      return null
+    }
+    
+    // 檢查是否有對應的新版本係數
+    const newFactors = getNewResource8Factors()
+    let updateCandidate: EmissionFactor | null = null
+    
+    // 1. 優先檢查母資料源關聯 (parent_source)
+    if (currentFactor.source_ref) {
+      updateCandidate = newFactors.find(newFactor => 
+        newFactor.parent_source === currentFactor.source_ref
+      ) || null
+    }
+    
+    // 2. 如果沒有找到，檢查資料源家族關聯 (source_family)
+    if (!updateCandidate && currentFactor.source_family) {
+      const familyCandidates = newFactors.filter(newFactor =>
+        newFactor.source_family === currentFactor.source_family &&
+        newFactor.version_sequence && currentFactor.version_sequence &&
+        newFactor.version_sequence > currentFactor.version_sequence
+      )
+      
+      // 選擇版本序列最新的候選項
+      if (familyCandidates.length > 0) {
+        updateCandidate = familyCandidates.reduce((latest, current) => 
+          (current.version_sequence || 0) > (latest.version_sequence || 0) ? current : latest
+        )
+      }
+    }
+    
+    if (!updateCandidate) {
+      return null
+    }
+    
+    // 計算更新資訊
+    const changePercentage = calculateChangePercentage(currentFactor.value, updateCandidate.value)
+    const updateType = determineUpdateType(changePercentage, currentFactor.version, updateCandidate.version)
+    const riskLevel = assessUpdateRisk(updateType, changePercentage)
+    
+    // 釋出單位映射
+    const publisherMap: Record<string, { name: string, databaseEvolution: string }> = {
+      'Taiwan-EPA-Electricity': { 
+        name: '台灣環保署', 
+        databaseEvolution: 'Resource_1 → Resource_8' 
+      },
+      'USA-EPA-Electricity': { 
+        name: '美國EPA', 
+        databaseEvolution: 'Resource_1 → Resource_8' 
+      },
+      'China-NDRC-Electricity': { 
+        name: '中國國家發改委', 
+        databaseEvolution: 'Resource_1 → Resource_8' 
+      }
+    }
+    
+    const publisherInfo = publisherMap[updateCandidate.source_family || ''] || {
+      name: '未知釋出單位',
+      databaseEvolution: 'Resource_1 → Resource_8'
+    }
+    
+    const updateInfo: FactorUpdateInfo = {
+      hasUpdate: true,
+      updateType,
+      newFactorId: updateCandidate.id,
+      newVersion: updateCandidate.version,
+      currentVersion: currentFactor.version,
+      updateReason: generateUpdateReason(updateType, changePercentage),
+      riskLevel,
+      changePercentage,
+      lastChecked: new Date().toISOString(),
+      userAction: 'none',
+      publisherInfo
+    }
+    
+    console.log('[checkIndividualFactorUpdate] 發現係數更新:', {
+      factorId,
+      factorName: currentFactor.name,
+      updateType,
+      changePercentage: changePercentage.toFixed(2) + '%'
+    })
+    
+    return updateInfo
+    
+  } catch (error) {
+    console.error('[checkIndividualFactorUpdate] 檢測失敗:', error)
+    return null
+  }
+}
+
+/**
+ * 批次檢測係數更新狀態
+ * @param factorIds 要檢測的係數 ID 列表
+ * @returns 係數 ID 到更新資訊的映射
+ */
+export function checkAllFactorsForUpdates(factorIds: number[]): Map<number, FactorUpdateInfo> {
+  const updateMap = new Map<number, FactorUpdateInfo>()
+  
+  console.log('[checkAllFactorsForUpdates] 開始檢測', factorIds.length, '個係數的更新狀態')
+  
+  factorIds.forEach(factorId => {
+    const updateInfo = checkIndividualFactorUpdate(factorId)
+    if (updateInfo) {
+      updateMap.set(factorId, updateInfo)
+    }
+  })
+  
+  console.log('[checkAllFactorsForUpdates] 發現', updateMap.size, '個係數有可用更新')
+  
+  return updateMap
+}
+
+/**
+ * 計算數值變化百分比
+ */
+function calculateChangePercentage(oldValue: number, newValue: number): number {
+  if (oldValue === 0) return newValue === 0 ? 0 : 100
+  return ((newValue - oldValue) / oldValue) * 100
+}
+
+/**
+ * 判斷更新類型
+ */
+function determineUpdateType(
+  changePercentage: number, 
+  _currentVersion: string, 
+  _newVersion: string
+): 'major' | 'minor' | 'patch' {
+  // 根據變化幅度判斷更新類型（未來可結合版本號邏輯）
+  const absChange = Math.abs(changePercentage)
+  
+  if (absChange > 20) {
+    return 'major'  // 變化超過 20% 視為重大更新
+  } else if (absChange > 5) {
+    return 'minor'  // 變化 5-20% 視為小版本更新
+  } else {
+    return 'patch'  // 變化小於 5% 視為修補更新
+  }
+}
+
+/**
+ * 評估更新風險等級
+ */
+function assessUpdateRisk(
+  updateType: 'major' | 'minor' | 'patch', 
+  changePercentage: number
+): 'high' | 'medium' | 'low' {
+  const absChange = Math.abs(changePercentage)
+  
+  if (updateType === 'major' || absChange > 15) {
+    return 'high'
+  } else if (updateType === 'minor' || absChange > 5) {
+    return 'medium'
+  } else {
+    return 'low'
+  }
+}
+
+/**
+ * 生成更新原因說明
+ */
+function generateUpdateReason(updateType: 'major' | 'minor' | 'patch', changePercentage: number): string {
+  const absChange = Math.abs(changePercentage)
+  const direction = changePercentage > 0 ? '上升' : '下降'
+  
+  const reasons = {
+    major: `排放係數${direction} ${absChange.toFixed(1)}%，建議評估對計算結果的影響`,
+    minor: `排放係數${direction} ${absChange.toFixed(1)}%，係數輕微調整`,
+    patch: `排放係數${direction} ${absChange.toFixed(1)}%，技術性修正`
+  }
+  
+  return reasons[updateType]
 }

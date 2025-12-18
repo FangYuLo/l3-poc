@@ -422,6 +422,14 @@ export default function HomePage() {
 
   // 前往中央庫並選中係數
   const handleNavigateToCentral = (factor: any) => {
+    // 檢查是否為刷新請求
+    if (factor?.refreshCentral) {
+      // 刷新中央係數庫
+      setCentralLibraryUpdateKey(prev => prev + 1)
+      console.log('[handleNavigateToCentral] 觸發中央係數庫刷新')
+      return
+    }
+
     // 關閉阻止刪除對話框
     setBlockDeleteDialogOpen(false)
 

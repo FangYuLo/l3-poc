@@ -39,12 +39,13 @@ import {
   CheckIcon,
   WarningTwoIcon 
 } from '@chakra-ui/icons'
-import { RelatedFactorInfo } from '@/hooks/useMockData'
+import { RelatedFactorInfo, useMockData } from '@/hooks/useMockData'
 
 interface RelatedFactorComparisonModalProps {
   isOpen: boolean
   onClose: () => void
   relatedFactors: RelatedFactorInfo[]
+  onImportSuccess?: () => void  // 匯入成功的回調
 }
 
 /**
@@ -54,11 +55,13 @@ interface RelatedFactorComparisonModalProps {
 export function RelatedFactorComparisonModal({
   isOpen,
   onClose,
-  relatedFactors
+  relatedFactors,
+  onImportSuccess
 }: RelatedFactorComparisonModalProps) {
   const [selectedFactors, setSelectedFactors] = useState<Set<number>>(new Set())
   const [isImporting, setIsImporting] = useState(false)
   const toast = useToast()
+  const { importRelatedFactorsToCentral } = useMockData()
   
   const tableBg = useColorModeValue('white', 'gray.800')
   const rowHoverBg = useColorModeValue('gray.50', 'gray.700')
@@ -106,19 +109,29 @@ export function RelatedFactorComparisonModal({
       // 模擬匯入延遲
       await new Promise(resolve => setTimeout(resolve, 2000))
       
-      toast({
-        title: '匯入成功',
-        description: `已成功匯入 ${selectedFactors.size} 筆新係數到中央庫`,
-        status: 'success',
-        duration: 4000,
-        isClosable: true,
-      })
+      // 真實匯入係數到中央庫
+      const factorIds = Array.from(selectedFactors)
+      const result = importRelatedFactorsToCentral(factorIds)
       
-      onClose()
+      if (result.success) {
+        toast({
+          title: '匯入成功',
+          description: result.message,
+          status: 'success',
+          duration: 4000,
+          isClosable: true,
+        })
+        
+        // 觸發成功回調，刷新中央係數庫
+        onImportSuccess?.()
+        onClose()
+      } else {
+        throw new Error(result.message)
+      }
     } catch (error) {
       toast({
         title: '匯入失敗',
-        description: '發生未知錯誤，請稍後再試',
+        description: error instanceof Error ? error.message : '發生未知錯誤，請稍後再試',
         status: 'error',
         duration: 4000,
         isClosable: true,
@@ -156,17 +169,14 @@ export function RelatedFactorComparisonModal({
               <Tr>
                 <Th width="40px"></Th>
                 <Th>係數名稱</Th>
-                <Th>舊值</Th>
-                <Th width="40px"></Th>
-                <Th>新值</Th>
-                <Th>變化</Th>
-                <Th>來源</Th>
+                <Th>母資料源 (2023)</Th>
+                <Th>新資料源 (2024)</Th>
+                <Th>釋出單位</Th>
               </Tr>
             </Thead>
             <Tbody>
               {factors.map((factor) => {
                 const isSelected = selectedFactors.has(factor.newFactorId)
-                const { comparisonData } = factor
                 
                 return (
                   <Tr 
@@ -184,38 +194,43 @@ export function RelatedFactorComparisonModal({
                       />
                     </Td>
                     <Td>
+                      <Text fontWeight="medium" fontSize="sm">{factor.newFactorName}</Text>
+                    </Td>
+                    <Td>
                       <VStack align="start" spacing={1}>
-                        <Text fontWeight="medium" fontSize="sm">{factor.newFactorName}</Text>
-                        <Text fontSize="xs" color="gray.500">{factor.relatedFactorName}</Text>
+                        <Text fontSize="sm" fontWeight="medium">
+                          {factor.motherSourceInfo.value} {factor.motherSourceInfo.unit}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {factor.motherSourceInfo.version} ({factor.motherSourceInfo.year})
+                        </Text>
+                        <Badge size="xs" colorScheme="gray">
+                          {factor.motherSourceInfo.database}
+                        </Badge>
                       </VStack>
                     </Td>
                     <Td>
-                      <Text fontSize="sm" color="gray.600">
-                        {comparisonData.oldValue} {comparisonData.unit}
-                      </Text>
-                    </Td>
-                    <Td>
-                      <Icon as={ArrowRightIcon} color="gray.400" />
-                    </Td>
-                    <Td>
-                      <Text fontSize="sm" fontWeight="medium">
-                        {comparisonData.newValue} {comparisonData.unit}
-                      </Text>
-                    </Td>
-                    <Td>
-                      <Badge
-                        size="sm"
-                        colorScheme={comparisonData.changePercentage >= 0 ? 'red' : 'green'}
-                      >
-                        {comparisonData.changePercentage >= 0 ? '+' : ''}{comparisonData.changePercentage}%
-                      </Badge>
-                    </Td>
-                    <Td>
-                      <Tooltip label={factor.newFactorSource} fontSize="xs">
-                        <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                          {factor.newFactorSource.split(' - ')[0]}
+                      <VStack align="start" spacing={1}>
+                        <Text fontSize="sm" fontWeight="medium" color="blue.600">
+                          {factor.newSourceInfo.value} {factor.newSourceInfo.unit}
                         </Text>
-                      </Tooltip>
+                        <Text fontSize="xs" color="gray.500">
+                          {factor.newSourceInfo.version} ({factor.newSourceInfo.year})
+                        </Text>
+                        <Badge size="xs" colorScheme="blue">
+                          {factor.newSourceInfo.database}
+                        </Badge>
+                      </VStack>
+                    </Td>
+                    <Td>
+                      <VStack align="start" spacing={1}>
+                        <Text fontSize="sm" fontWeight="medium">
+                          {factor.publisher.name}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          {factor.publisher.databaseEvolution}
+                        </Text>
+                      </VStack>
                     </Td>
                   </Tr>
                 )

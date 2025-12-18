@@ -49,7 +49,7 @@ import {
   WarningIcon,
   RepeatIcon,
 } from '@chakra-ui/icons'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useMockData, checkIfNeedsSync } from '@/hooks/useMockData'
 import { useFactors } from '@/hooks/useFactors'
 import { useComposites } from '@/hooks/useComposites'
@@ -67,8 +67,10 @@ import BatchImportConfirmDialog from '@/components/BatchImportConfirmDialog'
 import UpdateFactorButton from '@/components/UpdateFactorButton'
 import RelatedFactorUpdateNotification from '@/components/RelatedFactorUpdateNotification'
 import RelatedFactorComparisonModal from '@/components/RelatedFactorComparisonModal'
+import UpdateStatusIcon from '@/components/UpdateStatusIcon'
+import IndividualFactorComparisonModal from '@/components/IndividualFactorComparisonModal'
 import { mockProductCarbonFootprintSummaries, mockL2ProjectInfo, mockProjectProducts, mockL1ProjectInfo, mockInventoryYears } from '@/data/mockProjectData'
-import { UpdateResult, RelatedFactorInfo } from '@/hooks/useMockData'
+import { UpdateResult, RelatedFactorInfo, FactorUpdateInfo, ExtendedFactorTableItem } from '@/hooks/useMockData'
 
 // 已從 types.ts 引入 FactorTableItem，移除重複定義
 
@@ -199,6 +201,12 @@ export default function FactorTable({
 
   // Resource_8 係數更新相關狀態（模態框控制）
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false)
+
+  // 個別係數更新檢測相關狀態
+  const [factorUpdates, setFactorUpdates] = useState<Map<number, FactorUpdateInfo>>(new Map())
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false)
+  const [individualComparisonFactor, setIndividualComparisonFactor] = useState<ExtendedFactorTableItem | null>(null)
+  const [isIndividualComparisonOpen, setIsIndividualComparisonOpen] = useState(false)
 
   // 獲取表格配置（希達係數庫使用 global_search 配置）
   const tableConfig = getTableConfig(
@@ -737,6 +745,60 @@ export default function FactorTable({
   }, [filteredData, currentPage, pageSize])
 
   const totalPages = Math.ceil(filteredData.length / pageSize)
+
+  // 檢測中央係數庫係數的更新狀態
+  useEffect(() => {
+    if (selectedNodeType === 'favorites' && !isCheckingUpdates) {
+      const checkFactorUpdates = async () => {
+        setIsCheckingUpdates(true)
+        try {
+          // 延遲檢查，避免影響初始載入
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          // 獲取中央係數庫中所有係數的 ID
+          const centralFactorIds = filteredData.map(factor => factor.id)
+          
+          if (centralFactorIds.length > 0) {
+            console.log('[FactorTable] 開始檢測', centralFactorIds.length, '個中央係數庫係數的更新狀態')
+            const updateResults = dataService.checkAllFactorsForUpdates(centralFactorIds)
+            setFactorUpdates(updateResults)
+            
+            if (updateResults.size > 0) {
+              console.log('[FactorTable] 發現', updateResults.size, '個係數有可用更新')
+            }
+          }
+        } catch (error) {
+          console.error('[FactorTable] 檢測係數更新失敗:', error)
+        } finally {
+          setIsCheckingUpdates(false)
+        }
+      }
+
+      checkFactorUpdates()
+    }
+  }, [selectedNodeType, filteredData, isCheckingUpdates, dataService])
+
+  // 處理個別係數更新對比
+  const handleIndividualFactorUpdate = (factor: ExtendedFactorTableItem) => {
+    setIndividualComparisonFactor(factor)
+    setIsIndividualComparisonOpen(true)
+  }
+
+  // 處理個別係數更新成功
+  const handleIndividualUpdateSuccess = () => {
+    // 刷新中央係數庫
+    onRefreshSelectedFactor?.()
+    // 重新檢測更新狀態
+    setIsCheckingUpdates(false)
+    // 移除已更新係數的更新狀態
+    if (individualComparisonFactor) {
+      setFactorUpdates(prev => {
+        const newMap = new Map(prev)
+        newMap.delete(individualComparisonFactor.id)
+        return newMap
+      })
+    }
+  }
 
 
   const handleRowClick = (factor: FactorTableItem) => {
@@ -1509,6 +1571,44 @@ export default function FactorTable({
                     </Tr>
                   )
                 })
+              ) : selectedNodeType === 'favorites' ? (
+                // 中央係數庫：添加更新狀態顯示
+                paginatedData.map(row => {
+                  const updateInfo = factorUpdates.get(row.id)
+                  
+                  return (
+                    <Tr
+                      key={row.id}
+                      onClick={() => handleRowClick(row as FactorTableItem)}
+                      cursor="pointer"
+                      bg={selectedFactor?.id === row.id ? 'gray.50' : 'white'}
+                      _hover={{ bg: selectedFactor?.id === row.id ? 'gray.50' : 'gray.25' }}
+                    >
+                      {tableConfig.columns.map((column) => {
+                        const value = (row as any)[column.key]
+                        return (
+                          <Td key={`${row.id}-${column.key}`} py={4} isNumeric={column.isNumeric}>
+                            {column.formatter ? column.formatter(value, row) : (
+                              <HStack spacing={2}>
+                                <Text fontSize="sm" fontWeight={column.key === 'name' ? 'medium' : 'normal'}>
+                                  {value || '-'}
+                                </Text>
+                                {/* 在係數名稱欄位顯示更新圖示 */}
+                                {column.key === 'name' && updateInfo && updateInfo.userAction === 'none' && (
+                                  <UpdateStatusIcon
+                                    updateInfo={updateInfo}
+                                    onClick={() => handleIndividualFactorUpdate(row as ExtendedFactorTableItem)}
+                                    size="sm"
+                                  />
+                                )}
+                              </HStack>
+                            )}
+                          </Td>
+                        )
+                      })}
+                    </Tr>
+                  )
+                })
               ) : (
                 // 其他類型：使用原有的 renderTableRow
                 paginatedData.map(row =>
@@ -1611,6 +1711,32 @@ export default function FactorTable({
           isOpen={isComparisonModalOpen}
           onClose={() => setIsComparisonModalOpen(false)}
           relatedFactors={updateResult.relatedFactors}
+          onImportSuccess={() => {
+            // 觸發中央係數庫刷新
+            if (onNavigateToCentral) {
+              // 透過回調通知父組件需要刷新
+              onNavigateToCentral({ refreshCentral: true })
+            }
+            // 關閉通知和模態框
+            if (onDismissNotification) {
+              onDismissNotification()
+            }
+            setIsComparisonModalOpen(false)
+          }}
+        />
+      )}
+
+      {/* 個別係數對比彈窗 */}
+      {individualComparisonFactor && (
+        <IndividualFactorComparisonModal
+          isOpen={isIndividualComparisonOpen}
+          onClose={() => {
+            setIsIndividualComparisonOpen(false)
+            setIndividualComparisonFactor(null)
+          }}
+          currentFactor={individualComparisonFactor}
+          updateInfo={factorUpdates.get(individualComparisonFactor.id)!}
+          onUpdateSuccess={handleIndividualUpdateSuccess}
         />
       )}
 

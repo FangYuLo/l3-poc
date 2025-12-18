@@ -116,14 +116,13 @@ export function RelatedFactorUpdateNotification({
                         <Text color="gray.600">
                           {factor.comparisonData.oldValue} → {factor.comparisonData.newValue} {factor.comparisonData.unit}
                         </Text>
-                        <Badge
-                          size="sm"
-                          colorScheme={factor.comparisonData.changePercentage >= 0 ? 'red' : 'green'}
-                          fontSize="xs"
-                        >
-                          {factor.comparisonData.changePercentage >= 0 ? '+' : ''}{factor.comparisonData.changePercentage}%
+                        <Badge size="xs" colorScheme="blue">
+                          {factor.publisher.name}
                         </Badge>
                       </HStack>
+                      <Text fontSize="xs" color="gray.500">
+                        {factor.publisher.databaseEvolution}
+                      </Text>
                     </Box>
                   ))}
                 </VStack>
@@ -147,14 +146,13 @@ export function RelatedFactorUpdateNotification({
                         <Text color="gray.600">
                           {factor.comparisonData.oldValue} → {factor.comparisonData.newValue} {factor.comparisonData.unit}
                         </Text>
-                        <Badge
-                          size="sm"
-                          colorScheme={factor.comparisonData.changePercentage >= 0 ? 'red' : 'green'}
-                          fontSize="xs"
-                        >
-                          {factor.comparisonData.changePercentage >= 0 ? '+' : ''}{factor.comparisonData.changePercentage}%
+                        <Badge size="xs" colorScheme="blue">
+                          {factor.publisher.name}
                         </Badge>
                       </HStack>
+                      <Text fontSize="xs" color="gray.500">
+                        {factor.publisher.databaseEvolution}
+                      </Text>
                     </Box>
                   ))}
                 </VStack>
