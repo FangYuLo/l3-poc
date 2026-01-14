@@ -14,13 +14,14 @@ import { useMockData, UpdateResult } from '@/hooks/useMockData'
 
 interface UpdateFactorButtonProps {
   onUpdateDetected?: (result: UpdateResult) => void
+  onIndividualFactorCheck?: () => Promise<void> // 個別係數檢測回調
 }
 
 /**
  * 更新係數資料庫按鈕組件
  * 模擬 Resource_8 係數庫更新，檢測母資料源關聯並觸發通知
  */
-export function UpdateFactorButton({ onUpdateDetected }: UpdateFactorButtonProps) {
+export function UpdateFactorButton({ onUpdateDetected, onIndividualFactorCheck }: UpdateFactorButtonProps) {
   const [isUpdating, setIsUpdating] = useState(false)
   const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null)
   const toast = useToast()
@@ -37,6 +38,15 @@ export function UpdateFactorButton({ onUpdateDetected }: UpdateFactorButtonProps
       // 執行更新並檢測關聯
       const result = simulateUpdateFactorDatabase()
       setUpdateResult(result)
+
+      // 執行個別係數檢測
+      if (onIndividualFactorCheck) {
+        console.log('[UpdateFactorButton] 開始執行個別係數檢測...')
+        await onIndividualFactorCheck()
+        console.log('[UpdateFactorButton] 個別係數檢測完成')
+      } else {
+        console.log('[UpdateFactorButton] ⚠️ onIndividualFactorCheck 回調函數未提供')
+      }
 
       // 顯示更新結果
       if (result.relatedFactorsCount > 0) {

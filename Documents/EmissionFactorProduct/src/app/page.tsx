@@ -32,6 +32,7 @@ import BlockDeleteImportedDialog from '@/components/BlockDeleteImportedDialog'
 import BlockEditImportedDialog from '@/components/BlockEditImportedDialog'
 import RemoveFromCentralDialog from '@/components/RemoveFromCentralDialog'
 import ImportCompositeToCentralModal from '@/components/ImportCompositeToCentralModal'
+import { SupplierFolderPage, SupplierDetailPage } from '@/components/SupplierFolder'
 import { Dataset, ImportToCentralFormData, CustomFactor } from '@/types/types'
 import {
   mockProductCarbonFootprintSummaries,
@@ -99,6 +100,10 @@ export default function HomePage() {
     name: '中央係數庫',
     type: 'collection'
   })
+
+  // L4 供應商係數資料夾狀態
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null)
+
   // 新增選中係數狀態和詳情面板狀態
   const [selectedFactor, setSelectedFactor] = useState<any | null>(null)
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
@@ -134,6 +139,11 @@ export default function HomePage() {
     setSelectedNode(node)
     // 切換節點時清空選中的係數
     setSelectedFactor(null)
+
+    // 切換離開供應商節點時，重置供應商選擇
+    if (node.id !== 'supplier') {
+      setSelectedSupplierId(null)
+    }
 
     // 如果選擇的是資料集，設置當前資料集
     if (node.id.startsWith('dataset_')) {
@@ -1151,38 +1161,56 @@ export default function HomePage() {
             position="relative"
             zIndex={isDetailPanelOpen ? 0 : 1}
           >
-            <FactorTable
-              key={`${centralLibraryUpdateKey}-${refreshKey}`}
-              selectedNodeType={getTableNodeType(selectedNode)}
-              selectedNode={selectedNode}
-              onFactorSelect={handleFactorSelect}
-              userDefinedFactors={(() => {
-                const factors = getAllUserDefinedFactors()
-                console.log('[FactorTable] 傳遞自建係數數量:', factors.length, '節點類型:', getTableNodeType(selectedNode))
-                return factors
-              })()}
-              onOpenComposite={onCompositeOpen}
-              onEditComposite={handleEditCompositeFromImport}
-              onEditCustomFactor={handleCustomFactorEdit}
-              onOpenCustomFactor={onCustomFactorOpen}
-              onBlockEdit={handleBlockEdit}
-              datasetFactors={getDatasetFactors()}
-              onRefreshSelectedFactor={refreshSelectedFactor}
-              onOpenGlobalSearch={handleOpenFactorSelector}
-              onNavigateToProduct={handleNavigateToProduct}
-              onSyncL2Project={handleSyncL2Project}
-              dataRefreshKey={centralLibraryUpdateKey + refreshKey}
-              onNavigateToYear={handleNavigateToYear}
-              onSyncL1Project={handleSyncL1Project}
-              productSummaries={productSummaries}
-              onImportProduct={handleImportProduct}
-              onDeleteFactor={handleDeleteFactorRequest}
-              onNavigateToCentral={handleNavigateToCentral}
-              onUpdateDetected={handleUpdateDetected}
-              updateResult={updateResult}
-              showUpdateNotification={showUpdateNotification}
-              onDismissNotification={handleDismissNotification}
-            />
+            {/* L4 供應商係數資料夾 */}
+            {selectedNode?.id === 'supplier' && !selectedSupplierId && (
+              <SupplierFolderPage
+                onSupplierSelect={(supplierId) => setSelectedSupplierId(supplierId)}
+              />
+            )}
+
+            {/* L4 供應商詳情頁面 */}
+            {selectedNode?.id === 'supplier' && selectedSupplierId && (
+              <SupplierDetailPage
+                supplierId={selectedSupplierId}
+                onBack={() => setSelectedSupplierId(null)}
+              />
+            )}
+
+            {/* 其他節點類型顯示 FactorTable */}
+            {selectedNode?.id !== 'supplier' && (
+              <FactorTable
+                key={`${centralLibraryUpdateKey}-${refreshKey}`}
+                selectedNodeType={getTableNodeType(selectedNode)}
+                selectedNode={selectedNode}
+                onFactorSelect={handleFactorSelect}
+                userDefinedFactors={(() => {
+                  const factors = getAllUserDefinedFactors()
+                  console.log('[FactorTable] 傳遞自建係數數量:', factors.length, '節點類型:', getTableNodeType(selectedNode))
+                  return factors
+                })()}
+                onOpenComposite={onCompositeOpen}
+                onEditComposite={handleEditCompositeFromImport}
+                onEditCustomFactor={handleCustomFactorEdit}
+                onOpenCustomFactor={onCustomFactorOpen}
+                onBlockEdit={handleBlockEdit}
+                datasetFactors={getDatasetFactors()}
+                onRefreshSelectedFactor={refreshSelectedFactor}
+                onOpenGlobalSearch={handleOpenFactorSelector}
+                onNavigateToProduct={handleNavigateToProduct}
+                onSyncL2Project={handleSyncL2Project}
+                dataRefreshKey={centralLibraryUpdateKey + refreshKey}
+                onNavigateToYear={handleNavigateToYear}
+                onSyncL1Project={handleSyncL1Project}
+                productSummaries={productSummaries}
+                onImportProduct={handleImportProduct}
+                onDeleteFactor={handleDeleteFactorRequest}
+                onNavigateToCentral={handleNavigateToCentral}
+                onUpdateDetected={handleUpdateDetected}
+                updateResult={updateResult}
+                showUpdateNotification={showUpdateNotification}
+                onDismissNotification={handleDismissNotification}
+              />
+            )}
           </Box>
         </Flex>
 

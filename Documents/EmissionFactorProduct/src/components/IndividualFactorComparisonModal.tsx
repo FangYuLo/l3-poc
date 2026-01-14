@@ -30,10 +30,7 @@ import {
   Flex
 } from '@chakra-ui/react'
 import { 
-  ArrowRightIcon, 
-  InfoIcon,
-  WarningIcon,
-  CheckIcon
+  ArrowRightIcon
 } from '@chakra-ui/icons'
 import { ExtendedFactorTableItem, FactorUpdateInfo, useMockData } from '@/hooks/useMockData'
 import { EmissionFactor } from '@/types/types'
@@ -70,31 +67,6 @@ export function IndividualFactorComparisonModal({
     return null
   }
 
-  // 風險等級對應的顏色和圖示
-  const getRiskConfig = (riskLevel: 'high' | 'medium' | 'low') => {
-    switch (riskLevel) {
-      case 'high':
-        return { 
-          colorScheme: 'red', 
-          icon: WarningIcon,
-          label: '高風險' 
-        }
-      case 'medium':
-        return { 
-          colorScheme: 'yellow', 
-          icon: InfoIcon,
-          label: '中等風險' 
-        }
-      case 'low':
-        return { 
-          colorScheme: 'green', 
-          icon: CheckIcon,
-          label: '低風險' 
-        }
-    }
-  }
-
-  const riskConfig = getRiskConfig(updateInfo.riskLevel)
 
   // 處理更新係數
   const handleUpdateFactor = async () => {
@@ -154,11 +126,7 @@ export function IndividualFactorComparisonModal({
             <Text>係數更新對比</Text>
             <HStack>
               <Badge colorScheme="blue" size="sm">
-                {updateInfo.updateType.toUpperCase()} 更新
-              </Badge>
-              <Badge colorScheme={riskConfig.colorScheme} size="sm">
-                <Icon as={riskConfig.icon} mr={1} />
-                {riskConfig.label}
+                係數更新
               </Badge>
               {updateInfo.publisherInfo && (
                 <Badge colorScheme="gray" size="sm">
@@ -173,11 +141,11 @@ export function IndividualFactorComparisonModal({
         <ModalBody>
           <VStack align="stretch" spacing={6}>
             {/* 更新摘要 */}
-            <Alert status={updateInfo.riskLevel === 'high' ? 'warning' : 'info'} borderRadius="md">
+            <Alert status="info" borderRadius="md">
               <AlertIcon />
               <Box>
                 <AlertTitle fontSize="sm">
-                  {updateInfo.updateReason}
+                  發現係數更新版本
                 </AlertTitle>
                 {updateInfo.changePercentage !== undefined && (
                   <AlertDescription fontSize="xs">

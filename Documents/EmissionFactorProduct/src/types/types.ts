@@ -541,6 +541,129 @@ export interface CustomFactor {
   imported_at?: string
 }
 
+// ============================================================================
+// L4 供應商係數資料夾相關型別
+// 對應 Excel 模板: 光寶供應鏈資料收集_Template_20251125.xlsx
+// ============================================================================
+
+// 同步狀態
+export type SupplierSyncStatus = 'new' | 'viewed' | 'processed'
+
+// 審核狀態
+export type SupplierReviewStatus = 'pending' | 'reviewing' | 'approved' | 'rejected'
+
+// L3 匯入狀態
+export type L3ImportStatus = 'not_imported' | 'importing' | 'imported'
+
+/**
+ * 供應商基本資訊
+ * 對應 Excel「一、基本資訊」區塊
+ */
+export interface SupplierInfo {
+  id: string                      // 供應商唯一識別碼
+  vendor_code: string             // 供應商代碼 (必填)
+  company_name: string            // 公司名稱 (必填)
+  company_address?: string        // 公司地址 (選填)
+  region: string                  // 區域 (必填)
+  contact_person: string          // 聯絡人 (必填)
+  contact_number?: string         // 聯絡人電話 (選填)
+  contact_email: string           // 聯絡人電子信箱 (必填)
+  created_at: string              // 建立時間
+  updated_at: string              // 更新時間
+}
+
+/**
+ * 供應商產品碳足跡係數
+ * 對應 Excel「二、產品資料」+「三、碳足跡彙整」區塊
+ */
+export interface SupplierProductFactor {
+  id: string                      // 唯一識別碼
+  supplier_id: string             // 關聯供應商ID
+
+  // === 二、產品資料 ===
+  inventory_year: number          // 盤查期間 (YYYY)
+  product_name: string            // 產品（料號）名稱
+  part_number: string             // 料號 (Part number)
+  production_quantity: number     // 產品總生產數量
+  quantity_unit: string           // 生產數量單位 (個/片/台/組/公克/公升等)
+  notes?: string                  // 備註 (選填)
+
+  // === 三、碳足跡彙整 (kgCO2e/單位) ===
+  raw_material_stage: number      // 原物料階段碳足跡
+  manufacturing_stage: number     // 製造階段碳足跡
+  total_carbon_footprint: number  // 合計碳足跡
+
+  // === 同步追蹤 ===
+  sync_project_id: string         // 來源專案ID
+  sync_project_name: string       // 來源專案名稱
+  sync_time: string               // 同步時間 (ISO 8601)
+  sync_status: SupplierSyncStatus // 同步狀態
+
+  // === 審核流程 ===
+  review_status: SupplierReviewStatus  // 審核狀態
+  reviewer?: string               // 審核人
+  review_time?: string            // 審核時間
+  review_comment?: string         // 審核意見
+
+  // === L3 匯入 ===
+  l3_status: L3ImportStatus       // L3 匯入狀態
+  l3_factor_id?: string           // L3 中央庫係數ID
+  l3_import_time?: string         // 匯入L3時間
+
+  // === 元資料 ===
+  created_at: string              // 建立時間
+  updated_at: string              // 更新時間
+}
+
+/**
+ * 同步記錄
+ * 記錄每次從 L4 產品模組同步的批次資訊
+ */
+export interface SupplierSyncRecord {
+  sync_id: string                 // 同步批次ID
+  project_id: string              // 來源專案ID
+  project_name: string            // 來源專案名稱
+  project_manager: string         // 專案負責人
+  supplier_count: number          // 供應商數量
+  product_count: number           // 產品數量
+  sync_timestamp: string          // 同步時間戳 (ISO 8601)
+  is_read: boolean                // 是否已讀
+
+  // 新增供應商列表（摘要）
+  new_suppliers: Array<{
+    supplier_id: string
+    company_name: string
+    product_count: number
+  }>
+}
+
+/**
+ * 供應商資料夾統計摘要
+ */
+export interface SupplierFolderSummary {
+  total_suppliers: number         // 總供應商數
+  total_products: number          // 總產品數
+  imported_to_l3: number          // 已匯入L3
+  pending_review: number          // 待審核
+  new_sync_count: number          // 新同步待查看
+}
+
+/**
+ * 供應商列表項目（用於表格顯示）
+ */
+export interface SupplierListItem {
+  id: string
+  company_name: string
+  vendor_code: string
+  region: string
+  product_count: number
+  latest_year: number
+  average_carbon_footprint: number
+  l3_status: 'all_imported' | 'partial' | 'none'
+  has_new_sync: boolean
+  last_sync_time: string
+}
+
 // Utility types
-export type Factor = EmissionFactor | CompositeFactor | ProductFootprintFactor | CustomFactor
-export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number } | { type: 'product_footprint'; id: number } | { type: 'custom_factor'; id: number }
+export type Factor = EmissionFactor | CompositeFactor | ProductFootprintFactor | CustomFactor | SupplierProductFactor
+export type FactorId = { type: 'emission_factor'; id: number } | { type: 'composite_factor'; id: number } | { type: 'product_footprint'; id: number } | { type: 'custom_factor'; id: number } | { type: 'supplier_product_factor'; id: string }

@@ -7,20 +7,28 @@ import {
   DataQuality,
   FactorUsageInfo,
   ProjectReference,
-  CustomFactor
+  CustomFactor,
+  SupplierInfo,
+  SupplierProductFactor,
+  SupplierSyncRecord,
+  SupplierFolderSummary,
+  SupplierListItem,
+  SupplierSyncStatus,
+  SupplierReviewStatus,
+  L3ImportStatus
 } from '@/types/types'
 import { getAllEmissionFactors, mockCompositeFactors, mockProductFootprintFactors } from '@/data/mockDatabase'
-import { 
-  mockProductCarbonFootprintData, 
-  mockOrganizationalInventoryData 
+import {
+  mockProductCarbonFootprintData,
+  mockOrganizationalInventoryData
 } from '@/data/mockProjectData'
-import { 
-  favoriteFactorIds, 
-  pactFactorIds, 
-  supplierFactorIds, 
+import {
+  favoriteFactorIds,
+  pactFactorIds,
+  supplierFactorIds,
   compositeFactorIds,
   getCollectionCounts,
-  isFactorInCollection 
+  isFactorInCollection
 } from '@/data/mockCollections'
 import {
   calculateFactorUsage,
@@ -31,6 +39,21 @@ import {
   type FactorUsage,
   type ProjectUsage
 } from '@/data/factorProjectMapping'
+import {
+  getAllSuppliers,
+  getSupplierById,
+  getAllSupplierProductFactors,
+  getProductFactorsBySupplierId,
+  getProductFactorsBySyncStatus,
+  getProductFactorsByReviewStatus,
+  getProductFactorsByL3Status,
+  getAllSyncRecords,
+  getUnreadSyncRecords,
+  getSupplierFolderSummary,
+  getSupplierListItems,
+  getNewSyncSuppliers,
+  getProductHistoryComparison
+} from '@/data/mockSupplierData'
 
 export interface CollectionCounts {
   favorites: number
@@ -43,12 +66,9 @@ export interface CollectionCounts {
 // 個別係數更新資訊
 export interface FactorUpdateInfo {
   hasUpdate: boolean                  // 是否有可用更新
-  updateType: 'major' | 'minor' | 'patch' // 更新類型
   newFactorId: number                 // 新版本係數的 ID
   newVersion: string                  // 新版本號
   currentVersion: string              // 當前版本號
-  updateReason: string                // 更新原因說明
-  riskLevel: 'high' | 'medium' | 'low' // 更新風險等級
   changePercentage?: number           // 數值變化百分比
   lastChecked: string                 // 最後檢查時間
   userAction: 'none' | 'viewed' | 'dismissed' | 'updated' // 用戶操作狀態
@@ -1216,11 +1236,14 @@ export function useMockData() {
      */
     getCollectionCounts: (): CollectionCounts => {
       const baseCounts = getCollectionCounts()
+      const supplierSummary = getSupplierFolderSummary()
       // 中央係數庫 = 原有的 favorites 數量 + 產品碳足跡係數數量
+      // 供應商係數 = 供應商資料夾的總產品數
       return {
         ...baseCounts,
         favorites: baseCounts.favorites + allProductFootprintItems.length,
-        user_defined: allCompositeFactorItems.length
+        user_defined: allCompositeFactorItems.length,
+        supplier: supplierSummary.total_products
       }
     },
 
@@ -1470,7 +1493,81 @@ export function useMockData() {
      */
     checkAllFactorsForUpdates: (factorIds: number[]): Map<number, FactorUpdateInfo> => {
       return checkAllFactorsForUpdates(factorIds)
-    }
+    },
+
+    // ============================================================================
+    // L4 供應商係數資料夾相關功能
+    // ============================================================================
+
+    /**
+     * 取得所有供應商
+     */
+    getAllSuppliers: (): SupplierInfo[] => getAllSuppliers(),
+
+    /**
+     * 根據 ID 取得供應商
+     */
+    getSupplierById: (id: string): SupplierInfo | undefined => getSupplierById(id),
+
+    /**
+     * 取得所有供應商產品係數
+     */
+    getAllSupplierProductFactors: (): SupplierProductFactor[] => getAllSupplierProductFactors(),
+
+    /**
+     * 根據供應商 ID 取得產品係數
+     */
+    getProductFactorsBySupplierId: (supplierId: string): SupplierProductFactor[] =>
+      getProductFactorsBySupplierId(supplierId),
+
+    /**
+     * 根據同步狀態篩選產品係數
+     */
+    getProductFactorsBySyncStatus: (status: SupplierSyncStatus): SupplierProductFactor[] =>
+      getProductFactorsBySyncStatus(status),
+
+    /**
+     * 根據審核狀態篩選產品係數
+     */
+    getProductFactorsByReviewStatus: (status: SupplierReviewStatus): SupplierProductFactor[] =>
+      getProductFactorsByReviewStatus(status),
+
+    /**
+     * 根據 L3 匯入狀態篩選產品係數
+     */
+    getProductFactorsByL3Status: (status: L3ImportStatus): SupplierProductFactor[] =>
+      getProductFactorsByL3Status(status),
+
+    /**
+     * 取得所有同步記錄
+     */
+    getAllSyncRecords: (): SupplierSyncRecord[] => getAllSyncRecords(),
+
+    /**
+     * 取得未讀同步記錄
+     */
+    getUnreadSyncRecords: (): SupplierSyncRecord[] => getUnreadSyncRecords(),
+
+    /**
+     * 計算供應商資料夾統計摘要
+     */
+    getSupplierFolderSummary: (): SupplierFolderSummary => getSupplierFolderSummary(),
+
+    /**
+     * 取得供應商列表項目（用於表格顯示）
+     */
+    getSupplierListItems: (): SupplierListItem[] => getSupplierListItems(),
+
+    /**
+     * 取得新同步的供應商資料（用於通知面板）
+     */
+    getNewSyncSuppliers: () => getNewSyncSuppliers(),
+
+    /**
+     * 取得歷史比較資料（同產品不同年度）
+     */
+    getProductHistoryComparison: (supplierId: string, partNumber: string): SupplierProductFactor[] =>
+      getProductHistoryComparison(supplierId, partNumber)
   }
 }
 
@@ -1788,21 +1885,6 @@ export function checkIndividualFactorUpdate(factorId: number): FactorUpdateInfo 
       ) || null
     }
     
-    // 2. 如果沒有找到，檢查資料源家族關聯 (source_family)
-    if (!updateCandidate && currentFactor.source_family) {
-      const familyCandidates = newFactors.filter(newFactor =>
-        newFactor.source_family === currentFactor.source_family &&
-        newFactor.version_sequence && currentFactor.version_sequence &&
-        newFactor.version_sequence > currentFactor.version_sequence
-      )
-      
-      // 選擇版本序列最新的候選項
-      if (familyCandidates.length > 0) {
-        updateCandidate = familyCandidates.reduce((latest, current) => 
-          (current.version_sequence || 0) > (latest.version_sequence || 0) ? current : latest
-        )
-      }
-    }
     
     if (!updateCandidate) {
       return null
@@ -1810,8 +1892,6 @@ export function checkIndividualFactorUpdate(factorId: number): FactorUpdateInfo 
     
     // 計算更新資訊
     const changePercentage = calculateChangePercentage(currentFactor.value, updateCandidate.value)
-    const updateType = determineUpdateType(changePercentage, currentFactor.version, updateCandidate.version)
-    const riskLevel = assessUpdateRisk(updateType, changePercentage)
     
     // 釋出單位映射
     const publisherMap: Record<string, { name: string, databaseEvolution: string }> = {
@@ -1836,12 +1916,9 @@ export function checkIndividualFactorUpdate(factorId: number): FactorUpdateInfo 
     
     const updateInfo: FactorUpdateInfo = {
       hasUpdate: true,
-      updateType,
       newFactorId: updateCandidate.id,
       newVersion: updateCandidate.version,
       currentVersion: currentFactor.version,
-      updateReason: generateUpdateReason(updateType, changePercentage),
-      riskLevel,
       changePercentage,
       lastChecked: new Date().toISOString(),
       userAction: 'none',
@@ -1851,7 +1928,6 @@ export function checkIndividualFactorUpdate(factorId: number): FactorUpdateInfo 
     console.log('[checkIndividualFactorUpdate] 發現係數更新:', {
       factorId,
       factorName: currentFactor.name,
-      updateType,
       changePercentage: changePercentage.toFixed(2) + '%'
     })
     
@@ -1893,56 +1969,3 @@ function calculateChangePercentage(oldValue: number, newValue: number): number {
   return ((newValue - oldValue) / oldValue) * 100
 }
 
-/**
- * 判斷更新類型
- */
-function determineUpdateType(
-  changePercentage: number, 
-  _currentVersion: string, 
-  _newVersion: string
-): 'major' | 'minor' | 'patch' {
-  // 根據變化幅度判斷更新類型（未來可結合版本號邏輯）
-  const absChange = Math.abs(changePercentage)
-  
-  if (absChange > 20) {
-    return 'major'  // 變化超過 20% 視為重大更新
-  } else if (absChange > 5) {
-    return 'minor'  // 變化 5-20% 視為小版本更新
-  } else {
-    return 'patch'  // 變化小於 5% 視為修補更新
-  }
-}
-
-/**
- * 評估更新風險等級
- */
-function assessUpdateRisk(
-  updateType: 'major' | 'minor' | 'patch', 
-  changePercentage: number
-): 'high' | 'medium' | 'low' {
-  const absChange = Math.abs(changePercentage)
-  
-  if (updateType === 'major' || absChange > 15) {
-    return 'high'
-  } else if (updateType === 'minor' || absChange > 5) {
-    return 'medium'
-  } else {
-    return 'low'
-  }
-}
-
-/**
- * 生成更新原因說明
- */
-function generateUpdateReason(updateType: 'major' | 'minor' | 'patch', changePercentage: number): string {
-  const absChange = Math.abs(changePercentage)
-  const direction = changePercentage > 0 ? '上升' : '下降'
-  
-  const reasons = {
-    major: `排放係數${direction} ${absChange.toFixed(1)}%，建議評估對計算結果的影響`,
-    minor: `排放係數${direction} ${absChange.toFixed(1)}%，係數輕微調整`,
-    patch: `排放係數${direction} ${absChange.toFixed(1)}%，技術性修正`
-  }
-  
-  return reasons[updateType]
-}

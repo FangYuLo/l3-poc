@@ -134,6 +134,7 @@ interface FactorTableProps {
   updateResult?: UpdateResult | null // 更新結果狀態
   showUpdateNotification?: boolean // 是否顯示更新通知
   onDismissNotification?: () => void // 關閉更新通知的回調
+  
 }
 
 export default function FactorTable({
@@ -204,7 +205,6 @@ export default function FactorTable({
 
   // 個別係數更新檢測相關狀態
   const [factorUpdates, setFactorUpdates] = useState<Map<number, FactorUpdateInfo>>(new Map())
-  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false)
   const [individualComparisonFactor, setIndividualComparisonFactor] = useState<ExtendedFactorTableItem | null>(null)
   const [isIndividualComparisonOpen, setIsIndividualComparisonOpen] = useState(false)
 
@@ -746,37 +746,6 @@ export default function FactorTable({
 
   const totalPages = Math.ceil(filteredData.length / pageSize)
 
-  // 檢測中央係數庫係數的更新狀態
-  useEffect(() => {
-    if (selectedNodeType === 'favorites' && !isCheckingUpdates) {
-      const checkFactorUpdates = async () => {
-        setIsCheckingUpdates(true)
-        try {
-          // 延遲檢查，避免影響初始載入
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          // 獲取中央係數庫中所有係數的 ID
-          const centralFactorIds = filteredData.map(factor => factor.id)
-          
-          if (centralFactorIds.length > 0) {
-            console.log('[FactorTable] 開始檢測', centralFactorIds.length, '個中央係數庫係數的更新狀態')
-            const updateResults = dataService.checkAllFactorsForUpdates(centralFactorIds)
-            setFactorUpdates(updateResults)
-            
-            if (updateResults.size > 0) {
-              console.log('[FactorTable] 發現', updateResults.size, '個係數有可用更新')
-            }
-          }
-        } catch (error) {
-          console.error('[FactorTable] 檢測係數更新失敗:', error)
-        } finally {
-          setIsCheckingUpdates(false)
-        }
-      }
-
-      checkFactorUpdates()
-    }
-  }, [selectedNodeType, filteredData, isCheckingUpdates, dataService])
 
   // 處理個別係數更新對比
   const handleIndividualFactorUpdate = (factor: ExtendedFactorTableItem) => {
@@ -784,12 +753,32 @@ export default function FactorTable({
     setIsIndividualComparisonOpen(true)
   }
 
+  // 執行個別係數檢測
+  const checkIndividualFactorUpdates = async () => {
+    try {
+      // 獲取中央係數庫中所有係數的 ID
+      const centralFactors = dataService.getCentralLibraryFactors()
+      const centralFactorIds = centralFactors.map(factor => factor.id)
+      
+      if (centralFactorIds.length > 0) {
+        console.log('[FactorTable] 開始檢測', centralFactorIds.length, '個中央係數庫係數的更新狀態')
+        const updateResults = dataService.checkAllFactorsForUpdates(centralFactorIds)
+        setFactorUpdates(updateResults)
+        
+        if (updateResults.size > 0) {
+          console.log('[FactorTable] 發現', updateResults.size, '個係數有可用更新')
+        }
+      }
+    } catch (error) {
+      console.error('[FactorTable] 檢測係數更新失敗:', error)
+    }
+  }
+  
+
   // 處理個別係數更新成功
   const handleIndividualUpdateSuccess = () => {
     // 刷新中央係數庫
     onRefreshSelectedFactor?.()
-    // 重新檢測更新狀態
-    setIsCheckingUpdates(false)
     // 移除已更新係數的更新狀態
     if (individualComparisonFactor) {
       setFactorUpdates(prev => {
@@ -1116,6 +1105,7 @@ export default function FactorTable({
             {selectedNode?.id === 'global_search' && onUpdateDetected && (
               <UpdateFactorButton
                 onUpdateDetected={onUpdateDetected}
+                onIndividualFactorCheck={checkIndividualFactorUpdates}
               />
             )}
             <Button

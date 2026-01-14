@@ -6,9 +6,7 @@ import {
   useColorModeValue
 } from '@chakra-ui/react'
 import { 
-  WarningIcon, 
-  InfoIcon, 
-  CheckIcon 
+  InfoIcon
 } from '@chakra-ui/icons'
 import { FactorUpdateInfo } from '@/hooks/useMockData'
 
@@ -20,47 +18,29 @@ interface UpdateStatusIconProps {
 
 /**
  * 更新狀態圖示組件
- * 根據更新類型和風險等級顯示對應的圖示和顏色
+ * 顯示統一的更新通知圖示
  */
 export function UpdateStatusIcon({
   updateInfo,
   onClick,
   size = 'sm'
 }: UpdateStatusIconProps) {
-  // 根據更新類型選擇圖示和顏色
-  const getIconConfig = () => {
-    switch (updateInfo.updateType) {
-      case 'major':
-        return {
-          icon: WarningIcon,
-          colorScheme: 'orange',
-          bgColor: useColorModeValue('orange.100', 'orange.900'),
-          borderColor: useColorModeValue('orange.300', 'orange.600'),
-        }
-      case 'minor':
-        return {
-          icon: InfoIcon,
-          colorScheme: 'blue',
-          bgColor: useColorModeValue('blue.100', 'blue.900'),
-          borderColor: useColorModeValue('blue.300', 'blue.600'),
-        }
-      case 'patch':
-        return {
-          icon: CheckIcon,
-          colorScheme: 'green',
-          bgColor: useColorModeValue('green.100', 'green.900'),
-          borderColor: useColorModeValue('green.300', 'green.600'),
-        }
-    }
+  // 統一使用藍色資訊圖示
+  const iconConfig = {
+    icon: InfoIcon,
+    colorScheme: 'blue',
+    bgColor: useColorModeValue('blue.100', 'blue.900'),
+    borderColor: useColorModeValue('blue.300', 'blue.600'),
   }
 
-  const iconConfig = getIconConfig()
-
   // 生成 tooltip 內容
+  const changeText = updateInfo.changePercentage 
+    ? `係數變化: ${updateInfo.changePercentage > 0 ? '+' : ''}${updateInfo.changePercentage.toFixed(1)}%` 
+    : ''
+  
   const tooltipContent = `
     新版本可用 (${updateInfo.newVersion})
-    ${updateInfo.updateReason}
-    風險等級: ${updateInfo.riskLevel === 'high' ? '高' : updateInfo.riskLevel === 'medium' ? '中' : '低'}
+    ${changeText}
     點擊查看詳細對比
   `.trim()
 
